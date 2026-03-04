@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 // If we are on localhost, use 5000. If deployed, use the Render backend URL.
 const API = window.location.hostname === "localhost" 
   ? "http://localhost:5000/api" 
-  : "https://your-dailytrack-backend.onrender.com/api";const STORAGE_KEY = 'lifetrack_balances';
+  : "https://dt-sabs-be.onrender.com";const STORAGE_KEY = 'lifetrack_balances';
 
 const BANKS = {
   KOTAK:  { emoji: "🔴", color: "#ef4444" },
