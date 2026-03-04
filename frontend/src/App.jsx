@@ -1692,45 +1692,92 @@ const importCSV = useCallback((csvText) => {
               className={`nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
               onClick={() => setTab(t.id)}
               title={sidebarMinimized ? t.label : ''}
-              style={{ justifyContent: sidebarMinimized ? 'center' : 'flex-start' }}
+              style={{ 
+                justifyContent: sidebarMinimized ? 'center' : (t.add ? 'center' : 'flex-start'),
+                gap: sidebarMinimized ? 0 : '0.75rem',
+                padding: sidebarMinimized ? '0.7rem 0' : '0.7rem 0.85rem'
+              }}
             >
-              <span className="nav-icon">{t.icon}</span>
-              <span className="nav-label" style={{ display: sidebarMinimized ? 'none' : 'inline', transition: 'opacity 0.3s ease' }}>{t.label}</span>
+              <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: sidebarMinimized ? '100%' : 'auto' }}>{t.icon}</span>
+              <span className="nav-label" style={{ 
+                opacity: sidebarMinimized ? 0 : 1, 
+                maxWidth: sidebarMinimized ? 0 : '150px',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.3s ease',
+                display: 'block'
+              }}>
+                {t.label}
+              </span>
             </button>
           ))}
         </nav>
-        <div className="sidebar-footer">
+        <div className="sidebar-footer" style={{ padding: sidebarMinimized ? '1rem 0' : '1rem 1.5rem', transition: 'padding 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <button 
             onClick={() => setSidebarMinimized(!sidebarMinimized)}
             style={{ 
               width: '100%', 
-              padding: '0.5rem 0.35rem', 
+              padding: '0', 
               border: 'none', 
               background: 'transparent', 
               color: 'var(--text)',
               cursor: 'pointer',
-              fontSize: '1rem',
+              fontSize: '1.2rem',
               fontWeight: 700,
-              transition: 'color 0.2s ease',
+              transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.4rem',
+              gap: sidebarMinimized ? 0 : '0.4rem',
               fontFamily: "'Syne', sans-serif",
-              marginBottom: '1.5rem',
-              height: '32px',
-              lineHeight: '1'
+              marginBottom: '1rem',
+              height: '32px'
             }}
             onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
             onMouseLeave={(e) => e.target.style.color = 'var(--text)'}
             title={sidebarMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarMinimized ? '⬅' : '➡'}
-            <span style={{ opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease', fontSize: '0.75rem', letterSpacing: '0.5px', width: sidebarMinimized ? '0' : 'auto', pointerEvents: sidebarMinimized ? 'none' : 'auto' }}>HIDE</span>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sidebarMinimized ? '⬅' : '➡'}</span>
+            <span style={{ 
+              opacity: sidebarMinimized ? 0 : 1, 
+              maxWidth: sidebarMinimized ? 0 : '50px', 
+              overflow: 'hidden', 
+              whiteSpace: 'nowrap', 
+              transition: 'all 0.3s ease', 
+              fontSize: '0.75rem', 
+              letterSpacing: '0.5px', 
+              pointerEvents: sidebarMinimized ? 'none' : 'auto' 
+            }}>
+              HIDE
+            </span>
           </button>
-          <div style={{ opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease', pointerEvents: sidebarMinimized ? 'none' : 'auto' }}>
-            <div className="sidebar-date">{today.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
-            <div style={{marginTop:'2px'}}>{today.toLocaleDateString('en-IN', {weekday:'long'})}</div>
+          
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '100%',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap'
+          }}>
+            <div className="sidebar-date" style={{ fontSize: sidebarMinimized ? '0.7rem' : '0.75rem', transition: 'all 0.3s ease', color: 'var(--text3)', fontWeight: 500 }}>
+              {sidebarMinimized 
+                ? today.toLocaleDateString('en-IN', { day:'numeric', month:'numeric', year:'2-digit' }) 
+                : today.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+              }
+            </div>
+            <div style={{
+               opacity: sidebarMinimized ? 0 : 1, 
+               maxHeight: sidebarMinimized ? 0 : '20px', 
+               marginTop: sidebarMinimized ? 0 : '2px', 
+               fontSize: '0.75rem', 
+               color: 'var(--text2)', 
+               transition: 'all 0.3s ease',
+               overflow: 'hidden'
+            }}>
+               {today.toLocaleDateString('en-IN', {weekday:'long'})}
+            </div>
           </div>
         </div>
       </aside>
