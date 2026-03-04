@@ -26,18 +26,18 @@
 
 /* ── LIGHT THEME OVERRIDES ─── */
 [data-theme="light"] {
-  --bg: #f8fafc;
-  --bg2: #ffffff;
-  --bg3: #f1f5f9;
-  --card: #ffffff;
-  --card2: #f8fafc;
+  --bg: #eef2f6;       /* A beautiful, soft grey background */
+  --bg2: #e3e8ef;      /* Slightly darker for alternating rows */
+  --bg3: #d3dce6;      /* Deeper grey for table headers */
+  --card: #f8fafc;     /* Off-white instead of pure blinding white */
+  --card2: #eef2f6;    /* Matches the main background */
   --border: rgba(0,0,0,0.08);
-  --border2: rgba(0,0,0,0.18);
-  --text: #0f172a;
+  --border2: rgba(0,0,0,0.15);
+  --text: #1e293b;     /* Softer charcoal text to reduce contrast strain */
   --text2: #475569;
   --text3: #64748b;
-  --pos: #059669; /* Darker green for white bg */
-  --neg: #dc2626; /* Darker red for white bg */
+  --pos: #059669; 
+  --neg: #dc2626; 
 }
 
 /* Fixes for hardcoded dark mode opacities */

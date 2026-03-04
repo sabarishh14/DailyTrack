@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
-const API = "http://localhost:5000/api";
-const STORAGE_KEY = 'lifetrack_balances';
+// If we are on localhost, use 5000. If deployed, use the Render backend URL.
+const API = window.location.hostname === "localhost" 
+  ? "http://localhost:5000/api" 
+  : "https://your-dailytrack-backend.onrender.com/api";const STORAGE_KEY = 'lifetrack_balances';
 
 const BANKS = {
   KOTAK:  { emoji: "🔴", color: "#ef4444" },
@@ -16,7 +18,7 @@ const BANKS = {
   "CC-ICICI SAFFIRE": { emoji: "💳", color: "#ec4899" },
   "CC-AP 4004": { emoji: "💳", color: "#ec4899" },
   "CC-SBI 9810": { emoji: "💳", color: "#ec4899" },
-  Cash:   { emoji: "💵", color: "#f59e0b" },
+  "Cash": { emoji: "💵", color: "#10b981" },
 };
 
 // Helper function to get bank emoji
@@ -237,7 +239,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <h2 className="section-title">🏦 Account Balances</h2>
         <div className="accounts-grid">
           {accounts
-            .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360') // <-- tracks balance and hides PINNACLE
+            .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360' && a.account !== 'Cash') // <-- tracks balance and hides PINNACLE
             .map(a => (
               <div
                 className="account-card"
