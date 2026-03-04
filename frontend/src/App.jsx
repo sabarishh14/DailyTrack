@@ -1489,8 +1489,50 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
-  const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
+
+  // --- Sidebar Resizing Logic ---
+  const [sidebarWidth, setSidebarWidth] = useState(250);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      let newWidth = e.clientX;
+      if (newWidth < 70) newWidth = 70;   // Minimum shrink
+      if (newWidth > 400) newWidth = 400; // Maximum expand
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      // Snap to mini mode if they drag it really small
+      setSidebarWidth(w => w < 120 ? 70 : w);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none'; // Prevents highlighting text while dragging
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Dynamically calculate if we are in "mini" mode based on width!
+  const sidebarMinimized = sidebarWidth < 140;
 
   // Load all transactions (for MoneyTab) - lazy loaded when needed
   const fetchAllTransactions = useCallback(async () => {
@@ -1516,14 +1558,13 @@ export default function App() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [acc, phy, inv] = await Promise.all([
+      // Fire ALL 4 requests in parallel to eliminate network waterfall
+      const [acc, phy, inv, txRes] = await Promise.all([
         fetch(`${API}/accounts`).then(r => r.json()),
         fetch(`${API}/physical`).then(r => r.json()),
         fetch(`${API}/investments`).then(r => r.json()),
+        fetch(`${API}/transactions?limit=100&offset=0`).then(r => r.json())
       ]);
-      
-      // Initial transactions load: only recent 100 for fast initial render
-      const txRes = await fetch(`${API}/transactions?limit=100&offset=0`).then(r => r.json());
       
       // Merge stored balances into accounts (localStorage takes priority)
       const storedBalances = getStoredBalances() || {};
@@ -1675,17 +1716,36 @@ const importCSV = useCallback((csvText) => {
   return (
     <div className="app">
       {/* Sidebar */}
-      <aside className="sidebar" style={{ width: sidebarMinimized ? '70px' : '250px', transition: 'width 0.3s ease' }}>
-        <div className="sidebar-logo" onClick={() => setTab(0)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer' }}>
-          <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto' }}>
-            <span className="logo-name">LifeTrack</span>
-            <span className="logo-sub">Personal Dashboard</span>
+      <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
+        
+        {/* Invisible Drag Handle */}
+        <div 
+          onMouseDown={startResizing}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '6px',
+            height: '100%',
+            cursor: 'col-resize',
+            background: isResizing ? 'var(--accent)' : 'transparent',
+            zIndex: 100,
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => { if (!isResizing) e.target.style.background = 'rgba(99,102,241,0.3)'; }}
+          onMouseLeave={(e) => { if (!isResizing) e.target.style.background = 'transparent'; }}
+        />
+
+        <div className="sidebar-logo" onClick={() => setTab(0)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}>
+          <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto', width: '100%', padding: '0 10px' }}>
+            <span className="logo-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>LifeTrack</span>
+            <span className="logo-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Personal Dashboard</span>
           </div>
           <div style={{ opacity: sidebarMinimized ? 1 : 0, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'auto' : 'none', position: 'absolute' }}>
             <span className="logo-name" style={{ fontSize: '1.2rem' }}>LT</span>
           </div>
         </div>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" style={{ overflowX: 'hidden' }}>
           {TABS.map(t => (
             <button
               key={t.id}
@@ -1695,16 +1755,21 @@ const importCSV = useCallback((csvText) => {
               style={{ 
                 justifyContent: sidebarMinimized ? 'center' : (t.add ? 'center' : 'flex-start'),
                 gap: sidebarMinimized ? 0 : '0.75rem',
-                padding: sidebarMinimized ? '0.7rem 0' : '0.7rem 0.85rem'
+                padding: sidebarMinimized ? '0.7rem 0' : '0.7rem 0.85rem',
+                overflow: 'hidden',
+                width: '100%'
               }}
             >
-              <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: sidebarMinimized ? '100%' : 'auto' }}>{t.icon}</span>
+              <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: sidebarMinimized ? '100%' : 'auto' }}>{t.icon}</span>
               <span className="nav-label" style={{ 
                 opacity: sidebarMinimized ? 0 : 1, 
-                maxWidth: sidebarMinimized ? 0 : '150px',
+                flex: sidebarMinimized ? 'none' : 1,
+                minWidth: 0,
+                width: sidebarMinimized ? 0 : 'auto',
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
-                transition: 'all 0.3s ease',
+                textOverflow: 'ellipsis',
+                transition: 'opacity 0.2s ease',
                 display: 'block'
               }}>
                 {t.label}
@@ -1714,7 +1779,7 @@ const importCSV = useCallback((csvText) => {
         </nav>
         <div className="sidebar-footer" style={{ padding: sidebarMinimized ? '1rem 0' : '1rem 1.5rem', transition: 'padding 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <button 
-            onClick={() => setSidebarMinimized(!sidebarMinimized)}
+            onClick={() => setSidebarWidth(sidebarMinimized ? 250 : 70)}
             style={{ 
               width: '100%', 
               padding: '0', 

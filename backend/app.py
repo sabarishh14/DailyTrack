@@ -34,8 +34,8 @@ class Transaction(db.Model):
 )
     id = db.Column(db.BigInteger, primary_key=True)
     account = db.Column(db.String(50), db.ForeignKey("accounts.account"))
-    date = db.Column(db.Date, nullable=False)
-    month = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=False, index=True) # <-- Added index for faster sorting
+    month = db.Column(db.Date, nullable=False, index=True) # <-- Added index for faster filtering
     type = db.Column(db.String(10), nullable=False)
     heading = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
