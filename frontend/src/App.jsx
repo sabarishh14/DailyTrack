@@ -43,7 +43,6 @@ const BANKS = {
   CUB:    { emoji: "🟣", color: "#a855f7" },
   INDIAN: { emoji: "🔵", color: "#3b82f6" },
   ICICI:  { emoji: "🟡", color: "#eab308" },
-  CC:     { emoji: "💳", color: "#ec4899" },
   "CC-PINNACLE 6360": { emoji: "💳", color: "#ec4899" },
   "CC-SBI 0033": { emoji: "💳", color: "#ec4899" },
   "CC-ICICI SAFFIRE": { emoji: "💳", color: "#ec4899" },
@@ -189,9 +188,10 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   const physActive = physical.filter(p => {
     const d = new Date(p.date);
     return d.getMonth() === physMonth && d.getFullYear() === physYear &&
-      (p.active === true || p.active === 'true' || p.active === 1);
+      (p.gym || p.badminton || p.table_tennis || p.cricket || p.others);
   }).length;
 
+  
   // Money section: Income/Expenses by month
   const moneyML = `${moneyYear}-${String(moneyMonth+1).padStart(2,'0')}`;
   const moneyTransactions = transactions.filter(t => {
@@ -271,6 +271,25 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
             ))}
         </div>
       </section>
+      
+      {/* Investments */}
+      <section className="section">
+        <h2 className="section-title">📊 Investment Portfolio</h2>
+        <div className="inv-summary-grid">
+          {[
+            { label: "Date", val: latestDate, color: "text3" },
+            { label: "Invested", val: fmt(totalInvested), color: null },
+            { label: "Current Value", val: fmt(totalCurrent), color: null },
+            { label: "Returns ₹", val: fmt(totalReturn), color: totalReturn >= 0 ? "pos" : "neg" },
+            { label: "Returns %", val: fmtPct(totalRetPct), color: totalRetPct >= 0 ? "pos" : "neg" },
+          ].map(card => (
+            <div className="inv-card" key={card.label}>
+              <div className="inv-label">{card.label}</div>
+              <div className={`inv-val ${card.color || ''}`}>{card.val}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Money: Income & Expenses by Account */}
       <section className="section">
@@ -332,24 +351,6 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
       </div>
       </section>
 
-      {/* Investments */}
-      <section className="section">
-        <h2 className="section-title">📊 Investment Portfolio</h2>
-        <div className="inv-summary-grid">
-          {[
-            { label: "Date", val: latestDate, color: "text3" },
-            { label: "Invested", val: fmt(totalInvested), color: null },
-            { label: "Current Value", val: fmt(totalCurrent), color: null },
-            { label: "Returns ₹", val: fmt(totalReturn), color: totalReturn >= 0 ? "pos" : "neg" },
-            { label: "Returns %", val: fmtPct(totalRetPct), color: totalRetPct >= 0 ? "pos" : "neg" },
-          ].map(card => (
-            <div className="inv-card" key={card.label}>
-              <div className="inv-label">{card.label}</div>
-              <div className={`inv-val ${card.color || ''}`}>{card.val}</div>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
@@ -1314,57 +1315,80 @@ function MoneyTab({ accounts, transactions }) {
 //   );
 // }
 
-// ─── ADD TRANSACTION MODAL ─────────────────────────────────────────────
+// ─── ADD TRANSACTION MODAL (BULK EXCEL STYLE) ─────────────────────────
 function AddTransactionModal({ accounts, onAdd, onClose }) {
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ account:'KOTAK', date:today, type:'debit', heading:'Food', description:'', amount:'' });
+  
+  // Create a factory for a fresh row
+  const createEmptyRow = () => ({
+    id: Date.now() + Math.random(), // unique ID for React mapping
+    account: 'KOTAK', 
+    date: today, 
+    type: 'debit', 
+    heading: '', 
+    description: '', 
+    amount: ''
+  });
+
+  const [rows, setRows] = useState([createEmptyRow()]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [categorySearch, setCategorySearch] = useState('');
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const filteredCategories = CATEGORIES.filter(c => 
-    c.toLowerCase().includes(categorySearch.toLowerCase())
-  );
+  const updateRow = (id, field, value) => {
+    setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
+  };
 
-  const handleCategorySelect = (category) => {
-    set('heading', category);
-    setCategorySearch('');
-    setShowCategoryDropdown(false);
+  const addRow = () => setRows([...rows, createEmptyRow()]);
+  
+  const removeRow = (id) => {
+    if (rows.length === 1) return; // Keep at least one row
+    setRows(rows.filter(r => r.id !== id));
   };
 
   const submit = async () => {
-    if (!form.amount || isNaN(form.amount)) return alert("Enter a valid amount");
+    // Basic validation: ensure all rows have an amount and heading
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].amount || isNaN(rows[i].amount) || !rows[i].heading.trim()) {
+        return alert(`Row ${i + 1} is missing a valid amount or category.`);
+      }
+    }
+
     setLoading(true);
     try {
-      const payload = {
-        date: form.date, type: form.type, heading: form.heading,
-        description: form.description || "", amount: parseFloat(form.amount), account: form.account,
-      };
+      // Clean up the payload (remove the temporary frontend ID and parse amounts)
+      const payload = rows.map(r => ({
+        account: r.account,
+        date: r.date,
+        type: r.type,
+        heading: r.heading.trim(),
+        description: r.description.trim() || "",
+        amount: parseFloat(r.amount)
+      }));
 
       const res = await fetch(`${API}/transactions`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        // Update local balances for ALL rows
         const storedBalances = getStoredBalances() || {};
-        const currentBalance = storedBalances[form.account] || 0;
-        const amount = parseFloat(form.amount);
-        let newBalance = currentBalance;
-        if (form.type === 'debit' || form.type === 'savings') newBalance = currentBalance - amount;
-        else if (form.type === 'credit') newBalance = currentBalance + amount;
+        rows.forEach(r => {
+          const currentBalance = storedBalances[r.account] || 0;
+          const amt = parseFloat(r.amount);
+          if (r.type === 'debit' || r.type === 'savings') {
+            storedBalances[r.account] = currentBalance - amt;
+          } else if (r.type === 'credit') {
+            storedBalances[r.account] = currentBalance + amt;
+          }
+        });
         
-        updateStoredBalance(form.account, newBalance);
+        Object.keys(storedBalances).forEach(acc => updateStoredBalance(acc, storedBalances[acc]));
+        
         onAdd(); 
         setSuccess(true);
-        // Close modal automatically after 1.5s
-        setTimeout(() => {
-          setSuccess(false);
-          onClose();
-        }, 1500);
+        setTimeout(() => { setSuccess(false); onClose(); }, 1500);
       } else {
-        alert("Failed to save transaction.");
+        alert("Failed to save transactions.");
       }
     } catch (e) {
       alert("Network error: " + e.message);
@@ -1373,69 +1397,167 @@ function AddTransactionModal({ accounts, onAdd, onClose }) {
     }
   };
 
-  const monthLabel = form.date ? new Date(form.date).toLocaleString('default',{month:'long',year:'numeric'}) : '';
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">📝 Log Transactions</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+          
+          {/* Table Headers */}
+          <div className="bulk-grid bulk-header">
+            <span>Account</span>
+            <span>Date</span>
+            <span>Type</span>
+            <span>Category</span>
+            <span>Amount (₹)</span>
+            <span>Note</span>
+            <span style={{textAlign: 'center'}}>#</span>
+          </div>
+
+          {/* Table Rows */}
+          {rows.map((row, index) => (
+            <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
+              <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
+              </select>
+              
+              <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
+              
+              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
+                <option value="debit">🔴 Debit</option>
+                <option value="credit">🟢 Credit</option>
+                <option value="savings">💰 Savings</option>
+              </select>
+
+              {/* Using a datalist for category autocomplete without messy z-index dropdowns in a grid */}
+              <input 
+                type="text" className="bulk-inp" placeholder="Category" 
+                value={row.heading} onChange={e => updateRow(row.id, 'heading', e.target.value)} 
+                list="category-options"
+              />
+              
+              <input 
+                type="number" className="bulk-inp" placeholder="0.00" 
+                value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} 
+              />
+              
+              <input 
+                type="text" className="bulk-inp" placeholder="Optional note..." 
+                value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} 
+              />
+              
+              <button 
+                className="bulk-del-btn" 
+                onClick={() => removeRow(row.id)}
+                disabled={rows.length === 1}
+                style={{ opacity: rows.length === 1 ? 0.3 : 1, cursor: rows.length === 1 ? 'not-allowed' : 'pointer' }}
+                title="Remove Row"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          {/* The Hidden Datalist for native browser autocomplete on Categories */}
+          <datalist id="category-options">
+            {CATEGORIES.map(cat => <option key={cat} value={cat} />)}
+          </datalist>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+            <button className="action-btn secondary" onClick={addRow} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+              ➕ Add Another Row
+            </button>
+            
+            <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading}>
+              {loading ? "Saving All..." : success ? "✅ Saved!" : `💾 Save ${rows.length} Transaction${rows.length > 1 ? 's' : ''}`}
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADD ACTIVITY MODAL ─────────────────────────────────────────────
+function AddActivityModal({ onAdd, onClose }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [form, setForm] = useState({ 
+    date: today, gym: false, badminton: false, table_tennis: false, cricket: false, others: false, description: '' 
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/physical`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        onAdd(); 
+        setSuccess(true);
+        setTimeout(() => { setSuccess(false); onClose(); }, 1500);
+      } else {
+        alert("Failed to log activity.");
+      }
+    } catch (e) {
+      alert("Network error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">➕ Add Transaction</div>
+          <div className="modal-title">🏋️ Log Activity</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
           <div className="add-form-card" style={{ border: 'none', padding: 0, minWidth: 'auto', background: 'transparent' }}>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Account</label>
-                <select className="sel" value={form.account} onChange={e => set('account', e.target.value)}>
-                  {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Date</label>
-                <input type="date" className="inp" value={form.date} onChange={e => set('date', e.target.value)} />
-              </div>
+            
+            <div className="form-group">
+              <label>Date</label>
+              <input type="date" className="inp" value={form.date} onChange={e => set('date', e.target.value)} />
             </div>
 
             <div className="form-group">
-              <label>Transaction Type</label>
-              <div className="type-btns">
-                {[['debit','🔴 Debit'],['credit','🟢 Credit'],['savings','💰 Savings']].map(([t,l]) => (
-                  <button key={t} className={`type-btn ${form.type === t ? 'active-'+t : ''}`} onClick={() => set('type', t)}>{l}</button>
+              <label>Activities Completed</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {[
+                  ['gym', '🏋️ Gym'], ['badminton', '🏸 Badminton'], 
+                  ['table_tennis', '🏓 Table Tennis'], ['cricket', '🏏 Cricket'], 
+                  ['others', '🏃‍♂️ Others']
+                ].map(([key, label]) => (
+                  <div 
+                    key={key} onClick={() => set(key, !form[key])}
+                    style={{
+                      padding: '0.65rem', border: `1px solid ${form[key] ? 'var(--accent)' : 'var(--border)'}`,
+                      borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      background: form[key] ? 'rgba(99,102,241,0.1)' : 'transparent', transition: 'all 0.2s'
+                    }}
+                  >
+                    <div className={`chip-checkbox ${form[key] ? 'checked' : ''}`} style={{ margin: 0 }} />
+                    <span style={{ fontSize: '0.85rem', color: form[key] ? 'var(--text)' : 'var(--text2)' }}>{label}</span>
+                  </div>
                 ))}
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group" style={{ position: 'relative' }}>
-                <label>Category</label>
-                <input type="text" className="inp" placeholder="Search..."
-                  value={showCategoryDropdown ? categorySearch : form.heading}
-                  onChange={e => { setCategorySearch(e.target.value); setShowCategoryDropdown(true); }}
-                  onFocus={() => { setCategorySearch(''); setShowCategoryDropdown(true); }}
-                  onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
-                />
-                {showCategoryDropdown && filteredCategories.length > 0 && (
-                  <div className="category-dropdown">
-                    {filteredCategories.map(cat => (
-                      <div key={cat} className="category-option" onClick={() => handleCategorySelect(cat)}>{cat}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Amount (₹)</label>
-                <input className="inp" type="number" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} />
-              </div>
-            </div>
-
             <div className="form-group">
-              <label>Description (optional)</label>
-              <input className="inp" placeholder="Add a note..." value={form.description} onChange={e => set('description', e.target.value)} />
+              <label>Notes (Optional)</label>
+              <input className="inp" placeholder="e.g., Leg day, 5km run..." value={form.description} onChange={e => set('description', e.target.value)} />
             </div>
 
             <button className={`submit-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ marginTop: '0.5rem' }}>
-              {loading ? "Saving..." : success ? "✅ Saved!" : "Save Transaction"}
+              {loading ? "Saving..." : success ? "✅ Saved!" : "Save Activity"}
             </button>
           </div>
         </div>
@@ -1445,75 +1567,86 @@ function AddTransactionModal({ accounts, onAdd, onClose }) {
 }
 
 // ─── GYM TAB ───────────────────────────────────────────────────────────
-function GymTab({ physical, onAdd }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ date:today, active:true, activity:'Gym' });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const set = (k,v) => setForm(f => ({...f,[k]:v}));
+function GymTab({ physical, onOpenModal }) {
+  const [physMonth, setPhysMonth] = useState(new Date().getMonth());
+  const [physYear, setPhysYear] = useState(new Date().getFullYear());
 
-  const submit = async () => {
-    setLoading(true);
-    try {
-      await fetch(`${API}/physical`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(form)
-      });
-      setSuccess(true); onAdd();
-      setTimeout(() => setSuccess(false), 2000);
-    } finally { setLoading(false); }
-  };
+  // 1. Filter all records by the selected month and year
+  const filteredRecords = physical.filter(p => {
+    const d = new Date(p.date);
+    return d.getMonth() === physMonth && d.getFullYear() === physYear;
+  });
 
-  const sorted = [...physical].sort((a,b) => new Date(b.date) - new Date(a.date));
-  const isActive = r => r.active === true || r.active === 'true' || r.active === 1;
+  // 2. Count how many of those filtered days had at least one activity
+  const physActive = filteredRecords.filter(p => 
+    p.gym || p.badminton || p.table_tennis || p.cricket || p.others
+  ).length;
+
+  // 3. Sort the filtered records for the table
+  const sorted = [...filteredRecords].sort((a,b) => new Date(b.date) - new Date(a.date));
 
   return (
-    <div className="gym-layout">
-      <div className="gym-form-card">
-        <h3 style={{fontFamily:'Syne',fontWeight:700,marginBottom:'0.25rem'}}>Log Activity</h3>
-        <div className="form-group">
-          <label>Date</label>
-          <input type="date" className="inp" value={form.date} onChange={e => set('date', e.target.value)} />
+    <div className="invest-layout" style={{ display: 'block' }}>
+      
+      {/* Header & Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        
+        {/* Cleaned Up Days Active Stat Block */}
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', background: 'var(--card)', padding: '1rem 1.5rem', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+           
+           {/* BIG Number */}
+           <div style={{ fontSize: '3.2rem', fontWeight: 800, color: 'var(--accent2)', lineHeight: 0.85, fontFamily: "'Syne', sans-serif", position: 'relative', top: '-3px' }}>
+             {physActive}
+           </div>
+           
+           {/* Streamlined Label */}
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '0.5rem' }}>
+             <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text)', fontWeight: 700, letterSpacing: '0.5px' }}>Days Active</span>
+             <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500 }}>in {MONTHS[physMonth]} {physYear}</span>
+           </div>
+           
+           <div style={{ width: '1px', height: '40px', background: 'var(--border)' }}></div>
+           
+           {/* Filters */}
+           <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
+              <select className="sel" style={{ width: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.85rem', borderRadius: '8px' }} value={physMonth} onChange={e => setPhysMonth(parseInt(e.target.value))}>
+                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select className="sel" style={{ width: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.85rem', borderRadius: '8px' }} value={physYear} onChange={e => setPhysYear(parseInt(e.target.value))}>
+                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+           </div>
         </div>
-        <div className="form-group">
-          <label>Physical Activity Today?</label>
-          <div className="type-btns">
-            <button className={`type-btn ${form.active ? 'active-credit' : ''}`} onClick={() => set('active',true)}>✅ Yes</button>
-            <button className={`type-btn ${!form.active ? 'active-debit' : ''}`} onClick={() => set('active',false)}>❌ No</button>
-          </div>
-        </div>
-        {form.active && (
-          <div className="form-group">
-            <label>Activity Type</label>
-            <div className="type-btns">
-              {[['Gym','🏋️'],['Badminton','🏸'],['TT','🏓']].map(([a,e]) => (
-                <button key={a} className={`type-btn ${form.activity===a?'active-savings':''}`} onClick={() => set('activity',a)}>
-                  {e} {a}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <button className={`submit-btn ${success?'success':''}`} onClick={submit} disabled={loading}>
-          {loading ? "Saving..." : success ? "✅ Logged!" : "Log Activity"}
+
+        <button className="action-btn" onClick={onOpenModal}>
+          ➕ Log Activity
         </button>
       </div>
 
+      {/* Data Table (Now Filtered!) */}
       <div>
-        <h3 className="section-title">📋 Activity History</h3>
         <div className="data-table">
-          <div className="table-header gym-cols">
-            <span>Date</span><span>Gym 🏋️</span><span>TT 🏓</span><span>Badminton 🏸</span>
+          <div className="table-header" style={{ gridTemplateColumns: '1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 2fr' }}>
+            <span>📅 Date</span>
+            <span style={{textAlign:'center'}}>🏋️ Gym</span>
+            <span style={{textAlign:'center'}}>🏸 Badminton</span>
+            <span style={{textAlign:'center'}}>🏓 TT</span>
+            <span style={{textAlign:'center'}}>🏏 Cricket</span>
+            <span style={{textAlign:'center'}}>🏃‍♂️ Others</span>
+            <span>📝 Description</span>
           </div>
           {sorted.map((p, i) => (
-            <div key={i} className={`table-row gym-cols ${i%2===0?'row-even':''}`}>
-              <span>{formatDate(p.date)}</span>
-              <span>{isActive(p) && p.activity==='Gym' ? '✅' : '—'}</span>
-              <span>{isActive(p) && p.activity==='TT' ? '✅' : '—'}</span>
-              <span>{isActive(p) && p.activity==='Badminton' ? '✅' : '—'}</span>
+            <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 2fr' }}>
+              <span style={{ fontWeight: 500 }}>{formatDate(p.date)}</span>
+              <span style={{ textAlign: 'center' }}>{p.gym ? '✅' : '—'}</span>
+              <span style={{ textAlign: 'center' }}>{p.badminton ? '✅' : '—'}</span>
+              <span style={{ textAlign: 'center' }}>{p.table_tennis ? '✅' : '—'}</span>
+              <span style={{ textAlign: 'center' }}>{p.cricket ? '✅' : '—'}</span>
+              <span style={{ textAlign: 'center' }}>{p.others ? '✅' : '—'}</span>
+              <span style={{ color: 'var(--text2)', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.description || '—'}</span>
             </div>
           ))}
-          {sorted.length === 0 && <div className="empty-state">No activity logged yet</div>}
+          {sorted.length === 0 && <div className="empty-state">No activity logged in {MONTHS[physMonth]} {physYear}</div>}
         </div>
       </div>
     </div>
@@ -1674,9 +1807,10 @@ function InvestTab({ investments, onAdd }) {
         </div>
         
         {!showTokenInput ? (
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button 
-              className="action-btn secondary" 
+              className="action-btn" 
+              style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}
               onClick={handleSyncToSheets}
               disabled={syncingSheets}
             >
@@ -1753,9 +1887,20 @@ export default function App() {
   const [investments, setInvestments] = useState([]);
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false); // <-- ADD THIS LINE  
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  
   // --- Sidebar Resizing Logic ---
-  const [sidebarWidth, setSidebarWidth] = useState(250);
+  const [sidebarWidth, setSidebarWidth] = useState(280); 
   const [isResizing, setIsResizing] = useState(false);
+
+  // --- Theme Logic ---
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    // This injects the theme directly into the HTML tag so CSS can read it
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const startResizing = useCallback((e) => {
     e.preventDefault();
@@ -1873,7 +2018,7 @@ export default function App() {
       case 0: return <HomeTab accounts={accounts} transactions={transactions} physical={physical} investments={investments} onSyncBalances={syncBalances} onImportCSV={importCSV} />;
       case 1: return <MoneyTab accounts={accounts} transactions={transactions} />;
       case 2: return <AddTab accounts={accounts} onAdd={fetchAll} />;
-      case 3: return <GymTab physical={physical} onAdd={fetchAll} />;
+      case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
       case 4: return <InvestTab investments={investments} onAdd={fetchAll} />;
       default: return null;
     }
@@ -2000,11 +2145,11 @@ const importCSV = useCallback((csvText) => {
 
         <div className="sidebar-logo" onClick={() => setTab(0)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}>
           <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto', width: '100%', padding: '0 10px' }}>
-            <span className="logo-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>LifeTrack</span>
+            <span className="logo-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>DailyTrack</span>
             <span className="logo-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Personal Dashboard</span>
           </div>
           <div style={{ opacity: sidebarMinimized ? 1 : 0, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'auto' : 'none', position: 'absolute' }}>
-            <span className="logo-name" style={{ fontSize: '1.2rem' }}>LT</span>
+            <span className="logo-name" style={{ fontSize: '1.2rem' }}>DT</span>
           </div>
         </div>
         <nav className="sidebar-nav" style={{ overflowX: 'hidden' }}>
@@ -2041,7 +2186,7 @@ const importCSV = useCallback((csvText) => {
         </nav>
         <div className="sidebar-footer" style={{ padding: sidebarMinimized ? '1rem 0' : '1rem 1.5rem', transition: 'padding 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <button 
-            onClick={() => setSidebarWidth(sidebarMinimized ? 250 : 70)}
+            onClick={() => setSidebarWidth(sidebarMinimized ? 280 : 70)} // <-- Increased from 250
             style={{ 
               width: '100%', 
               padding: '0', 
@@ -2113,7 +2258,28 @@ const importCSV = useCallback((csvText) => {
       <div className="main-area">
         <header className="topbar">
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
-          <div className="topbar-badge">{dateStr}</div>
+          <button 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            style={{ 
+              background: 'var(--card)', 
+              border: '1px solid var(--border)', 
+              borderRadius: '12px', 
+              padding: '0.45rem 0.85rem', 
+              color: 'var(--text)', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              fontSize: '0.85rem', 
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+          >
+            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
         </header>
         <main className="page-body" key={tab}>
           {renderTab()}
@@ -2126,6 +2292,14 @@ const importCSV = useCallback((csvText) => {
           accounts={accounts} 
           onAdd={fetchAll} 
           onClose={() => setIsAddModalOpen(false)} 
+        />
+      )}
+
+      {/* Floating Add Activity Modal */}
+      {isActivityModalOpen && (
+        <AddActivityModal 
+          onAdd={fetchAll} 
+          onClose={() => setIsActivityModalOpen(false)} 
         />
       )}
     </div>

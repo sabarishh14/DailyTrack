@@ -50,8 +50,12 @@ class PhysicalActivity(db.Model):
 
     id = db.Column(db.BigInteger, primary_key=True)
     date = db.Column(db.Date, unique=True, nullable=False)
-    active = db.Column(db.Boolean, nullable=False)
-    activity = db.Column(db.String(255))
+    gym = db.Column(db.Boolean, default=False)
+    badminton = db.Column(db.Boolean, default=False)
+    table_tennis = db.Column(db.Boolean, default=False)
+    cricket = db.Column(db.Boolean, default=False)
+    others = db.Column(db.Boolean, default=False)
+    description = db.Column(db.String(255))
 
 class Investment(db.Model):
     __tablename__ = "investments"
@@ -293,37 +297,41 @@ def get_transactions():
 
 @app.route('/api/transactions', methods=['POST'])
 def add_transaction():
-    data = request.json
+    try:
+        data = request.json
+        
+        # Make it smart: if it's a single dict, wrap it in a list so we can use one loop
+        transactions_data = data if isinstance(data, list) else [data]
+        
+        added_count = 0
+        
+        for item in transactions_data:
+            date_obj = datetime.strptime(item['date'], '%Y-%m-%d')
+            # For the month column, we typically store the 1st day of that month
+            month_obj = date_obj.replace(day=1)
+            
+            new_tx = Transaction(
+                # Add added_count to the timestamp so they don't get identical IDs if added in the same millisecond
+                id=int(datetime.now().timestamp() * 1000) + added_count,
+                account=item['account'],
+                date=date_obj,
+                month=month_obj,
+                type=item['type'],
+                heading=item['heading'],
+                description=item.get('description', ''),
+                amount=float(item['amount'])
+            )
+            db.session.add(new_tx)
+            added_count += 1
+            
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Successfully added {added_count} transactions!"})
 
-    date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
-    month_obj = date_obj.replace(day=1)
-
-    new_tx = Transaction(
-        id=int(datetime.now().timestamp() * 1000),
-        account=data['account'],
-        date=date_obj,
-        month=month_obj,
-        type=data['type'].lower(),
-        heading=data['heading'],
-        description=data.get('description', ''),
-        amount=float(data['amount'])
-    )
-
-    db.session.add(new_tx)
-
-    # Update account balance
-    account = Account.query.filter_by(account=data['account']).first()
-
-    if account and account.balance_tracked:
-        if data['type'].lower() == 'credit':
-            account.balance += float(data['amount'])
-        elif data['type'].lower() == 'debit':
-            account.balance -= float(data['amount'])
-
-    db.session.commit()
-
-    return jsonify({'success': True, 'id': new_tx.id})
-
+    except Exception as e:
+        print(f"❌ Error adding transaction(s): {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+    
 @app.route('/api/transactions/<int:tid>', methods=['DELETE'])
 def delete_transaction(tid):
     tx = Transaction.query.filter_by(id=tid).first()
@@ -353,8 +361,12 @@ def get_physical():
         {
             "id": r.id,
             "date": r.date.strftime("%Y-%m-%d"),
-            "active": r.active,
-            "activity": r.activity
+            "gym": r.gym,
+            "badminton": r.badminton,
+            "table_tennis": r.table_tennis,
+            "cricket": r.cricket,
+            "others": r.others,
+            "description": r.description
         }
         for r in records
     ]
@@ -364,25 +376,31 @@ def get_physical():
 @app.route('/api/physical', methods=['POST'])
 def add_physical():
     data = request.json
-
     date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
 
     record = PhysicalActivity.query.filter_by(date=date_obj).first()
 
     if record:
-        record.active = data['active']
-        record.activity = data.get('activity', '')
+        record.gym = data.get('gym', False)
+        record.badminton = data.get('badminton', False)
+        record.table_tennis = data.get('table_tennis', False)
+        record.cricket = data.get('cricket', False)
+        record.others = data.get('others', False)
+        record.description = data.get('description', '')
     else:
         record = PhysicalActivity(
             id=int(datetime.now().timestamp() * 1000),
             date=date_obj,
-            active=data['active'],
-            activity=data.get('activity', '')
+            gym=data.get('gym', False),
+            badminton=data.get('badminton', False),
+            table_tennis=data.get('table_tennis', False),
+            cricket=data.get('cricket', False),
+            others=data.get('others', False),
+            description=data.get('description', '')
         )
         db.session.add(record)
 
     db.session.commit()
-
     return jsonify({"success": True})
 
 # ---- INVESTMENTS ----

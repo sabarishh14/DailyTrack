@@ -24,6 +24,34 @@
   --radius-lg: 18px;
 }
 
+/* ── LIGHT THEME OVERRIDES ─── */
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg2: #ffffff;
+  --bg3: #f1f5f9;
+  --card: #ffffff;
+  --card2: #f8fafc;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.18);
+  --text: #0f172a;
+  --text2: #475569;
+  --text3: #64748b;
+  --pos: #059669; /* Darker green for white bg */
+  --neg: #dc2626; /* Darker red for white bg */
+}
+
+/* Fixes for hardcoded dark mode opacities */
+[data-theme="light"] .chip-dropdown { background: var(--card); border-color: var(--border2); }
+[data-theme="light"] .pie-legend-item { background: var(--bg3); border-color: var(--border); }
+[data-theme="light"] .pie-legend-item:hover { background: rgba(99, 102, 241, 0.1); }
+[data-theme="light"] .tx-table-head, [data-theme="light"] .table-header { background: var(--bg3); }
+[data-theme="light"] .tx-row:hover, [data-theme="light"] .table-row:hover { background: rgba(0,0,0,0.03); }
+[data-theme="light"] .tx-row:nth-child(even), [data-theme="light"] .table-row.row-even { background: rgba(0,0,0,0.015); }
+[data-theme="light"] .filter-chip { background: var(--card); border-color: var(--border); }
+[data-theme="light"] .tx-col-header { border-right-color: var(--border); }
+[data-theme="light"] .tx-row > span { border-right-color: var(--border); }
+[data-theme="light"] .account-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+
 html, body, #root { height: 100%; width: 100%; }
 body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; }
 
@@ -568,3 +596,42 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .modal-body { padding: 1.5rem; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── BULK TRANSACTION TABLE ─── */
+.bulk-modal { max-width: 950px !important; width: 95% !important; }
+.bulk-grid { 
+  display: grid; 
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 40px; 
+  gap: 0.5rem; 
+  align-items: center; 
+}
+.bulk-header {
+  font-size: 0.75rem; text-transform: uppercase; color: var(--text2);
+  font-weight: 700; padding: 0 0.5rem 0.5rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+.bulk-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.25rem; margin-bottom: 0.5rem;
+  transition: border-color 0.2s;
+}
+.bulk-row:hover { border-color: var(--accent); }
+.bulk-inp {
+  background: transparent; border: none; color: var(--text);
+  font-family: inherit; font-size: 0.85rem; padding: 0.5rem;
+  width: 100%; outline: none; border-radius: 4px;
+}
+.bulk-inp:focus { background: var(--bg); }
+.bulk-sel {
+  background: transparent; border: none; color: var(--text);
+  font-family: inherit; font-size: 0.85rem; padding: 0.5rem;
+  width: 100%; outline: none; cursor: pointer; border-radius: 4px;
+}
+.bulk-sel:focus { background: var(--bg); }
+.bulk-del-btn {
+  background: rgba(220, 38, 38, 0.1); color: var(--neg); border: none;
+  border-radius: 6px; width: 30px; height: 30px; display: flex;
+  align-items: center; justify-content: center; cursor: pointer;
+  transition: all 0.2s;
+}
+.bulk-del-btn:hover { background: var(--neg); color: white; }
