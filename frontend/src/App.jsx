@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const API = "http://localhost:5000/api";
@@ -251,7 +251,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <h2 className="section-title">🏦 Account Balances</h2>
         <div className="accounts-grid">
           {accounts
-            .filter(a => a.balance_tracked) // <-- only show accounts that track balance
+            .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360') // <-- tracks balance and hides PINNACLE
             .map(a => (
               <div
                 className="account-card"
@@ -379,20 +379,25 @@ function CustomPieTooltip({ active, payload }) {
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
 function MoneyTab({ accounts, transactions }) {
   const [expanded, setExpanded] = useState(false);
+  const dropdownRef = useRef(null);
   
+  const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
+
   // Analyzer filters - multi-select
   const [chartAccounts, setChartAccounts] = useState(new Set());
   const [chartTypes, setChartTypes] = useState(new Set());
-  const [chartMonths, setChartMonths] = useState(new Set());
+  const [chartMonths, setChartMonths] = useState(new Set([currentMonthLabel]));
   const [chartHeadings, setChartHeadings] = useState(new Set());
 
   // Table filters - multi-select
   const [filterAccounts, setFilterAccounts] = useState(new Set());
   const [filterDate, setFilterDate] = useState("");
-  const [filterMonths, setFilterMonths] = useState(new Set());
+  const [filterDateDebounced, setFilterDateDebounced] = useState("");
+  const [filterMonths, setFilterMonths] = useState(new Set([currentMonthLabel]));
   const [filterTypes, setFilterTypes] = useState(new Set());
   const [filterHeadings, setFilterHeadings] = useState(new Set());
   const [filterDesc, setFilterDesc] = useState("");
+  const [filterDescDebounced, setFilterDescDebounced] = useState("");
 
   // Dropdown visibility
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -401,19 +406,57 @@ function MoneyTab({ accounts, transactions }) {
   const [sortBy, setSortBy] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   // Column widths for resizing
   const [colWidths, setColWidths] = useState({ date: 90, account: 230, type: 85, month: 110, amount: 130, heading: 140, desc: 0 });
 
-  const allMonths = [...new Set(transactions.map(t => {
-    const d = new Date(t.date);
-    const month = d.toLocaleString('default', { month: 'short' });
-    const year = d.getFullYear();
-    return `${month} ${year}`;
-  }))].sort().reverse();
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const isClickOnFilter = e.target.closest('.filter-bar') || e.target.closest('.chip-dropdown');
+      if (!isClickOnFilter) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const allHeadings = [...new Set(transactions.map(t => t.heading))].sort();
-  const allAccountsList = [...new Set(transactions.map(t => t.account))].sort();
-  const allTypes = [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1));
+  // Debounce filter inputs (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => setFilterDateDebounced(filterDate), 300);
+    return () => clearTimeout(timer);
+  }, [filterDate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setFilterDescDebounced(filterDesc), 300);
+    return () => clearTimeout(timer);
+  }, [filterDesc]);
+
+  // Memoize expensive computations
+  const { allMonths, allHeadings, allAccountsList, allTypes } = useMemo(() => {
+    return {
+      allMonths: [...new Set(transactions.map(t => {
+        if (!t.date) return null;
+        const d = new Date(t.date);
+        if (isNaN(d.getTime())) return null;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }))]
+      .filter(Boolean)
+      .sort().reverse()
+      .map(ym => {
+        const [y, m] = ym.split('-');
+        const d = new Date(y, m - 1, 1);
+        return `${d.toLocaleString('default', { month: 'long' })} ${y}`;
+      }),
+      allHeadings: [...new Set(transactions.map(t => t.heading))].sort(),
+      allAccountsList: [...new Set(transactions.map(t => t.account))].sort(),
+      allTypes: [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1))
+    };
+  }, [transactions]);
 
   // Multi-select toggle functions
   const toggleSet = (set, item) => {
@@ -423,72 +466,95 @@ function MoneyTab({ accounts, transactions }) {
     return newSet;
   };
 
-  // Analyzer filters
-  const analyzerFiltered = transactions.filter(t => {
-    const d = new Date(t.date);
-    const month = d.toLocaleString('default', { month: 'short' });
-    const year = d.getFullYear();
-    const ml = `${month} ${year}`;
-    const capitalizedType = t.type.charAt(0).toUpperCase() + t.type.slice(1);
-    const accountMatch = chartAccounts.size === 0 || chartAccounts.has(t.account);
-    const typeMatch = chartTypes.size === 0 || chartTypes.has(capitalizedType);
-    const monthMatch = chartMonths.size === 0 || chartMonths.has(ml);
-    const headingMatch = chartHeadings.size === 0 || chartHeadings.has(t.heading);
-    return accountMatch && typeMatch && monthMatch && headingMatch;
-  });
+  // Memoize analyzer filtered results
+  const { analyzerFiltered, pieArr } = useMemo(() => {
+    const filtered = transactions.filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return false;
+      const month = d.toLocaleString('default', { month: 'long' });
+      const year = d.getFullYear();
+      const ml = `${month} ${year}`;
+      const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
+      const accountMatch = chartAccounts.size === 0 || chartAccounts.has(t.account);
+      const typeMatch = chartTypes.size === 0 || chartTypes.has(capitalizedType);
+      const monthMatch = chartMonths.size === 0 || chartMonths.has(ml);
+      const headingMatch = chartHeadings.size === 0 || chartHeadings.has(t.heading);
+      return accountMatch && typeMatch && monthMatch && headingMatch;
+    });
 
-  const pieData = {};
-  analyzerFiltered.forEach(t => { 
-    pieData[t.heading] = (pieData[t.heading] || 0) + Math.abs(parseFloat(t.amount)); 
-  });
-  const pieArr = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
-
-  // Table filters
-  const tableFiltered = transactions.filter(t => {
-    const d = new Date(t.date);
-    const month = d.toLocaleString('default', { month: 'short' });
-    const year = d.getFullYear();
-    const ml = `${month} ${year}`;
-    const dateStr = t.date || '';
-    const capitalizedType = t.type.charAt(0).toUpperCase() + t.type.slice(1);
-    const accountMatch = filterAccounts.size === 0 || filterAccounts.has(t.account);
-    const dateMatch = !filterDate || dateStr.includes(filterDate);
-    const monthMatch = filterMonths.size === 0 || filterMonths.has(ml);
-    const typeMatch = filterTypes.size === 0 || filterTypes.has(capitalizedType);
-    const headingMatch = filterHeadings.size === 0 || filterHeadings.has(t.heading);
-    const descMatch = !filterDesc || (t.description || '').toLowerCase().includes(filterDesc.toLowerCase());
-    return accountMatch && dateMatch && monthMatch && typeMatch && headingMatch && descMatch;
-  }).sort((a, b) => {
-    let aVal, bVal;
-    if (sortBy === 'date') {
-      aVal = new Date(a.date).getTime();
-      bVal = new Date(b.date).getTime();
-    } else if (sortBy === 'account') {
-      aVal = a.account;
-      bVal = b.account;
-    } else if (sortBy === 'type') {
-      aVal = a.type;
-      bVal = b.type;
-    } else if (sortBy === 'month') {
-      aVal = new Date(a.date).getTime();
-      bVal = new Date(b.date).getTime();
-    } else if (sortBy === 'amount') {
-      aVal = parseFloat(a.amount);
-      bVal = parseFloat(b.amount);
-    } else if (sortBy === 'heading') {
-      aVal = a.heading;
-      bVal = b.heading;
-    } else if (sortBy === 'desc') {
-      aVal = a.description || '';
-      bVal = b.description || '';
-    }
+    const pieData = {};
+    filtered.forEach(t => { 
+      pieData[t.heading] = (pieData[t.heading] || 0) + Math.abs(parseFloat(t.amount)); 
+    });
+    const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     
-    if (typeof aVal === 'string') {
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    } else {
-      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
-    }
-  });
+    return { analyzerFiltered: filtered, pieArr: pieArray };
+  }, [transactions, chartAccounts, chartTypes, chartMonths, chartHeadings]);
+
+  // Memoize table filtered and sorted results
+  const tableFiltered = useMemo(() => {
+    return transactions.filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return false;
+      const month = d.toLocaleString('default', { month: 'long' });
+      const year = d.getFullYear();
+      const ml = `${month} ${year}`;
+      const dateStr = t.date || '';
+      const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
+      const accountMatch = filterAccounts.size === 0 || filterAccounts.has(t.account);
+      const dateMatch = !filterDateDebounced || dateStr.includes(filterDateDebounced);
+      const monthMatch = filterMonths.size === 0 || filterMonths.has(ml);
+      const typeMatch = filterTypes.size === 0 || filterTypes.has(capitalizedType);
+      const headingMatch = filterHeadings.size === 0 || filterHeadings.has(t.heading);
+      const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
+      return accountMatch && dateMatch && monthMatch && typeMatch && headingMatch && descMatch;
+    }).sort((a, b) => {
+      let aVal, bVal;
+      if (sortBy === 'date') {
+        aVal = new Date(a.date).getTime();
+        bVal = new Date(b.date).getTime();
+      } else if (sortBy === 'account') {
+        aVal = a.account;
+        bVal = b.account;
+      } else if (sortBy === 'type') {
+        aVal = a.type;
+        bVal = b.type;
+      } else if (sortBy === 'month') {
+        aVal = new Date(a.date).getTime();
+        bVal = new Date(b.date).getTime();
+      } else if (sortBy === 'amount') {
+        aVal = parseFloat(a.amount);
+        bVal = parseFloat(b.amount);
+      } else if (sortBy === 'heading') {
+        aVal = a.heading;
+        bVal = b.heading;
+      } else if (sortBy === 'desc') {
+        aVal = a.description || '';
+        bVal = b.description || '';
+      }
+      
+      if (typeof aVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      } else {
+        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+    });
+  }, [transactions, filterAccounts, filterDateDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]);
+
+  // Paginate the filtered results
+  const totalPages = Math.ceil(tableFiltered.length / rowsPerPage);
+  const paginatedRows = useMemo(() => {
+    const start = currentPage * rowsPerPage;
+    const end = start + rowsPerPage;
+    return tableFiltered.slice(start, end);
+  }, [tableFiltered, currentPage, rowsPerPage]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [filterAccounts, filterDateDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced]);
 
   const PIE_COLORS = ["#6366f1","#8b5cf6","#d946ef","#ec4899","#f43f5e","#f97316","#eab308","#84cc16","#22c55e","#10b981","#14b8a6","#06b6d4"];
 
@@ -523,7 +589,42 @@ function MoneyTab({ accounts, transactions }) {
     }
   };
 
-  // Multi-select dropdown component
+  // Rows per page dropdown component
+  const RowsPerPageDropdown = ({ value, onChange }) => {
+    const options = [10, 25, 50, 100];
+    return (
+      <div style={{ position: 'relative' }}>
+        <button
+          className={`filter-chip ${openDropdown === 'rowsPerPage' ? 'open' : ''}`}
+          onClick={() => setOpenDropdown(openDropdown === 'rowsPerPage' ? null : 'rowsPerPage')}
+        >
+          <span>📄</span>
+          <span>{value} rows</span>
+          <span className="chip-arrow">▼</span>
+        </button>
+
+        {openDropdown === 'rowsPerPage' && (
+          <div className="chip-dropdown">
+            {options.map(opt => (
+              <div
+                key={opt}
+                className={`chip-dropdown-item ${value === opt ? 'selected' : ''}`}
+                onClick={() => {
+                  onChange(opt);
+                  setOpenDropdown(null);
+                  setCurrentPage(0);
+                }}
+              >
+                <div className={`chip-checkbox ${value === opt ? 'checked' : ''}`} />
+                <span>{opt}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Multi-select dropdown component
   const MultiSelectDropdown = ({ label, icon, options, selected, onToggle, dropdownKey }) => {
     const allSelected = selected.size === options.length && options.length > 0;
@@ -602,7 +703,7 @@ function MoneyTab({ accounts, transactions }) {
         {expanded && (
           <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
             {/* Analyzer Filters */}
-            <div className="filter-bar" style={{ marginBottom: '1.5rem' }}>
+            <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
               <MultiSelectDropdown
                 label="Account"
                 icon="🏦"
@@ -645,7 +746,7 @@ function MoneyTab({ accounts, transactions }) {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie 
-                        data={pieArr} 
+                        data={pieArr.slice(0, 10)} 
                         dataKey="value" 
                         nameKey="name" 
                         cx="50%" 
@@ -656,7 +757,7 @@ function MoneyTab({ accounts, transactions }) {
                         animationDuration={600}
                         animationEasing="ease-out"
                       >
-                        {pieArr.map((_, i) => (
+                        {pieArr.slice(0, 10).map((_, i) => (
                           <Cell 
                             key={i} 
                             fill={PIE_COLORS[i % PIE_COLORS.length]}
@@ -714,7 +815,7 @@ function MoneyTab({ accounts, transactions }) {
                     }}
                     className="pie-legend-scroll"
                   >
-                    {pieArr.map((d, i) => {
+                    {pieArr.slice(0, 10).map((d, i) => {
                       const total = pieArr.reduce((s, x) => s + x.value, 0);
                       const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
                       return (
@@ -764,6 +865,11 @@ function MoneyTab({ accounts, transactions }) {
                         </div>
                       );
                     })}
+                    {pieArr.length > 10 && (
+                      <div style={{ padding: '0.75rem 0.9rem', color: 'var(--text2)', fontSize: '0.8rem', textAlign: 'center', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                        +{pieArr.length - 10} more categories
+                      </div>
+                    )}
                   </div>
 
                   {/* Scroll Indicator Bottom - shows scrollable state */}
@@ -821,8 +927,7 @@ function MoneyTab({ accounts, transactions }) {
         <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
         
         {/* Table Filters */}
-{/* Table Filters */}
-        <div className="filter-bar">
+        <div className="filter-bar" ref={dropdownRef}>
         <MultiSelectDropdown
             label="Account"
             icon="🏦"
@@ -871,18 +976,95 @@ function MoneyTab({ accounts, transactions }) {
           />
         </div>
 
-        {/* Stats Bar - Below Filters */}
+        {/* Stats Bar & Pagination - Above Table */}
         {tableFiltered.length > 0 && (
-          <div className="tx-stats-bar" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-            <span>
-              Showing <strong style={{ color: 'var(--text)' }}>{tableFiltered.length}</strong> of {transactions.length} transactions
-            </span>
-            <span>
-              <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
-              {' '}in &nbsp;·&nbsp; 
-              <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
-              {' '}out
-            </span>
+          <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+            <div className="tx-stats-bar" style={{ marginBottom: '1.5rem' }}>
+              <span>
+                Page <strong style={{ color: 'var(--text)' }}>{currentPage + 1} of {totalPages}</strong> · Showing <strong style={{ color: 'var(--text)' }}>{paginatedRows.length}</strong> of {tableFiltered.length} transactions
+              </span>
+              <span>
+                <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
+                {' '}in &nbsp;·&nbsp; 
+                <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
+                {' '}out
+              </span>
+            </div>
+
+            {/* Pagination Controls */}
+            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <RowsPerPageDropdown value={rowsPerPage} onChange={setRowsPerPage} />
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button 
+                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                  disabled={currentPage === 0}
+                  style={{ 
+                    padding: '0.45rem 0.85rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border)', 
+                    background: currentPage === 0 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
+                    color: currentPage === 0 ? 'var(--text2)' : 'var(--text)',
+                    cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    opacity: currentPage === 0 ? 0.5 : 1
+                  }}
+                >
+                  ← Prev
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i;
+                    } else if (currentPage < 2) {
+                      pageNum = i;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          borderRadius: '6px',
+                          border: pageNum === currentPage ? '1px solid var(--accent)' : '1px solid var(--border)',
+                          background: pageNum === currentPage ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-input)',
+                          color: pageNum === currentPage ? 'var(--accent)' : 'var(--text2)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: pageNum === currentPage ? 600 : 400
+                        }}
+                      >
+                        {pageNum + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button 
+                  onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  style={{ 
+                    padding: '0.45rem 0.85rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border)', 
+                    background: currentPage === totalPages - 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
+                    color: currentPage === totalPages - 1 ? 'var(--text2)' : 'var(--text)',
+                    cursor: currentPage === totalPages - 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    opacity: currentPage === totalPages - 1 ? 0.5 : 1
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -925,7 +1107,7 @@ function MoneyTab({ accounts, transactions }) {
             </div>
           </div>
           {tableFiltered.length > 0 ? (
-            tableFiltered.map((t, i) => {
+            paginatedRows.map((t, i) => {
               const d = new Date(t.date);
               const monthLabel = d.toLocaleString('default', { month: 'short', year: '2-digit' });
               return (
@@ -1308,15 +1490,40 @@ export default function App() {
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
+
+  // Load all transactions (for MoneyTab) - lazy loaded when needed
+  const fetchAllTransactions = useCallback(async () => {
+    if (allTransactionsLoaded) return;
+    try {
+      let allTx = [];
+      let offset = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`).then(r => r.json());
+        allTx = allTx.concat(res.transactions);
+        hasMore = res.hasMore;
+        offset += 500;
+      }
+      
+      setTransactions(allTx);
+      setAllTransactionsLoaded(true);
+    } catch(e) {
+      console.error("Failed to load all transactions", e);
+    }
+  }, [allTransactionsLoaded]);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [acc, tx, phy, inv] = await Promise.all([
+      const [acc, phy, inv] = await Promise.all([
         fetch(`${API}/accounts`).then(r => r.json()),
-        fetch(`${API}/transactions`).then(r => r.json()),
         fetch(`${API}/physical`).then(r => r.json()),
         fetch(`${API}/investments`).then(r => r.json()),
       ]);
+      
+      // Initial transactions load: only recent 100 for fast initial render
+      const txRes = await fetch(`${API}/transactions?limit=100&offset=0`).then(r => r.json());
       
       // Merge stored balances into accounts (localStorage takes priority)
       const storedBalances = getStoredBalances() || {};
@@ -1327,7 +1534,8 @@ export default function App() {
       
       setAccounts(mergedAccounts);
       saveBalances(mergedAccounts); // save the merged result
-      setTransactions(tx);
+      setTransactions(txRes.transactions);
+      setAllTransactionsLoaded(false); // Mark as not fully loaded yet
       setPhysical(phy);
       setInvestments(inv);
     } catch(e) {
@@ -1346,6 +1554,13 @@ export default function App() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Load all transactions when MoneyTab is opened
+  useEffect(() => {
+    if (tab === 1) {
+      fetchAllTransactions();
+    }
+  }, [tab, fetchAllTransactions]);
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -1461,7 +1676,7 @@ const importCSV = useCallback((csvText) => {
     <div className="app">
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: sidebarMinimized ? '70px' : '250px', transition: 'width 0.3s ease' }}>
-        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative' }}>
+        <div className="sidebar-logo" onClick={() => setTab(0)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer' }}>
           <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto' }}>
             <span className="logo-name">LifeTrack</span>
             <span className="logo-sub">Personal Dashboard</span>

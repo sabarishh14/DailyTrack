@@ -226,7 +226,31 @@ def bulk_transactions():
 # ---- TRANSACTIONS ----
 @app.route('/api/transactions', methods=['GET'])
 def get_transactions():
-    transactions = Transaction.query.order_by(Transaction.date.desc()).all()
+    # Pagination and filtering parameters
+    limit = request.args.get('limit', 100, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    month_filter = request.args.get('month')  # Format: YYYY-MM
+    year_filter = request.args.get('year', type=int)
+    
+    # Limit max results to prevent abuse
+    limit = min(limit, 500)
+    
+    query = Transaction.query.order_by(Transaction.date.desc())
+    
+    # Apply month filter if provided
+    if month_filter:
+        try:
+            month_obj = datetime.strptime(month_filter, '%Y-%m')
+            month_obj = month_obj.replace(day=1)
+            query = query.filter(Transaction.month == month_obj)
+        except:
+            pass
+    
+    # Total count before pagination (for frontend to know if more data exists)
+    total_count = query.count()
+    
+    # Apply pagination
+    transactions = query.limit(limit).offset(offset).all()
 
     result = [
         {
@@ -242,7 +266,13 @@ def get_transactions():
         for tx in transactions
     ]
 
-    return jsonify(result)
+    return jsonify({
+        "transactions": result,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+        "hasMore": (offset + limit) < total_count
+    })
 
 @app.route('/api/transactions', methods=['POST'])
 def add_transaction():
