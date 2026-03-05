@@ -726,6 +726,20 @@ function MoneyTab({ accounts, transactions }) {
                 onToggle={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
+              {(chartAccounts.size > 0 || chartTypes.size > 0 || chartMonths.size > 0 || chartHeadings.size > 0) && (
+                <button 
+                  className="filter-chip" 
+                  onClick={() => {
+                    setChartAccounts(new Set());
+                    setChartTypes(new Set());
+                    setChartMonths(new Set()); // <-- Empties the month completely!
+                    setChartHeadings(new Set());
+                  }}
+                  style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
+                >
+                  <span>❌</span><span>Clear</span>
+                </button>
+              )}
             </div>
 
             {/* Pie Chart + Legend Grid */}
@@ -805,9 +819,13 @@ function MoneyTab({ accounts, transactions }) {
                     }}
                     className="pie-legend-scroll"
                   >
-                    {pieArr.slice(0, 10).map((d, i) => {
+                    {pieArr.map((d, i) => {
                       const total = pieArr.reduce((s, x) => s + x.value, 0);
                       const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
+                      
+                      // Check if this category is currently active in the table filters
+                      const isSelected = filterHeadings.has(d.name);
+                      
                       return (
                         <div 
                           key={d.name} 
@@ -818,21 +836,38 @@ function MoneyTab({ accounts, transactions }) {
                             justifyContent: 'space-between', 
                             padding: '0.75rem 0.9rem', 
                             borderRadius: '10px',
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                            border: `1px solid ${isSelected ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)'}`,
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                             cursor: 'pointer',
                             flexShrink: 0
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                            e.currentTarget.style.transform = 'translateX(4px)';
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                              e.currentTarget.style.transform = 'translateX(4px)';
+                            }
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-                            e.currentTarget.style.transform = 'translateX(0)';
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                              e.currentTarget.style.transform = 'translateX(0)';
+                            }
+                          }}
+                          onClick={() => {
+                            if (isSelected) {
+                              // Toggle off if already selected
+                              setFilterHeadings(new Set());
+                            } else {
+                              // Set filter and sync scope
+                              setFilterHeadings(new Set([d.name]));
+                              setFilterAccounts(new Set(chartAccounts));
+                              setFilterTypes(new Set(chartTypes));
+                              setFilterMonths(new Set(chartMonths));
+                              document.querySelector('.tx-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
@@ -855,11 +890,6 @@ function MoneyTab({ accounts, transactions }) {
                         </div>
                       );
                     })}
-                    {pieArr.length > 10 && (
-                      <div style={{ padding: '0.75rem 0.9rem', color: 'var(--text2)', fontSize: '0.8rem', textAlign: 'center', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                        +{pieArr.length - 10} more categories
-                      </div>
-                    )}
                   </div>
 
                   {/* Scroll Indicator Bottom - shows scrollable state */}
@@ -964,6 +994,22 @@ function MoneyTab({ accounts, transactions }) {
             onChange={e => setFilterDesc(e.target.value)}
             style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
           />
+          {(filterAccounts.size > 0 || filterTypes.size > 0 || filterMonths.size > 0 || filterHeadings.size > 0 || filterDate || filterDesc) && (
+            <button 
+              className="filter-chip" 
+              onClick={() => {
+                setFilterAccounts(new Set());
+                setFilterTypes(new Set());
+                setFilterMonths(new Set());
+                setFilterHeadings(new Set());
+                setFilterDate("");
+                setFilterDesc("");
+              }}
+              style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
+            >
+              <span>❌</span><span>Clear All</span>
+            </button>
+          )}
         </div>
 
         {/* Stats Bar & Pagination - Above Table */}

@@ -48,8 +48,8 @@
 [data-theme="light"] .tx-row:hover, [data-theme="light"] .table-row:hover { background: rgba(0,0,0,0.03); }
 [data-theme="light"] .tx-row:nth-child(even), [data-theme="light"] .table-row.row-even { background: rgba(0,0,0,0.015); }
 [data-theme="light"] .filter-chip { background: var(--card); border-color: var(--border); }
-[data-theme="light"] .tx-col-header { border-right-color: var(--border); }
-[data-theme="light"] .tx-row > span { border-right-color: var(--border); }
+[data-theme="light"] .tx-col-header, [data-theme="light"] .table-header > span { border-right-color: var(--border); }
+[data-theme="light"] .tx-row > span, [data-theme="light"] .table-row > span { border-right-color: var(--border); }
 [data-theme="light"] .account-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 
 html, body, #root { height: 100%; width: 100%; }
@@ -354,7 +354,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* Removed overflow: hidden so dropdowns can escape! */
   margin-bottom: 2rem;
 }
 .analyser-header {
@@ -363,6 +363,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   cursor: pointer;
   transition: background 0.2s;
   border-bottom: 1px solid transparent;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Keeps hover effect neatly inside the rounded corners */
 }
 .analyser-header:hover { background: rgba(255,255,255,0.025); }
 .analyser-header.open { border-bottom-color: var(--border); }
@@ -510,12 +511,30 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .invest-form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.75rem; display: flex; flex-direction: column; gap: 1.1rem; flex-shrink: 0; width: 400px; }
 
 /* ── TABLE (gym/invest) ─── */
+/* ── TABLE (gym/invest) ─── */
 .data-table { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; flex: 1; min-width: 300px; }
-.table-header { display: grid; padding: 0.85rem 1.25rem; background: var(--bg3); font-size: 0.7rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; border-bottom: 1px solid var(--border); }
-.table-row { display: grid; padding: 0.85rem 1.25rem; font-size: 0.875rem; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; }
+.table-header { display: grid; padding: 0; background: var(--bg3); font-size: 0.7rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; border-bottom: 1px solid var(--border); }
+.table-row { display: grid; padding: 0; font-size: 0.875rem; border-bottom: 1px solid var(--border); align-items: stretch; transition: background 0.1s; }
 .table-row:last-child { border-bottom: none; }
 .table-row:hover { background: rgba(99,102,241,0.05); }
 .row-even { background: rgba(255,255,255,0.012); }
+
+/* Add the column divider lines and shift padding to cells */
+.table-header > span, .table-row > span { 
+  padding: 0.85rem 1.25rem; 
+  border-right: 1px solid rgba(255,255,255,0.04); 
+  display: flex; 
+  align-items: center; 
+}
+.table-header > span:last-child, .table-row > span:last-child { 
+  border-right: none; 
+}
+
+/* Ensure inline centering still works smoothly with flex cells */
+.table-header > span[style*="center"], .table-row > span[style*="center"] {
+  justify-content: center;
+}
+
 .gym-cols { grid-template-columns: 2fr 1fr 1fr 1fr; text-align: center; }
 .gym-cols > *:first-child { text-align: left; }
 .inv-cols { grid-template-columns: 1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr; }
@@ -635,9 +654,16 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
     -webkit-overflow-scrolling: touch; 
   }
   
-  .tx-table-head, .tx-row, .table-header, .table-row { 
+  /* Keep transactions table standard */
+  .tx-table-head, .tx-row { 
     min-width: 100%; 
     width: max-content; 
+  }
+  
+  /* Force Gym and Invest tables to be wide enough so columns don't squish */
+  .table-header, .table-row { 
+    min-width: 850px; 
+    width: 100%; 
   }
   
   /* Force both the description rows AND the header to share the same width */
@@ -664,9 +690,16 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   }
   
   /* 'width: max-content' forces the background color to stretch the entire scrollable length */
-  .tx-table-head, .tx-row, .table-header, .table-row { 
-    min-width: 100%; 
-    width: max-content; 
+  /* Force transaction rows to have identical widths so alternating backgrounds stretch perfectly */
+  .tx-table-head, .tx-row { 
+    min-width: 1050px; 
+    width: 100%; 
+  }
+  
+  /* Force Gym and Invest tables to be wide enough so columns don't squish */
+  .table-header, .table-row { 
+    min-width: 850px; 
+    width: 100%; 
   }
   
   /* Force both the description rows AND the header to share the same width */
@@ -723,26 +756,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   /* Make buttons full width for thumbs */
   .action-btn { width: 100%; justify-content: center; margin-bottom: 0.5rem; }
   
-  /* Stack the bulk transaction modal into cards */
-  /* Stack the bulk transaction modal safely */
-  .bulk-grid { 
-    display: flex; flex-direction: column; gap: 0.6rem; 
-    padding: 2.5rem 1rem 1rem 1rem; /* Added top padding to make room for the X */
-    border: 1px solid var(--border); 
-    border-radius: 8px; margin-bottom: 1rem; background: var(--bg3); 
-    position: relative; /* This is the secret sauce */
-  }
-  .bulk-header { display: none; } 
-  
-  /* Pins the delete button neatly to the top right corner of each row's card */
-  .bulk-del-btn { 
-    position: absolute; 
-    top: 0.5rem; 
-    right: 0.5rem; 
-    margin: 0; 
-    width: 32px; 
-    height: 32px; 
-  }
 }
 
 /* ── BULK TRANSACTION TABLE ─── */
@@ -861,6 +874,52 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 
   /* Ensure bottom nav doesn't cover up modal save buttons */
   .bulk-modal { margin-bottom: env(safe-area-inset-bottom); }
+  /* Transform bulk rows into neat mobile cards with proper inputs */
+  .bulk-header { display: none; }
+  
+  .bulk-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+    padding: 3rem 1.25rem 1.25rem 1.25rem; /* Top padding leaves room for delete button */
+    background: var(--card); 
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    position: relative;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  
+  /* Give inputs visible boxes, backgrounds, and borders on mobile */
+  .bulk-row .bulk-inp, 
+  .bulk-row .bulk-sel {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+  
+  /* Reorder items so the card layout makes sense visually */
+  .bulk-row > *:nth-child(1) { order: 1; } /* Account */
+  .bulk-row > *:nth-child(2) { order: 2; } /* Date */
+  .bulk-row > *:nth-child(3) { order: 3; } /* Type */
+  .bulk-row > *:nth-child(5) { order: 4; } /* Amount */
+  
+  /* Make Category and Note span full width at the bottom */
+  .bulk-row > *:nth-child(4) { order: 5; grid-column: span 2; } 
+  .bulk-row > *:nth-child(6) { order: 6; grid-column: span 2; } 
+  
+  /* Pin the delete button to the top right corner */
+  .bulk-del-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    border-radius: 50%; /* Circle looks cleaner on cards */
+  }
 }
 
 @keyframes slideUpMobile { 
