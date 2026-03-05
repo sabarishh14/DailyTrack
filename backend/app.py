@@ -10,20 +10,60 @@ import hashlib
 import csv 
 import io     
 from functools import wraps
+from dotenv import load_dotenv
 
-API_SECRET_KEY = os.getenv("API_SECRET_KEY", "dev_key_only")
+# Load environment variables from .env.local file (or .env as fallback)
+load_dotenv('.env.local')
+load_dotenv('.env')
+
+# Load environment variables with validation
+API_SECRET_KEY = os.getenv("API_SECRET_KEY")
+if not API_SECRET_KEY:
+    raise ValueError("API_SECRET_KEY environment variable is required for production")
+
+FLASK_ENV = os.getenv("FLASK_ENV", "development")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+SHEETS_URL = os.getenv("SHEETS_URL")
+if not SHEETS_URL:
+    raise ValueError("SHEETS_URL environment variable is required")
 
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if request.headers.get('X-API-KEY') != API_SECRET_KEY:
+        api_key = request.headers.get('X-API-KEY')
+        if not api_key or api_key != API_SECRET_KEY:
             return jsonify({"success": False, "message": "Unauthorized"}), 401
         return f(*args, **kwargs)
     return decorated_function
 
 app = Flask(__name__)
-CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://neondb_owner:npg_8LvdCXOIz5Ho@ep-green-surf-air145w2-pooler.c-4.us-east-1.aws.neon.tech/neondb"
+
+# Configure CORS with specific origins only
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ALLOWED_ORIGINS,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "X-API-KEY"],
+        "supports_credentials": False,
+        "max_age": 3600
+    }
+})
+
+# Add security headers
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'"
+    return response
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "connect_args": {
@@ -97,8 +137,6 @@ class SyncLog(db.Model):
     __tablename__ = "sync_log"
     id = db.Column(db.BigInteger, primary_key=True)
     last_sync = db.Column(db.DateTime, nullable=False)
-
-SHEETS_URL = "https://script.google.com/macros/s/AKfycbxmBBF0-oRREVy66H-mL6DGpdgY5fjgL8S1Nr13HBBVVfTbznemzSBWtnsYpPPbGbdb2A/exec"
 
 def get_transactions_for_sync():
     # Fetch only transactions where synced=False

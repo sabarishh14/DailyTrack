@@ -2,12 +2,18 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 
-// If we are on localhost, use 5000. If deployed, use the Render backend URL.
-const API = window.location.hostname === "localhost" 
-  ? "http://localhost:5000/api" 
-  : "https://dt-sabs-be.onrender.com/api";
+// Use environment variable for API URL, with fallback for development
+const API = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === "localhost" 
+    ? "http://localhost:5000/api" 
+    : window.location.origin + "/api");
 
 const API_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
+// Validate API_KEY exists in non-development environments
+if (!API_KEY && import.meta.env.MODE === 'production') {
+  console.error("Missing API_SECRET_KEY - check VITE_API_SECRET_KEY environment variable");
+}
 
 const BANKS = {
   KOTAK:  { emoji: "🔴", color: "#ef4444" },
@@ -16,11 +22,11 @@ const BANKS = {
   CUB:    { emoji: "🟣", color: "#a855f7" },
   INDIAN: { emoji: "🔵", color: "#3b82f6" },
   ICICI:  { emoji: "🟡", color: "#eab308" },
-  "CC-PINNACLE 6360": { emoji: "💳", color: "#ec4899" },
-  "CC-SBI 0033": { emoji: "💳", color: "#ec4899" },
-  "CC-ICICI SAFFIRE": { emoji: "💳", color: "#ec4899" },
-  "CC-AP 4004": { emoji: "💳", color: "#ec4899" },
-  "CC-SBI 9810": { emoji: "💳", color: "#ec4899" },
+  "CC-PINNACLE 6360": { emoji: "💳", color: "#ec4949" },
+  "CC-SBI 0033": { emoji: "💳", color: "#ec4949" },
+  "CC-ICICI SAFFIRE": { emoji: "💳", color: "#ec4949" },
+  "CC-AP 4004": { emoji: "💳", color: "#ec4949" },
+  "CC-SBI 9810": { emoji: "💳", color: "#ec4949" },
   "Cash": { emoji: "💵", color: "#10b981" },
 };
 
