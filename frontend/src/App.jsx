@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 
 // If we are on localhost, use 5000. If deployed, use the Render backend URL.
 const API = window.location.hostname === "localhost" 
   ? "http://localhost:5000/api" 
   : "https://dt-sabs-be.onrender.com/api";
+
+const API_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 const BANKS = {
   KOTAK:  { emoji: "🔴", color: "#ef4444" },
@@ -122,7 +125,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   const syncTransactionsFromSheets = async () => {
     try {
       // 1. Ask the backend how many transactions are waiting
-      const checkRes = await fetch(`${API}/sync/check-transactions`);
+      const checkRes = await fetch(`${API}/sync/check-transactions`, { headers: { 'X-API-KEY': API_KEY } });
       const checkData = await checkRes.json();
 
       if (!checkData.success) {
@@ -141,7 +144,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 
       // 3. If confirmed, lock the button and do the actual sync
       setSyncingSheetsTransactions(true);
-      const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST' });
+      const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'X-API-KEY': API_KEY } });
       const data = await res.json();
       
       if (data.success) {
@@ -1322,7 +1325,7 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
       }));
 
       const res = await fetch(`${API}/transactions`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        method: "POST", headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY }, body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -1443,7 +1446,7 @@ function AddActivityModal({ onAdd, onClose }) {
     setLoading(true);
     try {
       const res = await fetch(`${API}/physical`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+        method: "POST", headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY }, body: JSON.stringify(form),
       });
       if (res.ok) {
         onAdd(); 
@@ -1698,7 +1701,10 @@ function InvestTab({ investments, onAdd }) {
     try {
       const res = await fetch(`${API}/sync/kite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+  'Content-Type': 'application/json',
+  'X-APIKEY': API_KEY 
+},
         body: JSON.stringify({ request_token: token })
       });
       const data = await res.json();
@@ -1721,7 +1727,7 @@ function InvestTab({ investments, onAdd }) {
   const handleSyncToSheets = async () => {
     setSyncingSheets(true);
     try {
-      const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST' });
+      const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'X-API-KEY': API_KEY } });
       const data = await res.json();
       if (data.success) {
         alert(data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message);
@@ -1896,7 +1902,7 @@ export default function App() {
       let hasMore = true;
       
       while (hasMore) {
-        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`).then(r => r.json());
+        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json());
         allTx = allTx.concat(res.transactions);
         hasMore = res.hasMore;
         offset += 500;
@@ -1913,10 +1919,10 @@ export default function App() {
     try {
       // Fire ALL 4 requests in parallel to eliminate network waterfall
       const [acc, phy, inv, txRes] = await Promise.all([
-        fetch(`${API}/accounts`).then(r => r.json()),
-        fetch(`${API}/physical`).then(r => r.json()),
-        fetch(`${API}/investments`).then(r => r.json()),
-        fetch(`${API}/transactions?limit=100&offset=0`).then(r => r.json())
+        fetch(`${API}/accounts`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
+        fetch(`${API}/physical`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
+        fetch(`${API}/investments`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
+        fetch(`${API}/transactions?limit=100&offset=0`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json())
       ]);
       
       // Merge stored balances into accounts (localStorage takes priority)
@@ -1958,7 +1964,10 @@ export default function App() {
     Object.entries(data).map(([account, balance]) =>
       fetch(`${API}/accounts`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+  'Content-Type': 'application/json',
+  'X-API-KEY': API_KEY 
+},
         body: JSON.stringify({ account, balance: parseFloat(balance) }),
       })
     )
@@ -2030,7 +2039,10 @@ const importCSV = useCallback((csvText) => {
   // Single bulk request instead of one per row
   fetch(`${API}/transactions/bulk`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+  'Content-Type': 'application/json',
+  'X-API-KEY': API_KEY 
+},
     body: JSON.stringify(parsed),
   })
     .then(r => r.json())
@@ -2043,7 +2055,23 @@ const importCSV = useCallback((csvText) => {
 }, [fetchAll]);
 
   return (
-    <div className="app">
+    <>
+      <SignedOut>
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '2rem' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h1 className="logo-name" style={{ fontSize: '3rem' }}>DailyTrack</h1>
+            <p style={{ color: 'var(--text2)', marginTop: '0.5rem' }}>Personal Financial Dashboard</p>
+          </div>
+          <SignInButton mode="modal">
+            <button className="action-btn" style={{ padding: '1rem 2rem', fontSize: '1rem' }}>
+              Sign In to Continue
+            </button>
+          </SignInButton>
+        </div>
+      </SignedOut>
+
+      <SignedIn>
+      <div className="app">
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
         
@@ -2240,6 +2268,8 @@ const importCSV = useCallback((csvText) => {
           </button>
         ))}
       </nav>
-    </div>
+      </div>
+      </SignedIn>
+    </>
   );
 }

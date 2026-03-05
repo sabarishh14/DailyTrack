@@ -9,6 +9,17 @@ import requests
 import hashlib
 import csv 
 import io     
+from functools import wraps
+
+API_SECRET_KEY = os.getenv("API_SECRET_KEY", "dev_key_only")
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.headers.get('X-API-KEY') != API_SECRET_KEY:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 app = Flask(__name__)
 CORS(app)
@@ -112,6 +123,7 @@ def test_db():
     return {"status": "Database connected successfully"}
 
 @app.route('/api/sync/check-transactions', methods=['GET'])
+@require_api_key  # <-- Add this line to protect the route
 def check_tx_sync():
     try:
         # Just count how many are waiting
@@ -121,6 +133,7 @@ def check_tx_sync():
         return jsonify({"success": False, "message": str(e)})
     
 @app.route('/api/sync/db-to-sheets', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def sync_db_to_sheets():
     try:
         # 1. Fetch only transactions that haven't been synced yet
@@ -164,6 +177,7 @@ def sync_db_to_sheets():
         
 # ---- ACCOUNTS ----
 @app.route('/api/accounts', methods=['GET'])
+@require_api_key  # <-- Add this line to protect the route
 def get_accounts():
     accounts = Account.query.all()
 
@@ -179,6 +193,7 @@ def get_accounts():
     return jsonify(result)
 
 @app.route('/api/accounts', methods=['PUT'])
+@require_api_key  # <-- Add this line to protect the route
 def update_account():
     data = request.json
 
@@ -194,6 +209,7 @@ def update_account():
     return jsonify({'success': True})
 
 @app.route('/api/transactions/bulk', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def bulk_transactions():
     rows = request.json  # list of transaction dicts
     imported_count = 0
@@ -260,6 +276,7 @@ def bulk_transactions():
 
 # ---- TRANSACTIONS ----
 @app.route('/api/transactions', methods=['GET'])
+@require_api_key  # <-- Add this line to protect the route
 def get_transactions():
     # Pagination and filtering parameters
     limit = request.args.get('limit', 100, type=int)
@@ -310,6 +327,7 @@ def get_transactions():
     })
 
 @app.route('/api/transactions', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def add_transaction():
     try:
         data = request.json
@@ -357,6 +375,7 @@ def add_transaction():
         return jsonify({"success": False, "message": str(e)})
     
 @app.route('/api/transactions/<int:tid>', methods=['DELETE'])
+@require_api_key  # <-- Add this line to protect the route
 def delete_transaction(tid):
     tx = Transaction.query.filter_by(id=tid).first()
 
@@ -378,6 +397,7 @@ def delete_transaction(tid):
 
 # ---- PHYSICAL ACTIVITY ----
 @app.route('/api/physical', methods=['GET'])
+@require_api_key  # <-- Add this line to protect the route
 def get_physical():
     records = PhysicalActivity.query.order_by(PhysicalActivity.date.desc()).all()
 
@@ -398,6 +418,7 @@ def get_physical():
     return jsonify(result)
 
 @app.route('/api/physical', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def add_physical():
     data = request.json
     date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
@@ -429,6 +450,7 @@ def add_physical():
 
 # ---- INVESTMENTS ----
 @app.route('/api/investments', methods=['GET'])
+@require_api_key  # <-- Add this line to protect the route
 def get_investments():
     records = Investment.query.order_by(Investment.date.desc()).all()
 
@@ -455,6 +477,7 @@ def get_investments():
     return jsonify(result)
 
 @app.route('/api/investments', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def add_investment():
     data = request.json
     date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
@@ -482,6 +505,7 @@ def add_investment():
     return jsonify({"success": True})
 
 @app.route('/api/sync/kite', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def sync_kite_direct():
     print("🔄 Starting direct Kite sync...")
     data = request.json
@@ -580,6 +604,7 @@ def sync_kite_direct():
         return jsonify({"success": False, "message": str(e)})
 
 @app.route('/api/sync/investments-to-sheets', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def sync_investments_to_sheets():
     try:
         # Fetch only unsynced investments
@@ -617,6 +642,7 @@ def sync_investments_to_sheets():
         return jsonify({"success": False, "message": str(e)})
     
 @app.route('/api/sync/sheets', methods=['POST'])
+@require_api_key  # <-- Add this line to protect the route
 def sync_from_sheets():
     print("🔄 Sync request received from frontend")
     try:
