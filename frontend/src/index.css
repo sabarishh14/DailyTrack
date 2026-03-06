@@ -864,6 +864,11 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   transition: background 0.15s ease;
 }
 
+.custom-dropdown-item.active-item {
+  background: var(--bg2); 
+  color: var(--accent);
+}
+
 .custom-dropdown-item:hover {
   background: var(--bg2); 
   color: var(--text); /* Keeps it clean instead of turning neon green */

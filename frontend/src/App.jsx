@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 
 // Use environment variable for API URL, with fallback for development
 const API = import.meta.env.VITE_API_URL || 
@@ -1230,36 +1229,59 @@ function MoneyTab({ accounts, transactions }) {
   );
 }
 
-// ─── ADD TRANSACTION MODAL (BULK EXCEL STYLE) ─────────────────────────
-
-// ─── REUSABLE AUTOCOMPLETE COMPONENT ──────────────────────────────
 function AutocompleteInput({ value, onChange, options, placeholder }) {
   const [filtered, setFiltered] = useState([]);
   const [show, setShow] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const handleType = (e) => {
     const val = e.target.value;
     onChange(val);
     setFiltered(options.filter(o => o.toLowerCase().includes(val.toLowerCase())));
     setShow(true);
+    setActiveIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!show) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); // Prevents cursor from moving
+      setActiveIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      onChange(filtered[activeIndex]);
+      setShow(false);
+      setActiveIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShow(false);
+      setActiveIndex(-1);
+    }
   };
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <input 
         type="text" className="bulk-inp" placeholder={placeholder} 
-        value={value} onChange={handleType}
+        value={value} onChange={handleType} onKeyDown={handleKeyDown}
         onFocus={() => { 
           setFiltered(options.filter(o => o.toLowerCase().includes(value.toLowerCase()))); 
           setShow(true); 
         }}
-        // The 200ms delay ensures the click event on the dropdown item fires before the menu hides
-        onBlur={() => setTimeout(() => setShow(false), 200)} 
+        onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)} 
       />
       {show && filtered.length > 0 && (
         <div className="custom-dropdown">
-          {filtered.map(opt => (
-            <div key={opt} className="custom-dropdown-item" onClick={() => { onChange(opt); setShow(false); }}>
+          {filtered.map((opt, idx) => (
+            <div 
+              key={opt} 
+              className={`custom-dropdown-item ${idx === activeIndex ? 'active-item' : ''}`} 
+              onClick={() => { onChange(opt); setShow(false); setActiveIndex(-1); }}
+              onMouseEnter={() => setActiveIndex(idx)}
+            >
               {opt}
             </div>
           ))}
@@ -2064,22 +2086,6 @@ const importCSV = useCallback((csvText) => {
 }, [fetchAll]);
 
   return (
-    <>
-      <SignedOut>
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '2rem' }}>
-          <div style={{ textAlign: 'center' }}>
-            <h1 className="logo-name" style={{ fontSize: '3rem' }}>DailyTrack</h1>
-            <p style={{ color: 'var(--text2)', marginTop: '0.5rem' }}>Personal Financial Dashboard</p>
-          </div>
-          <SignInButton mode="modal">
-            <button className="action-btn" style={{ padding: '1rem 2rem', fontSize: '1rem' }}>
-              Sign In to Continue
-            </button>
-          </SignInButton>
-        </div>
-      </SignedOut>
-
-      <SignedIn>
       <div className="app">
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
@@ -2278,7 +2284,5 @@ const importCSV = useCallback((csvText) => {
         ))}
       </nav>
       </div>
-      </SignedIn>
-    </>
   );
 }
