@@ -79,6 +79,14 @@ def require_api_key(f):
 
 app = Flask(__name__)
 
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({"success": False, "message": "Internal server error"}), 500
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"success": False, "message": "Not found"}), 404
+
 # Configure CORS with specific origins only
 CORS(app, resources={
     r"/api/*": {

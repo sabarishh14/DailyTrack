@@ -2148,7 +2148,8 @@ export default function App() {
       setPhysical(phy);
       setInvestments(inv);
     } catch(e) {
-      console.error("API error — is the backend running?", e);
+      console.error("API error — retrying in 2s...", e);
+      setTimeout(() => fetchAll(false), 2000);
     } finally {
       setAppLoading(false);
     }
