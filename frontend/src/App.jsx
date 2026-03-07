@@ -1975,8 +1975,7 @@ function InvestTab({ investments, onAdd }) {
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
-  const [appLoading, setAppLoading] = useState(true);
-  const [tab, setTab] = useState(0);
+  const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token'));  const [tab, setTab] = useState(0);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [physical, setPhysical] = useState([]);
