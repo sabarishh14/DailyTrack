@@ -2130,8 +2130,8 @@ export default function App() {
     }
   }, [allTransactionsLoaded]);
 
-  const fetchAll = useCallback(async () => {
-    setAppLoading(true);
+  const fetchAll = useCallback(async (showLoading = false) => {
+    if (showLoading) setAppLoading(true);
     try {
       // Fire ALL 4 requests in parallel to eliminate network waterfall
       const [acc, phy, inv, txRes] = await Promise.all([
@@ -2154,7 +2154,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { if (isLoggedIn) fetchAll(); }, [fetchAll, isLoggedIn]);
+  useEffect(() => { if (isLoggedIn) fetchAll(true); }, [fetchAll, isLoggedIn]);
 
   // Load all transactions when MoneyTab is opened
   useEffect(() => {
