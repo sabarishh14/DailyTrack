@@ -11,6 +11,8 @@ import csv
 import io     
 from functools import wraps
 from dotenv import load_dotenv
+import jwt
+from datetime import datetime, timedelta, timezone
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
@@ -31,6 +33,15 @@ SHEETS_URL = os.getenv("SHEETS_URL")
 if not SHEETS_URL:
     raise ValueError("SHEETS_URL environment variable is required")
 
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable is required")
+
+ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASS = os.getenv("ADMIN_PASS")
+if not ADMIN_PASS:
+    raise ValueError("ADMIN_PASS environment variable is required")
+
 # Kite API credentials
 KITE_API_KEY = os.getenv("KITE_API_KEY")
 KITE_API_SECRET = os.getenv("KITE_API_SECRET")
@@ -38,10 +49,24 @@ KITE_API_SECRET = os.getenv("KITE_API_SECRET")
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check API key (existing method)
         api_key = request.headers.get('X-API-KEY')
-        if not api_key or api_key != API_SECRET_KEY:
-            return jsonify({"success": False, "message": "Unauthorized"}), 401
-        return f(*args, **kwargs)
+        if api_key and api_key == API_SECRET_KEY:
+            return f(*args, **kwargs)
+        
+        # Check JWT token (new method)
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                return f(*args, **kwargs)
+            except jwt.ExpiredSignatureError:
+                return jsonify({"success": False, "message": "Token expired"}), 401
+            except jwt.InvalidTokenError:
+                return jsonify({"success": False, "message": "Invalid token"}), 401
+
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
     return decorated_function
 
 app = Flask(__name__)
@@ -51,7 +76,7 @@ CORS(app, resources={
     r"/api/*": {
         "origins": ALLOWED_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "X-API-KEY"],
+        "allow_headers": ["Content-Type", "X-API-KEY", "Authorization"],
         "supports_credentials": False,
         "max_age": 3600
     }
@@ -682,6 +707,23 @@ def sync_investments_to_sheets():
     except Exception as e:
         print(f"❌ Sheets Sync Error: {str(e)}")
         return jsonify({"success": False, "message": str(e)})
+    
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username', '')
+    password = data.get('password', '')
+
+    if username != ADMIN_USER or password != ADMIN_PASS:
+        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+
+    token = jwt.encode({
+        "sub": username,
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(days=30)
+    }, JWT_SECRET, algorithm="HS256")
+
+    return jsonify({"success": True, "token": token})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

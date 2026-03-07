@@ -7,7 +7,7 @@ const API = import.meta.env.VITE_API_URL ||
     ? "http://localhost:5000/api" 
     : window.location.origin + "/api");
 
-const API_KEY = import.meta.env.VITE_API_SECRET_KEY;
+const getToken = () => localStorage.getItem('dt_token');
 
 const BANKS = {
   KOTAK:  { emoji: "🔴", color: "#ef4444" },
@@ -72,10 +72,79 @@ function formatDate(dateStr) {
   return `${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(2)}`;
 }
 
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
 
+  const submit = async () => {
+    if (!username || !password) return setError('Enter username and password.');
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('dt_token', data.token);
+        onLogin();
+      } else {
+        setError(data.message || 'Login failed.');
+      }
+    } catch (e) {
+      setError('Network error: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '20px', padding: '2.5rem', width: '100%', maxWidth: '380px', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <span className="logo-name" style={{ fontSize: '2rem' }}>DailyTrack</span>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '0.4rem' }}>Personal Dashboard</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <input
+            className="inp" placeholder="Username"
+            value={username} onChange={e => setUsername(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submit()}
+            autoFocus
+          />
+          <div style={{ position: 'relative' }}>
+            <input
+              className="inp" type={showPwd ? 'text' : 'password'} placeholder="Password"
+              value={password} onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              style={{ paddingRight: '2.5rem' }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd(!showPwd)}
+              style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--text2)', padding: 0, lineHeight: 1 }}
+            >
+              {showPwd ? '🙈' : '👁️'}
+            </button>
+          </div>
+          {error && <div style={{ fontSize: '0.8rem', color: 'var(--neg)', textAlign: 'center' }}>{error}</div>}
+          <button className="submit-btn" onClick={submit} disabled={loading} style={{ marginTop: '0.5rem' }}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── HOME TAB ───────────────────────────────────────────────────────────
 function HomeTab({ accounts, transactions, physical, investments, onSyncBalances, onImportCSV, fetchAllTransactions }) {
+  if (!physical || !transactions || !accounts) return null;
+
   const [physMonth, setPhysMonth] = useState(new Date().getMonth());
   const [physYear, setPhysYear] = useState(new Date().getFullYear());
   const [moneyMonth, setMoneyMonth] = useState(new Date().getMonth());
@@ -125,7 +194,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   const syncTransactionsFromSheets = async () => {
     try {
       // 1. Ask the backend how many transactions are waiting
-      const checkRes = await fetch(`${API}/sync/check-transactions`, { headers: { 'X-API-KEY': API_KEY } });
+      const checkRes = await fetch(`${API}/sync/check-transactions`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
       const checkData = await checkRes.json();
 
       if (!checkData.success) {
@@ -144,7 +213,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 
       // 3. If confirmed, lock the button and do the actual sync
       setSyncingSheetsTransactions(true);
-      const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'X-API-KEY': API_KEY } });
+      const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
       
       if (data.success) {
@@ -172,6 +241,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   const totalRetPct = latestInv ? parseFloat(latestInv.total_ret_pct || 0) : 0;
 
   const physActive = physical.filter(p => {
+    if (!p.date) return false;
     const d = new Date(p.date);
     return d.getMonth() === physMonth && d.getFullYear() === physYear &&
       (p.gym || p.badminton || p.table_tennis || p.cricket || p.others);
@@ -181,6 +251,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   // Money section: Income/Expenses by month
   const moneyML = `${moneyYear}-${String(moneyMonth+1).padStart(2,'0')}`;
   const moneyTransactions = transactions.filter(t => {
+    if (!t.date) return false;
     const d = new Date(t.date);
     const ml = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     return ml === moneyML;
@@ -1356,7 +1427,7 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
       }));
 
       const res = await fetch(`${API}/transactions`, {
-        method: "POST", headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY }, body: JSON.stringify(payload),
+        method: "POST", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -1477,7 +1548,7 @@ function AddActivityModal({ onAdd, onClose }) {
     setLoading(true);
     try {
       const res = await fetch(`${API}/physical`, {
-        method: "POST", headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY }, body: JSON.stringify(form),
+        method: "POST", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify(form),
       });
       if (res.ok) {
         onAdd(); 
@@ -1758,7 +1829,7 @@ function InvestTab({ investments, onAdd }) {
   const handleSyncToSheets = async () => {
     setSyncingSheets(true);
     try {
-      const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'X-API-KEY': API_KEY } });
+      const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
       if (data.success) {
         alert(data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message);
@@ -1863,6 +1934,7 @@ function InvestTab({ investments, onAdd }) {
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
   const [tab, setTab] = useState(0);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -1878,6 +1950,16 @@ export default function App() {
 
   // --- Theme Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  const logout = () => {
+  localStorage.removeItem('dt_token');
+  setIsLoggedIn(false);
+  setAllTransactionsLoaded(false);
+  setTransactions([]);
+  setAccounts([]);
+  setPhysical([]);
+  setInvestments([]);
+};
 
   useEffect(() => {
     // This injects the theme directly into the HTML tag so CSS can read it
@@ -1926,21 +2008,27 @@ export default function App() {
 
   // Load all transactions (for MoneyTab) - lazy loaded when needed
   const fetchAllTransactions = useCallback(async () => {
-    if (allTransactionsLoaded) return;
+    if (allTransactionsLoaded || !getToken()) return;
     try {
       let allTx = [];
       let offset = 0;
       let hasMore = true;
       
       while (hasMore) {
-        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json());
+        if (!getToken()) break; // stop mid-loop if logged out
+        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, { 
+          headers: { 'Authorization': `Bearer ${getToken()}` } 
+        }).then(r => r.json());
+        if (!res.transactions) break; // stop if response is invalid (e.g. 401)
         allTx = allTx.concat(res.transactions);
         hasMore = res.hasMore;
         offset += 500;
       }
       
-      setTransactions(allTx);
-      setAllTransactionsLoaded(true);
+      if (getToken()) { // only update state if still logged in
+        setTransactions(allTx);
+        setAllTransactionsLoaded(true);
+      }
     } catch(e) {
       console.error("Failed to load all transactions", e);
     }
@@ -1950,10 +2038,10 @@ export default function App() {
     try {
       // Fire ALL 4 requests in parallel to eliminate network waterfall
       const [acc, phy, inv, txRes] = await Promise.all([
-        fetch(`${API}/accounts`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
-        fetch(`${API}/physical`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
-        fetch(`${API}/investments`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json()),
-        fetch(`${API}/transactions?limit=100&offset=0`, { headers: { 'X-API-KEY': API_KEY } }).then(r => r.json())
+        fetch(`${API}/accounts`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
+        fetch(`${API}/physical`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
+        fetch(`${API}/investments`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
+        fetch(`${API}/transactions?limit=100&offset=0`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json())
       ]);
       
       // Merge stored balances into accounts (localStorage takes priority)
@@ -1967,7 +2055,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (isLoggedIn) fetchAll(); }, [fetchAll, isLoggedIn]);
 
   // Load all transactions when MoneyTab is opened
   useEffect(() => {
@@ -1981,7 +2069,7 @@ export default function App() {
 
   const renderTab = () => {
     switch(tab) {
-      case 0: return <HomeTab accounts={accounts} transactions={transactions} physical={physical} investments={investments} onSyncBalances={syncBalances} onImportCSV={importCSV} fetchAllTransactions={fetchAllTransactions} />;      case 1: return <MoneyTab accounts={accounts} transactions={transactions} />;
+      case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} onImportCSV={importCSV} fetchAllTransactions={fetchAllTransactions} />;      case 1: return <MoneyTab accounts={accounts} transactions={transactions} />;
       case 2: return <AddTab accounts={accounts} onAdd={fetchAll} />;
       case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
       case 4: return <InvestTab investments={investments} onAdd={fetchAll} />;
@@ -2085,8 +2173,10 @@ const importCSV = useCallback((csvText) => {
 
 }, [fetchAll]);
 
-  return (
-      <div className="app">
+  if (!isLoggedIn) return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+
+    return (
+    <div className="app">
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
         
@@ -2223,6 +2313,7 @@ const importCSV = useCallback((csvText) => {
       <div className="main-area">
         <header className="topbar">
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button 
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             style={{ 
@@ -2245,8 +2336,13 @@ const importCSV = useCallback((csvText) => {
           >
             {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
           </button>
-        </header>
-        <main className="page-body" key={tab}>
+  
+        <button onClick={logout} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.4rem 0.8rem', color: 'var(--text)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+          🚪 Logout
+        </button>
+      </div>
+      </header>        
+      <main className="page-body" key={tab}>
           {renderTab()}
         </main>
       </div>
