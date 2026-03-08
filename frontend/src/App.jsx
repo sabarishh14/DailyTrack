@@ -1900,7 +1900,7 @@ function InvestTab({ investments, onAdd }) {
         method: 'POST',
         headers: { 
   'Content-Type': 'application/json',
-  'X-API-KEY': API_KEY 
+  'Authorization': `Bearer ${getToken()}` 
 },
         body: JSON.stringify({ request_token: token })
       });
@@ -2185,7 +2185,7 @@ export default function App() {
         method: 'PUT',
         headers: { 
   'Content-Type': 'application/json',
-  'X-API-KEY': API_KEY 
+  'Authorization': `Bearer ${getToken()}` 
 },
         body: JSON.stringify({ account, balance: parseFloat(balance) }),
       })
@@ -2260,7 +2260,7 @@ const importCSV = useCallback((csvText) => {
     method: 'POST',
     headers: { 
   'Content-Type': 'application/json',
-  'X-API-KEY': API_KEY 
+  'Authorization': `Bearer ${getToken()}` 
 },
     body: JSON.stringify(parsed),
   })
