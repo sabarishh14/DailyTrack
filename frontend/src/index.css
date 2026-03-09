@@ -255,8 +255,17 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto; /* Enable scroll before it gets cut */
+  overflow-y: hidden;
 }
+
+/* Force a minimum width so Category & Description don't disappear */
+/* Add this right after .tx-row */
+.tx-table-head, .tx-row {
+  min-width: 100%;
+  width: max-content; /* Forces the row to stretch so the scrollbar actually works! */
+}
+
 .tx-table-head {
   display: grid;
   gap: 0;
@@ -321,7 +330,14 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   align-items: center;
   border-right: 1px solid rgba(255,255,255,0.04);
 }
-.tx-row > span:last-child { border-right: none; }
+.tx-row > span:last-child { 
+  border-right: none; 
+  padding-right: 2.5rem; /* Adds beautiful blank space after descriptions */
+}
+.tx-col-header:last-child {
+  padding-right: 2.5rem; 
+  min-width: 300px; /* Forces the header background to stretch exactly identically to the rows below it! */
+}
 
 .tx-date { font-size: 0.82rem; color: var(--text3); font-weight: 500; font-variant-numeric: tabular-nums; }
 .tx-account { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text); font-weight: 500; white-space: nowrap; }
@@ -343,7 +359,14 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .tx-month { font-size: 0.82rem; color: var(--text3); font-weight: 500; white-space: nowrap; }
 .tx-amount { font-family: 'Syne', sans-serif; font-size: 0.92rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tx-heading { font-size: 0.85rem; color: var(--text); font-weight: 500; }
-.tx-desc { font-size: 0.8rem; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-desc { 
+  font-size: 0.8rem; 
+  color: var(--text2); 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  min-width: 300px; /* Ensures the text has plenty of room before adding the ... */
+}
 
 .tx-stats-bar {
   display: flex; justify-content: space-between; align-items: center;
@@ -537,6 +560,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 .table-header > span:last-child, .table-row > span:last-child { 
   border-right: none; 
+  padding-right: 2.5rem; /* Adds blank space at the right edge */
 }
 
 /* Ensure inline centering still works smoothly with flex cells */
@@ -724,7 +748,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   /* Force transaction rows to have identical widths so alternating backgrounds stretch perfectly */
   .tx-table-head, .tx-row { 
     min-width: 1050px; 
-    width: 100%; 
+    width: max-content; /* Changed from 100% so the background doesn't cut off early */
   }
   
   /* Force Gym and Invest tables to be wide enough so columns don't squish */
@@ -773,7 +797,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   .mobile-nav-icon { font-size: 1.25rem; }
   
   /* Prevent the page content from getting hidden behind the new bottom bar */
-  .page-body { padding-bottom: 90px !important; }
+  .page-body { 
+    padding-bottom: 140px !important; /* Increased to clear phone safe areas */
+  }
 }
 
 @media (max-width: 480px) {
