@@ -69,7 +69,7 @@ const TABS = [
   { id: 4, icon: "📈", label: "Investments" },
 ];
 
-const TAB_TITLES = ["Dashboard", "Money Tracker", "Add Transaction", "Gym & Activity", "Investment Tracker"];
+const TAB_TITLES = ["Dashboard", "Money", "Add Transaction", "Gym & Activity", "Investments"];
 
 function fmt(n) {
   if (n === undefined || n === null || isNaN(n)) return "₹0";

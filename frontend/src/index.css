@@ -731,8 +731,34 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
     line-height: 1.4; 
   }
   
-  .filter-bar { gap: 0.5rem; justify-content: space-between; }
-  .filter-chip { flex: 1 1 calc(50% - 0.5rem); justify-content: center; }
+/* 📱 Clean Mobile Filter Grid */
+  .filter-bar { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 0.75rem; 
+  }
+  
+  /* Make the dropdown wrappers and buttons fill the grid cells */
+  .filter-bar > div { width: 100%; }
+  .filter-bar .filter-chip { width: 100%; justify-content: space-between; }
+  
+  /* Make the Date Picker span the full width */
+  .filter-bar > div:nth-child(5) {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+  
+  /* Make the Search Input span the full width */
+  .filter-bar > input.inp {
+    grid-column: 1 / -1;
+    width: 100% !important;
+  }
+  
+  /* Make the Clear All button span the full width */
+  .filter-bar > button.filter-chip {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
 
   .mobile-bottom-nav {
     display: flex; position: fixed; bottom: 0; left: 0; width: 100%;
