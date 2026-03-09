@@ -58,12 +58,16 @@ KITE_API_SECRET = os.getenv("KITE_API_SECRET")
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check API key (existing method)
+        # 1. ALWAYS bypass auth for CORS preflight OPTIONS requests
+        if request.method == 'OPTIONS':
+            return '', 200
+            
+        # 2. Check API key (existing method)
         api_key = request.headers.get('X-API-KEY')
         if api_key and api_key == API_SECRET_KEY:
             return f(*args, **kwargs)
         
-        # Check JWT token (new method)
+        # 3. Check JWT token (new method)
         auth_header = request.headers.get('Authorization', '')
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
@@ -525,7 +529,67 @@ def edit_transaction(tid):
         print(f"❌ Error updating transaction: {str(e)}")
         db.session.rollback() # Safely undo if something breaks
         return jsonify({"success": False, "message": str(e)})
-    
+
+@app.route('/api/transactions/bulk-edit', methods=['PUT', 'OPTIONS'])
+@require_api_key
+def bulk_edit_transactions():
+    try:
+        updates = request.json  # Expecting a list of transaction dictionaries
+        if not isinstance(updates, list):
+            return jsonify({"success": False, "message": "Invalid payload format."}), 400
+
+        updated_count = 0
+
+        for data in updates:
+            tx_id = data.get('id')
+            tx = Transaction.query.filter_by(id=tx_id).first()
+
+            if not tx:
+                continue  # Skip if ID not found somehow
+
+            # 1. REVERT the old transaction's impact on the balance
+            old_account = Account.query.filter_by(account=tx.account).first()
+            if old_account and old_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                if tx.type == 'credit':
+                    old_account.balance -= tx.amount
+                elif tx.type in ['debit', 'savings']:
+                    old_account.balance += tx.amount
+
+            # 2. UPDATE the transaction fields
+            date_str = data['date']
+            if 'T' in date_str:
+                date_str = date_str.split('T')[0]
+                
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            tx.date = date_obj
+            tx.month = date_obj.replace(day=1)
+            tx.type = data['type']
+            tx.heading = data['heading']
+            tx.description = data.get('description', '')
+            tx.amount = float(data['amount'])
+            tx.account = data['account']
+            
+            # Mark as unsynced so Google Sheets catches the changes
+            tx.synced = False 
+
+            # 3. APPLY the new transaction's impact on the balance
+            new_account = Account.query.filter_by(account=tx.account).first()
+            if new_account and new_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                if tx.type == 'credit':
+                    new_account.balance += tx.amount
+                elif tx.type in ['debit', 'savings']:
+                    new_account.balance -= tx.amount
+            
+            updated_count += 1
+
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Successfully updated {updated_count} transactions!"})
+
+    except Exception as e:
+        print(f"❌ Error in bulk edit: {str(e)}")
+        db.session.rollback() # Safely undo everything if one breaks
+        return jsonify({"success": False, "message": str(e)})
+      
 # ---- PHYSICAL ACTIVITY ----
 @app.route('/api/physical', methods=['GET'])
 @require_api_key  # <-- Add this line to protect the route

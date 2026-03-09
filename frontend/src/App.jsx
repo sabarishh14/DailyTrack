@@ -512,6 +512,8 @@ function CustomPieTooltip({ active, payload, pieData }) {
 function MoneyTab({ accounts, transactions, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const dropdownRef = useRef(null);
   
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
@@ -546,7 +548,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
   /// Change actions: 90 to actions: 130
-  const [colWidths, setColWidths] = useState({ date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
+  const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -841,6 +843,37 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         )}
       </div>
     );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === paginatedRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedRows.map(t => t.id)));
+    }
+  };
+
+  const toggleSelection = (id) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} transactions?`)) return;
+    try {
+      // Delete them all in parallel via the existing route
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          fetch(`${API}/transactions/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } })
+        )
+      );
+      setSelectedIds(new Set());
+      onRefresh(); // Refresh balances and list
+    } catch (e) {
+      alert("Error deleting some transactions: " + e.message);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -1347,7 +1380,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
 
         {/* Transactions List */}
         <div className="tx-table-wrap">
-          <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
+          <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
+            <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={handleSelectAll}>
+              <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'checked' : ''}`} />
+            </div>
             <div className="tx-col-header" onClick={() => handleSortClick('date')}>
               <span>Date</span>
               {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
@@ -1391,7 +1427,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
               const d = new Date(t.date);
               const monthLabel = d.toLocaleString('default', { month: 'short', year: '2-digit' });
               return (
-                <div key={i} className="tx-row" style={{ gridTemplateColumns: `${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
+                <div key={i} className="tx-row" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
+                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={() => toggleSelection(t.id)}>
+                    <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'checked' : ''}`} />
+                  </span>
                   <span className="tx-date">{formatDate(t.date)}</span>
                   <span className="tx-account">
                     <span>{getBankEmoji(t.account)}</span>
@@ -1413,6 +1452,26 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             })
           ) : (
             <div className="empty-state">📭 No transactions match your filters</div>
+          )}
+          {/* Floating Action Bar */}
+          {selectedIds.size > 0 && (
+            <div className="floating-action-bar">
+              <span className="fab-text">{selectedIds.size} selected</span>
+              <div className="fab-actions">
+                <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ Edit</button>
+                <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ Delete</button>
+                <button className="action-btn secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '0.45rem 1rem' }}>✕</button>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Edit Modal */}
+          {isBulkEditOpen && (
+            <BulkEditTransactionModal 
+              transactions={transactions.filter(t => selectedIds.has(t.id))} 
+              onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} 
+              onRefresh={onRefresh} 
+            />
           )}
         </div>
       </section>
@@ -1751,6 +1810,91 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
           <button className={`submit-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ width: '100%', marginTop: '1.5rem' }}>
             {loading ? "Saving..." : success ? "✅ Updated!" : "Save Changes"}
           </button>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
+  // Pre-fill the grid with all selected transactions
+  const [rows, setRows] = useState(
+    transactions.map(tx => ({
+      ...tx,
+      date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : ''
+    }))
+  );
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const updateRow = (id, field, value) => {
+    setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
+  };
+
+  const submit = async () => {
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].amount || isNaN(rows[i].amount) || !rows[i].heading.trim()) {
+        return alert(`Row ${i + 1} is missing a valid amount or category.`);
+      }
+    }
+    setLoading(true);
+    try {
+      const payload = rows.map(r => ({ ...r, amount: parseFloat(r.amount) }));
+      const res = await fetch(`${API}/transactions/bulk-edit`, {
+        method: "PUT", 
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, 
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        onRefresh(); 
+        setSuccess(true);
+        setTimeout(() => { setSuccess(false); onClose(); }, 1500);
+      } else {
+        alert("Failed to update transactions.");
+      }
+    } catch (e) {
+      alert("Network error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">✏️ Bulk Edit Transactions</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+          
+          <div className="bulk-grid bulk-header">
+            <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span>
+          </div>
+
+          {rows.map((row) => (
+            <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
+              <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
+              </select>
+              <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
+              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
+                <option value="debit">🔴 Debit</option>
+                <option value="credit">🟢 Credit</option>
+                <option value="savings">💰 Savings</option>
+              </select>
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={CATEGORIES} placeholder="Category" />
+              <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
+              <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+            <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
+              {loading ? "Saving..." : success ? "✅ Saved!" : `💾 Save All (${rows.length})`}
+            </button>
+          </div>
 
         </div>
       </div>

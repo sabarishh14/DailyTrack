@@ -266,7 +266,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 
 .tx-table-head, .tx-row {
-  min-width: 1160px; /* Increased to permanently safely wrap the new 250px Description column! */
+  min-width: 1220px; /* Fits all columns + the new checkbox! */
   width: 100%; 
   display: grid;
   gap: 0;
@@ -1010,4 +1010,42 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .action-icon-btn.delete:hover {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+/* ── FLOATING ACTION BAR ─── */
+.floating-action-bar {
+  position: fixed;
+  bottom: 2rem;
+  
+  /* The Fix: Center using margin instead of transform! */
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content; 
+  
+  background: var(--card2);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2);
+  z-index: 1000;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fab-text { font-weight: 700; color: var(--text); font-size: 0.9rem; }
+.fab-actions { display: flex; gap: 0.5rem; }
+
+/* Make checkboxes visible in Light Mode */
+[data-theme="light"] .chip-checkbox { border-color: var(--border2); background: white; }
+
+@media (max-width: 768px) {
+  .floating-action-bar {
+    bottom: 85px; /* Above the mobile nav */
+    width: 90%;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
 }
