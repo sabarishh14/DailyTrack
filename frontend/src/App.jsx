@@ -88,6 +88,13 @@ function formatDate(dateStr) {
 }
 
 function LoadingScreen() {
+  const [showWakeMsg, setShowWakeMsg] = useState(false);
+  useEffect(() => {
+    // Show wake up message if loading takes more than 3 seconds
+    const timer = setTimeout(() => setShowWakeMsg(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '1.5rem' }}>
       <span className="logo-name" style={{ fontSize: '2rem' }}>DailyTrack</span>
@@ -101,6 +108,12 @@ function LoadingScreen() {
           }} />
         ))}
       </div>
+      {showWakeMsg && (
+        <div style={{ color: 'var(--text2)', fontSize: '0.9rem', marginTop: '1rem', animation: 'fadeIn 0.5s ease', textAlign: 'center' }}>
+          Waking up the server...<br/>
+          <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>(This can take up to 1-2 minutes on free tiers)</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1622,10 +1635,11 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1500);
       } else {
-        alert("Failed to save transactions.");
+        const errText = await res.text();
+        alert(`Failed to save. Server returned: ${res.status}\n${errText.substring(0, 100)}`);
       }
     } catch (e) {
-      alert("Network error: " + e.message);
+      alert("Network error: " + e.message + "\n\nIf the server was asleep, please wait 15 seconds and click Save again. You will not lose your typed data.");
     } finally {
       setLoading(false);
     }
@@ -2336,6 +2350,16 @@ export default function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Keep Hugging Face Space awake while the tab is open!
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const pingInterval = setInterval(() => {
+      // Pings the /test-db route every 3 minutes
+      fetch(API.replace('/api', '/test-db')).catch(() => {});
+    }, 3 * 60 * 1000); 
+    return () => clearInterval(pingInterval);
+  }, [isLoggedIn]);
+
   const startResizing = useCallback((e) => {
     e.preventDefault();
     setIsResizing(true);
@@ -2429,12 +2453,15 @@ export default function App() {
       setAllTransactionsLoaded(false); // Mark as not fully loaded yet
       setPhysical(phy);
       setInvestments(inv);
+      
+      // ONLY stop loading if we successfully reached this point
+      if (showLoading) setAppLoading(false); 
     } catch(e) {
-      console.error("API error — retrying in 2s...", e);
-      setTimeout(() => fetchAll(false), 2000);
-    } finally {
-      setAppLoading(false);
+      console.error("API error — retrying in 3s...", e);
+      // Pass showLoading back in so the loading screen STAYS up while retrying
+      setTimeout(() => fetchAll(showLoading), 3000); 
     }
+    // REMOVED the finally block! This prevents the blank screen glitch.
   }, []);
 
   useEffect(() => { if (isLoggedIn) fetchAll(true); }, [fetchAll, isLoggedIn]);

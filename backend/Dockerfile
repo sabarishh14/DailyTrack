@@ -1,15 +1,26 @@
-# 1. Use a lightweight, stable Python 3.11 environment
-FROM python:3.11-slim
+FROM python:3.10-slim
 
-# 2. Set the working directory inside the container
+# Create the user first
+RUN useradd -m -u 1000 user
+
+# Explicitly create /app and give the user ownership
+RUN mkdir -p /app && chown -R user:user /app
+
 WORKDIR /app
 
-# 3. Copy your requirements and install them
+# Install dependencies 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Copy the rest of your backend code
-COPY . .
+# Copy your actual backend code
+COPY --chown=user:user . .
 
-# 5. Run Gunicorn, binding to Cloud Run's dynamic PORT
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
+# Hugging Face Spaces require running on port 7860
+EXPOSE 7860
+
+# Switch to the non-root user
+USER user
+
+# Run the app with Gunicorn
+# Note: If your main Python file is named something other than app.py, change "app:app" to "filename:app"
+CMD ["gunicorn", "-b", "0.0.0.0:7860", "app:app", "--timeout", "120", "--workers", "1", "--threads", "4"]
