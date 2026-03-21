@@ -375,7 +375,8 @@ def get_transactions():
     # Limit max results to prevent abuse
     limit = min(limit, 500)
     
-    query = Transaction.query.order_by(Transaction.date.desc())
+    # Sort by date first, then by the timestamp ID (newest added at the top)
+    query = Transaction.query.order_by(Transaction.date.desc(), Transaction.id.desc())
     
     # Apply month filter if provided
     if month_filter:

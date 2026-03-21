@@ -714,9 +714,13 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       }
       
       if (typeof aVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        const res = sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        // Tie-breaker: If dates/strings are identical, show the most recently added first
+        return res !== 0 ? res : b.id - a.id; 
       } else {
-        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+        const res = sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+        // Tie-breaker: If numbers are identical, show the most recently added first
+        return res !== 0 ? res : b.id - a.id; 
       }
     });
   }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]);
