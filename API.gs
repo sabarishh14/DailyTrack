@@ -85,116 +85,178 @@
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
-    
-    // Determine if it's the new structured payload or the old transaction array
     const type = payload.type || "transactions";
     const data = payload.data || payload; 
     const records = Array.isArray(data) ? data : [data];
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // --- TRANSACTIONS LOGIC ---
-    // --- TRANSACTIONS LOGIC ---
+    // ==========================================
+    // 1. INSERT OR EDIT TRANSACTIONS
+    // ==========================================
     if (type === "transactions") {
       let errors = [];
       let inserted = 0;
 
       records.forEach(tx => {
-        const { date, month, type, heading, description, amount, account } = tx;
+        const { date, month, type: rawType, heading, description, amount, account } = tx;
         const id = tx.id || Utilities.getUuid();
         const createdAt = new Date();
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
 
         let sheetName = account;
-        if (account === "Cash") {
-          sheetName = "IDBI";
-        } else if (account && account.startsWith("CC")) {
-          sheetName = "CreditCard";
-        }
+        if (account === "Cash") sheetName = "IDBI";
+        else if (account && account.startsWith("CC")) sheetName = "CreditCard";
 
         const sheet = ss.getSheetByName(sheetName);
-        if (!sheet) {
-          errors.push(sheetName);
-          return; 
-        }
+        if (!sheet) { errors.push(sheetName); return; }
 
         const txDate = new Date(date);
         txDate.setHours(0, 0, 0, 0);
-
+        const formattedType = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : "";
         const lastUsed = sheet.getLastRow();
-        let insertRow = lastUsed + 1; // Default to appending at the bottom
 
-        // 1. Find chronological insertion point
+        // Check if ID already exists (EDIT LOGIC)
+        let existingRow = -1;
         if (lastUsed >= 2) {
-          const dateValues = sheet.getRange(2, 1, lastUsed - 1, 1).getValues();
-          for (let i = 0; i < dateValues.length; i++) {
-            const cellVal = dateValues[i][0];
-            if (!cellVal) continue;
-            
-            const cellDate = new Date(cellVal);
-            cellDate.setHours(0, 0, 0, 0);
-            
-            if (cellDate > txDate) {
-              insertRow = i + 2; 
-              break;
-            }
+          const idValues = sheet.getRange(2, 10, lastUsed - 1, 1).getValues(); // Col J
+          for (let i = 0; i < idValues.length; i++) {
+            if (idValues[i][0] == id) { existingRow = i + 2; break; }
           }
         }
 
-        // 2. Insert row if it belongs in the middle
-        if (insertRow <= lastUsed) {
-          sheet.insertRowBefore(insertRow);
+        if (existingRow !== -1) {
+          sheet.getRange(existingRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
+          sheet.getRange(existingRow, sheetName === "IDBI" ? 9 : 8).setValue(account);
+          inserted++;
+          SpreadsheetApp.flush();
+          return; 
         }
 
-        // 3. Insert the main data
-        sheet.getRange(insertRow, 1, 1, 8).setValues([[
-          new Date(date), month, type, heading, description, amount, id, createdAt
-        ]]);
+        // Chronological insertion (NEW TRANSACTION LOGIC)
+        const colA = sheet.getRange(1, 1, lastUsed).getValues();
+        let lastDataRow = 0;
+        for (let i = colA.length - 1; i >= 0; i--) {
+          if (colA[i][0] !== "") { lastDataRow = i + 1; break; }
+        }
 
-        // 4. Handle Formulas and maintain the balance chain!
-        const sourceRow = (insertRow > 2) ? insertRow - 1 : (lastUsed >= 2 ? insertRow + 1 : 0);
+        let insertRow = lastDataRow + 1; 
+        if (lastDataRow >= 2) {
+          const dateValues = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
+          for (let i = 0; i < dateValues.length; i++) {
+            if (!dateValues[i][0]) continue;
+            const cellDate = new Date(dateValues[i][0]);
+            cellDate.setHours(0, 0, 0, 0);
+            if (cellDate > txDate) { insertRow = i + 2; break; }
+          }
+        }
+
+        sheet.insertRowBefore(insertRow);
+        sheet.getRange(insertRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
+        const sourceRow = (insertRow > 2) ? insertRow - 1 : (lastDataRow >= 2 ? insertRow + 1 : 0);
 
         if (sheetName === "IDBI") {
           if (sourceRow > 0) {
-            sheet.getRange(sourceRow, 7, 1, 2).copyTo(sheet.getRange(insertRow, 7, 1, 2));
-            // Repair the formula chain for the row that got pushed down
-            if (insertRow <= lastUsed) {
-              sheet.getRange(insertRow, 7, 1, 2).copyTo(sheet.getRange(insertRow + 1, 7, 1, 2));
-            }
+            sheet.getRange(sourceRow, 7, 1, 2).copyTo(sheet.getRange(insertRow, 7, 1, 2)); 
+            if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7, 1, 2).copyTo(sheet.getRange(insertRow + 1, 7, 1, 2));
           }
-          sheet.getRange(insertRow, 9).setValue(account);
+          sheet.getRange(insertRow, 9).setValue(account); 
         } else {
           if (sourceRow > 0) {
-            sheet.getRange(sourceRow, 7).copyTo(sheet.getRange(insertRow, 7));
-            // Repair the formula chain for the row that got pushed down
-            if (insertRow <= lastUsed) {
-              sheet.getRange(insertRow, 7).copyTo(sheet.getRange(insertRow + 1, 7));
-            }
+            sheet.getRange(sourceRow, 7).copyTo(sheet.getRange(insertRow, 7)); 
+            if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7).copyTo(sheet.getRange(insertRow + 1, 7));
           }
-          sheet.getRange(insertRow, 8).setValue(account);
+          sheet.getRange(insertRow, 8).setValue(account); 
         }
 
+        sheet.getRange(insertRow, 10, 1, 2).setValues([[id, createdAt]]);
         inserted++;
-
-        // 5. CRITICAL: Force the sheet to update immediately so the next loop cycle calculates rows properly
-        SpreadsheetApp.flush();
+        SpreadsheetApp.flush(); 
       });
 
-      if (errors.length > 0) {
-        const uniqueErrors = [...new Set(errors)].join(", ");
-        return ContentService.createTextOutput(JSON.stringify({
-          status: "success", 
-          message: `${inserted} inserted. Skipped missing sheets: ${uniqueErrors}`
-        })).setMimeType(ContentService.MimeType.JSON);
+      const msg = errors.length > 0 ? `${inserted} inserted. Skipped missing: ${[...new Set(errors)].join(", ")}` : `${inserted} transactions processed`;
+      return ContentService.createTextOutput(JSON.stringify({status: "success", message: msg})).setMimeType(ContentService.MimeType.JSON);
+    } 
+    
+    // ==========================================
+    // 2. SINGLE DELETE
+    // ==========================================
+    else if (type === "delete_transaction") {
+      const { id, account } = data;
+      let sheetName = account;
+      if (account === "Cash") sheetName = "IDBI";
+      else if (account && account.startsWith("CC")) sheetName = "CreditCard";
+
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Sheet not found"})).setMimeType(ContentService.MimeType.JSON);
+
+      const lastUsed = sheet.getLastRow();
+      if (lastUsed < 2) return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.JSON);
+
+      const idValues = sheet.getRange(2, 10, lastUsed - 1, 1).getValues(); 
+      let rowIndex = -1;
+      
+      for (let i = 0; i < idValues.length; i++) {
+        if (idValues[i][0] == id) { rowIndex = i + 2; break; }
       }
 
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "success", 
-        message: `${inserted} transactions inserted`
-      })).setMimeType(ContentService.MimeType.JSON);
+      if (rowIndex !== -1) {
+        sheet.deleteRow(rowIndex);
+        if (rowIndex > 2 && rowIndex <= sheet.getLastRow()) {
+          if (sheetName === "IDBI") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
+          else sheet.getRange(rowIndex - 1, 7).copyTo(sheet.getRange(rowIndex, 7));
+        }
+        SpreadsheetApp.flush();
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: "success", message: "Transaction deleted"})).setMimeType(ContentService.MimeType.JSON);
     }
-    
-    // --- INVESTMENTS LOGIC ---
+
+    // ==========================================
+    // 3. BULK DELETE
+    // ==========================================
+    else if (type === "bulk_delete_transactions") {
+      let deletedCount = 0;
+      const sheetDeletes = {};
+      
+      records.forEach(item => {
+        let sName = item.account;
+        if (sName === "Cash") sName = "IDBI";
+        else if (sName && sName.startsWith("CC")) sName = "CreditCard";
+        if (!sheetDeletes[sName]) sheetDeletes[sName] = [];
+        sheetDeletes[sName].push(item.id.toString());
+      });
+
+      for (const sheetName in sheetDeletes) {
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) continue;
+
+        const idsToDelete = sheetDeletes[sheetName];
+        const lastUsed = sheet.getLastRow();
+        if (lastUsed < 2) continue;
+
+        const idValues = sheet.getRange(2, 10, lastUsed - 1, 1).getValues();
+        let rowsToDelete = [];
+        
+        for (let i = 0; i < idValues.length; i++) {
+          if (idsToDelete.includes(idValues[i][0].toString())) rowsToDelete.push(i + 2);
+        }
+
+        // Delete from bottom to top so indices don't shift
+        rowsToDelete.sort((a, b) => b - a).forEach(rowIndex => {
+          sheet.deleteRow(rowIndex);
+          if (rowIndex > 2 && rowIndex <= sheet.getLastRow()) {
+            if (sheetName === "IDBI") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
+            else sheet.getRange(rowIndex - 1, 7).copyTo(sheet.getRange(rowIndex, 7));
+          }
+          deletedCount++;
+        });
+      }
+      SpreadsheetApp.flush();
+      return ContentService.createTextOutput(JSON.stringify({status: "success", message: `${deletedCount} transactions bulk deleted cleanly`})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ==========================================
+    // 4. INVESTMENTS LOGIC
+    // ==========================================
     else if (type === "investments") {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
       const sheet = ss.getSheetByName("INVES-T-RACKER");
       if (!sheet) return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Sheet INVES-T-RACKER not found"})).setMimeType(ContentService.MimeType.JSON);
 
@@ -202,31 +264,27 @@ function doPost(e) {
       records.forEach(inv => {
         const snapshotDate = new Date(inv.date);
         const snapshotStr = Utilities.formatDate(snapshotDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
-        
         const lastRow = sheet.getLastRow();
         if (lastRow < 2) return;
 
-        // Prevent duplicates
         const dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
         const exists = dates.some(d => {
           if (!d[0]) return false;
           const cellStr = (d[0] instanceof Date) ? Utilities.formatDate(d[0], Session.getScriptTimeZone(), "dd/MM/yyyy") : d[0].toString();
           return cellStr === snapshotStr || d[0] === inv.date;
         });
-        
-        if (exists) return; // Skip if already exists
-
+        if (exists) return; 
+  
         const prevRow = lastRow;
-        const prevValues = sheet.getRange(prevRow, 2, 1, 4).getValues()[0]; // Copy B-E
-        const prevFormulasR1C1 = sheet.getRange(prevRow, 8, 1, 6).getFormulasR1C1(); // Copy H-M formulas
+        const prevValues = sheet.getRange(prevRow, 2, 1, 4).getValues()[0]; 
+        const prevFormulasR1C1 = sheet.getRange(prevRow, 8, 1, 6).getFormulasR1C1(); 
 
         sheet.insertRowAfter(prevRow);
         const newRow = prevRow + 1;
-
         sheet.getRange(newRow, 1).setValue(snapshotDate).setNumberFormat("dd/MM/yyyy");
         sheet.getRange(newRow, 2, 1, 4).setValues([prevValues]);
-        sheet.getRange(newRow, 6, 1, 2).setValues([[inv.total_inv, inv.total_curr]]); // Set F-G
-        sheet.getRange(newRow, 8, 1, 6).setFormulasR1C1(prevFormulasR1C1); // Set H-M
+        sheet.getRange(newRow, 6, 1, 2).setValues([[inv.total_inv, inv.total_curr]]);
+        sheet.getRange(newRow, 8, 1, 6).setFormulasR1C1(prevFormulasR1C1);
         
         inserted++;
       });

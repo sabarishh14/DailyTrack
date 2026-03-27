@@ -478,6 +478,17 @@ def delete_transaction(tid):
             account.balance -= tx.amount
         elif tx.type.lower() == "debit":
             account.balance += tx.amount
+    try:
+        payload = {
+            "type": "delete_transaction",
+            "data": {
+                "id": str(tx.id),
+                "account": tx.account
+            }
+        }
+        requests.post(SHEETS_URL, json=payload, timeout=5)
+    except Exception as e:
+        print("Failed to sync delete to sheets:", e)
 
     db.session.delete(tx)
     db.session.commit()
@@ -590,7 +601,54 @@ def bulk_edit_transactions():
         print(f"❌ Error in bulk edit: {str(e)}")
         db.session.rollback() # Safely undo everything if one breaks
         return jsonify({"success": False, "message": str(e)})
-      
+
+@app.route('/api/transactions/bulk-delete', methods=['POST', 'OPTIONS'])
+@require_api_key
+def bulk_delete_transactions():
+    if request.method == 'OPTIONS':
+        return '', 200
+    try:
+        ids = request.json
+        if not isinstance(ids, list):
+            return jsonify({"success": False, "message": "Invalid payload format."}), 400
+
+        deleted_data = []
+
+        for tid in ids:
+            tx = Transaction.query.filter_by(id=tid).first()
+            if not tx:
+                continue
+
+            # Revert the balance
+            account = Account.query.filter_by(account=tx.account).first()
+            if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                if tx.type.lower() == "credit":
+                    account.balance -= tx.amount
+                elif tx.type.lower() in ["debit", "savings"]:
+                    account.balance += tx.amount
+
+            # Track it and delete from DB
+            deleted_data.append({"id": str(tx.id), "account": tx.account})
+            db.session.delete(tx)
+
+        # Send ONE single bulk delete webhook to Google Sheets
+        if deleted_data:
+            try:
+                payload = {
+                    "type": "bulk_delete_transactions",
+                    "data": deleted_data
+                }
+                requests.post(SHEETS_URL, json=payload, timeout=10)
+            except Exception as e:
+                print("Failed to sync bulk delete to sheets:", e)
+
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Successfully deleted {len(deleted_data)} transactions!"})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+    
 # ---- PHYSICAL ACTIVITY ----
 @app.route('/api/physical', methods=['GET'])
 @require_api_key  # <-- Add this line to protect the route

@@ -880,14 +880,19 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const handleBulkDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} transactions?`)) return;
     try {
-      // Delete them all in parallel via the existing route
-      await Promise.all(
-        Array.from(selectedIds).map(id =>
-          fetch(`${API}/transactions/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } })
-        )
-      );
-      setSelectedIds(new Set());
-      onRefresh(); // Refresh balances and list
+      // Send ONE single array of IDs to the backend
+      const res = await fetch(`${API}/transactions/bulk-delete`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify(Array.from(selectedIds))
+      });
+      
+      if (res.ok) {
+        setSelectedIds(new Set());
+        onRefresh(); // Refresh balances and list
+      } else {
+        alert("Failed to delete transactions.");
+      }
     } catch (e) {
       alert("Error deleting some transactions: " + e.message);
     }
