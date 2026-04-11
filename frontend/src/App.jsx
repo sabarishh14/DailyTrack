@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 
@@ -1584,7 +1584,10 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
         type="text" className="bulk-inp" placeholder={placeholder} 
         value={value} onChange={handleType} onKeyDown={handleKeyDown}
         onFocus={() => { 
-          setFiltered(options.filter(o => o.toLowerCase().includes(value.toLowerCase()))); 
+          const lowerVal = value.toLowerCase();
+          const startsWith = options.filter(o => o.toLowerCase().startsWith(lowerVal));
+          const contains = options.filter(o => o.toLowerCase().includes(lowerVal) && !o.toLowerCase().startsWith(lowerVal));
+          setFiltered([...startsWith, ...contains]); 
           setShow(true); 
         }}
         onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)} 
@@ -1616,6 +1619,12 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
       .map(t => t.description)
       .filter(desc => desc && desc.trim() !== '')
   )];
+
+  // Get all unique types from transactions, with sensible defaults if empty
+  const allTransactionTypes = useMemo(() => {
+    const types = [...new Set((transactions || []).map(t => t.type).filter(Boolean))];
+    return types.length > 0 ? types.sort() : ['Debit', 'Credit', 'Savings'];
+  }, [transactions]);
 
   // Create a factory for a fresh row
   const createEmptyRow = () => ({
@@ -1722,9 +1731,7 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
               <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
               
               <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
-                <option value="Debit">🔴 Debit</option>
-                <option value="Credit">🟢 Credit</option>
-                <option value="Savings">💰 Savings</option>
+                {allTransactionTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
 
               {/* Using a datalist for category autocomplete without messy z-index dropdowns in a grid */}
@@ -2140,6 +2147,31 @@ function InvestTab({ investments, onAdd }) {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tokenStr, setTokenStr] = useState("");
   const [syncingSheets, setSyncingSheets] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [selectedFund, setSelectedFund] = useState("");
+  const [drillDownDate, setDrillDownDate] = useState(null);
+  const [drillDownData, setDrillDownData] = useState([]);
+  
+  // Fetch chart data
+  useEffect(() => {
+    const fetchHistory = async () => {
+      const url = selectedFund 
+        ? `${API}/investments/history?symbol=${encodeURIComponent(selectedFund)}`
+        : `${API}/investments/history`;
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const data = await res.json();
+      setHistoryData(data);
+    };
+    fetchHistory();
+  }, [selectedFund]);
+
+  // Fetch drill-down data when a date is clicked
+  const handleRowClick = async (dateStr) => {
+    const res = await fetch(`${API}/investments/${dateStr}/holdings`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+    const data = await res.json();
+    setDrillDownData(data);
+    setDrillDownDate(dateStr);
+  };
 
   // Get unique months for the dropdown filter
   const allMonths = useMemo(() => {
@@ -2327,6 +2359,34 @@ function InvestTab({ investments, onAdd }) {
           </div>
         )}
       </div>
+      
+      {/* Investment Analyser */}
+      <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 className="section-title" style={{ margin: 0 }}>📈 Investment Analyser</h3>
+          <select className="sel" style={{ width: 'auto' }} value={selectedFund} onChange={e => setSelectedFund(e.target.value)}>
+            <option value="">Overall Portfolio</option>
+            {/* If you want a dynamic list of funds here, you can extract unique symbols from drillDownData or pass them from backend */}
+            <option value="NIFTY_50_INDEX">Sample Nifty Fund (Replace with real names)</option>
+          </select>
+        </div>
+        <div style={{ height: '300px', width: '100%' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={historyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="date" stroke="var(--text2)" fontSize={12} tickFormatter={d => formatDate(d)} />
+              <YAxis stroke="var(--text2)" fontSize={12} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+              <Tooltip 
+                contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                formatter={(value) => [`₹${value.toLocaleString()}`, ""]}
+              />
+              <Legend />
+              <Line type="monotone" name="Current Value" dataKey="value" stroke="var(--accent)" strokeWidth={3} dot={false} />
+              <Line type="monotone" name="Invested Amount" dataKey="invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
       {/* Data Table */}
       <div>
@@ -2342,7 +2402,13 @@ function InvestTab({ investments, onAdd }) {
           {processedData.map((inv, i) => {
             const ret = parseFloat(inv.total_curr || 0) - parseFloat(inv.total_inv || 0);
             return (
-              <div key={i} className={`table-row inv-cols ${i%2===0?'row-even':''}`}>
+              <div 
+                key={i} 
+                className={`table-row inv-cols ${i%2===0?'row-even':''}`}
+                onClick={() => handleRowClick(inv.date.split('T')[0])}
+                style={{ cursor: 'pointer' }}
+                title="Click to view individual funds"
+              >
                 <span>{formatDate(inv.date)}</span>
                 <span>{fmt(inv.total_inv)}</span>
                 <span>{fmt(inv.total_curr)}</span>
@@ -2355,6 +2421,40 @@ function InvestTab({ investments, onAdd }) {
           {processedData.length === 0 && <div className="empty-state">No investment snapshots match your filters.</div>}
         </div>
       </div>
+      {/* Drill-down Modal */}
+      {drillDownDate && (
+        <div className="modal-backdrop" onClick={() => setDrillDownDate(null)}>
+          <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Portfolio on {formatDate(drillDownDate)}</div>
+              <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              {drillDownData.length > 0 ? (
+                <div className="data-table">
+                  <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+                    <span>Fund</span><span>Qty</span><span>Avg Price</span><span>NAV</span><span>Invested</span><span>Current</span>
+                  </div>
+                  {drillDownData.map((h, i) => (
+                    <div key={i} className="table-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
+                      <span>{h.quantity.toFixed(2)}</span>
+                      <span>₹{h.average_price.toFixed(2)}</span>
+                      <span>₹{h.nav.toFixed(2)}</span>
+                      <span>₹{h.invested_value.toFixed(0)}</span>
+                      <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>
+                        ₹{h.current_value.toFixed(0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">No individual fund data saved for this date.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

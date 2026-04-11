@@ -158,6 +158,18 @@ class PhysicalActivity(db.Model):
     others = db.Column(db.Boolean, default=False)
     description = db.Column(db.String(255))
 
+class MutualFundHolding(db.Model):
+    __tablename__ = "mf_holdings"
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    date = db.Column(db.Date, nullable=False, index=True)
+    symbol = db.Column(db.String(100), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)
+    average_price = db.Column(db.Float, nullable=False)
+    nav = db.Column(db.Float, nullable=False)
+    invested_value = db.Column(db.Float, nullable=False)
+    current_value = db.Column(db.Float, nullable=False)
+
 class Investment(db.Model):
     __tablename__ = "investments"
 
@@ -809,36 +821,55 @@ def sync_kite_direct():
             return jsonify({"success": False, "message": "No MF holdings found in Kite."})
         print(f"✅ Fetched {len(holdings_data)} holdings")
 
-        # 4. Fetch Instruments (for latest NAV)
+        # 4. Fetch Instruments (for latest NAV and Real Names)
         instruments_res = requests.get("https://api.kite.trade/mf/instruments")
-        
-        # Parse the CSV string into a dictionary: { "tradingsymbol": last_price }
         reader = csv.DictReader(io.StringIO(instruments_res.text))
-        mf_nav_data = {}
+        mf_data_map = {}
         for row in reader:
-            if row.get('last_price') and row.get('tradingsymbol'):
-                mf_nav_data[row['tradingsymbol']] = float(row['last_price'])
-        print("✅ Parsed instruments CSV")
+            if row.get('tradingsymbol'):
+                mf_data_map[row['tradingsymbol']] = {
+                    'nav': float(row.get('last_price', 0) or 0),
+                    'name': row.get('name', row['tradingsymbol'])
+                }
+        print("✅ Parsed instruments CSV for NAVs and Names")
 
-        # 5. Calculate Totals (Replicating your Apps Script logic)
+        # 5. Calculate Totals and Prepare Holdings
         total_inv = 0.0
         total_curr = 0.0
+        daily_holdings = []
 
         for h in holdings_data:
-            symbol = h['tradingsymbol']
+            raw_symbol = h['tradingsymbol']
             qty = float(h['quantity'])
             avg_price = float(h['average_price'])
             
-            nav = mf_nav_data.get(symbol)
-            if not nav:
+            fund_info = mf_data_map.get(raw_symbol)
+            if not fund_info or not fund_info['nav']:
                 continue
+                
+            nav = fund_info['nav']
+            real_name = fund_info['name'] # Extract the actual name
             
-            total_inv += (qty * avg_price)
-            total_curr += (qty * nav)
-
-        # 6. Calculate Returns and Status
+            fund_inv = (qty * avg_price)
+            fund_curr = (qty * nav)
+            
+            total_inv += fund_inv
+            total_curr += fund_curr
+            
+            # Create holding record using the real name
+            daily_holdings.append(MutualFundHolding(
+                id=int(datetime.now().timestamp() * 1000) + len(daily_holdings),
+                date=today_date,
+                symbol=real_name, # <--- Saved as Real Name here
+                quantity=qty,
+                average_price=avg_price,
+                nav=nav,
+                invested_value=fund_inv,
+                current_value=fund_curr
+            ))
+            
+        # 6. Calculate Returns and Status (Keep your existing code here)
         ret_pct = ((total_curr - total_inv) / total_inv * 100) if total_inv > 0 else 0
-        
         prev = Investment.query.filter(Investment.date < today_date).order_by(Investment.date.desc()).first()
         status = "⬆️💹" if not prev or ret_pct >= prev.ret_pct_mf else "⬇️📉"
 
@@ -851,6 +882,7 @@ def sync_kite_direct():
             total_inv=total_inv, total_curr=total_curr, total_ret_pct=ret_pct, total_status=status
         )
         db.session.add(new_inv)
+        db.session.add_all(daily_holdings) # <--- ADD THIS LINE
         db.session.commit()
 
         print(f"✅ Synced to DB! Inv: {total_inv}, Curr: {total_curr}")
@@ -926,6 +958,35 @@ def firebase_login():
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 401
+
+@app.route('/api/investments/<date_str>/holdings', methods=['GET'])
+@require_api_key
+def get_daily_holdings(date_str):
+    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+    holdings = MutualFundHolding.query.filter_by(date=date_obj).all()
+    return jsonify([{
+        "symbol": h.symbol,
+        "quantity": h.quantity,
+        "average_price": h.average_price,
+        "nav": h.nav,
+        "invested_value": h.invested_value,
+        "current_value": h.current_value,
+        "ret_pct": ((h.current_value - h.invested_value) / h.invested_value * 100) if h.invested_value > 0 else 0
+    } for h in holdings])
+
+@app.route('/api/investments/history', methods=['GET'])
+@require_api_key
+def get_investment_history():
+    symbol = request.args.get('symbol') # Optional: specific MF
+    
+    if symbol:
+        history = MutualFundHolding.query.filter_by(symbol=symbol).order_by(MutualFundHolding.date.asc()).all()
+        data = [{"date": h.date.strftime("%Y-%m-%d"), "value": h.current_value, "invested": h.invested_value} for h in history]
+    else:
+        history = Investment.query.order_by(Investment.date.asc()).all()
+        data = [{"date": h.date.strftime("%Y-%m-%d"), "value": h.total_curr, "invested": h.total_inv} for h in history]
+        
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
