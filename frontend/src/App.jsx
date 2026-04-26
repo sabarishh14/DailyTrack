@@ -674,8 +674,8 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     return newSet;
   };
 
-  // Memoize analyzer filtered results
-  const { analyzerFiltered, pieArr } = useMemo(() => {
+ // Memoize analyzer filtered results (with Drill-Down logic)
+  const { analyzerFiltered, pieArr, isShowingDescriptions } = useMemo(() => {
     const filtered = transactions.filter(t => {
       if (!t.date) return false;
       const d = new Date(t.date);
@@ -691,15 +691,21 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       return accountMatch && typeMatch && monthMatch && headingMatch;
     });
 
+    // If exactly one heading is selected, drill down into descriptions!
+    const isShowingDescriptions = chartHeadings.size === 1;
     const pieData = {};
+    
     filtered.forEach(t => { 
-      // Group by description if available, otherwise fall back to category heading
-      const key = (t.description && t.description.trim() !== '') ? t.description.trim() : t.heading;
+      let key = t.heading;
+      if (isShowingDescriptions) {
+        key = (t.description && t.description.trim() !== '') ? t.description.trim() : "No Description";
+      }
       pieData[key] = (pieData[key] || 0) + Math.abs(parseFloat(t.amount)); 
     });
+    
     const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     
-    return { analyzerFiltered: filtered, pieArr: pieArray };
+    return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
   }, [transactions, chartAccounts, chartTypes, chartMonths, chartHeadings]);
 
   // Memoize table filtered and sorted results
@@ -1143,9 +1149,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                       const total = pieArr.reduce((s, x) => s + x.value, 0);
                       const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
                       
-                     // Check if it's a heading or description to highlight it correctly
-                      const isHeading = allHeadings.includes(d.name);
-                      const isSelected = isHeading ? filterHeadings.has(d.name) : filterDesc === d.name;
+                      // Highlight based on whether we are looking at Headings or Descriptions
+                      const isSelected = isShowingDescriptions 
+                        ? filterDesc === d.name 
+                        : filterHeadings.has(d.name);
                       
                       return (
                         <div 
@@ -1178,22 +1185,27 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                             }
                           }}
                           onClick={() => {
-                            if (isSelected) {
-                              if (isHeading) setFilterHeadings(new Set());
-                              else setFilterDesc("");
-                            } else {
-                              if (isHeading) {
-                                setFilterHeadings(new Set([d.name]));
+                            if (isShowingDescriptions) {
+                              // Toggles the description filter for the table below
+                              if (filterDesc === d.name) {
                                 setFilterDesc("");
                               } else {
-                                setFilterDesc(d.name);
-                                setFilterHeadings(new Set());
+                                setFilterDesc(d.name === "No Description" ? "" : d.name);
+                                setFilterHeadings(new Set(chartHeadings));
                               }
-                              setFilterAccounts(new Set(chartAccounts));
-                              setFilterTypes(new Set(chartTypes));
-                              setFilterMonths(new Set(chartMonths));
-                              document.querySelector('.tx-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            } else {
+                              // Drills down the chart AND filters the table below!
+                              setChartHeadings(new Set([d.name]));
+                              setFilterHeadings(new Set([d.name]));
+                              setFilterDesc("");
                             }
+                            
+                            // Sync base table filters with the chart
+                            setFilterAccounts(new Set(chartAccounts));
+                            setFilterTypes(new Set(chartTypes));
+                            setFilterMonths(new Set(chartMonths));
+                            
+                            document.querySelector('.tx-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
