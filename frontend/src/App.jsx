@@ -607,6 +607,9 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
+  const [editingTx, setEditingTx] = useState(null);
+  const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
+  
   /// Change actions: 90 to actions: 130
   const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
 
@@ -1516,8 +1519,14 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
               const d = new Date(t.date);
               const monthLabel = d.toLocaleString('default', { month: 'short', year: '2-digit' });
               return (
-                <div key={i} className="tx-row" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
-                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={() => toggleSelection(t.id)}>
+                <div 
+                  key={i} 
+                  className="tx-row" 
+                  style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
+                  onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
+                >
+                  {/* Add e.stopPropagation() to the checkbox span */}
+                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); toggleSelection(t.id); }}>
                     <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'checked' : ''}`} />
                   </span>
                   <span className="tx-date">{formatDate(t.date)}</span>
@@ -1533,8 +1542,9 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                   <span className="tx-heading">{t.heading}</span>
                   <span className="tx-desc">{t.description || '—'}</span>
                   <span className="tx-actions">
-                    <button className="action-icon-btn edit" onClick={() => setEditingTx(t)} title="Edit">✏️</button>
-                    <button className="action-icon-btn delete" onClick={() => handleDelete(t.id)} title="Delete">🗑️</button>
+                    {/* Add e.stopPropagation() to the action buttons */}
+                    <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
+                    <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} title="Delete">🗑️</button>
                   </span>
                 </div>
               );
@@ -1927,6 +1937,59 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
   );
 }
 
+{/* TRANSACTION DETAILS / ACTION MENU MODAL */}
+      {actionMenuTx && (
+        <div className="modal-backdrop" onClick={() => setActionMenuTx(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: '400px' }}>
+            
+            {/* Header / Info Row */}
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text)' }}>{actionMenuTx.heading}</h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text3)' }}>{formatDate(actionMenuTx.date)} • {actionMenuTx.account}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span className={actionMenuTx.type === 'Debit' ? 'neg' : actionMenuTx.type === 'Credit' ? 'pos' : 'accent'} style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
+                    {actionMenuTx.type === 'Debit' ? '-' : '+'}{fmt(actionMenuTx.amount)}
+                  </span>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{actionMenuTx.type}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Full Note / Description Box */}
+            {actionMenuTx.description && (
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)', fontStyle: 'italic', lineHeight: 1.5 }}>
+                  📝 {actionMenuTx.description}
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem' }}>
+              <button 
+                onClick={() => { setEditingTx(actionMenuTx); setActionMenuTx(null); }}
+                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--text)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                ✏️ Edit Transaction
+              </button>
+              <button 
+                onClick={() => { handleDelete(actionMenuTx.id); setActionMenuTx(null); }}
+                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--neg)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                🗑️ Delete Transaction
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
 function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(

@@ -848,7 +848,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   .tx-row > span:nth-child(4), /* Type badge */
   .tx-row > span:nth-child(5)  /* Month string */
   { display: none !important; }
-  
+
 /* 📱 Clean Mobile Filter Grid */
   .filter-bar { 
     display: grid; 
@@ -1033,12 +1033,14 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   .modal-backdrop { 
     align-items: center; /* Centers it perfectly again */
     padding: 1rem; 
+    cursor: pointer;
   }
   .modal-content { 
     width: 100%; 
     max-height: 90vh; 
     border-radius: var(--radius-lg); /* Normal rounded corners */
     animation: slideUp 0.3s ease; 
+    cursor: default;
   }
   .modal-body { 
     padding: 1rem; 
