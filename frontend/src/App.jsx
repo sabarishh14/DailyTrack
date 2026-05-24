@@ -1836,7 +1836,7 @@ function AddTab({ accounts, transactions, onAdd }) {
       </div>
 
       <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
-        <div style={{ minWidth: '850px' }}>
+        <div className="add-table-inner">
           
           <div className="bulk-grid bulk-header">
             <span>Account</span>

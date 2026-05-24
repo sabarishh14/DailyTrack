@@ -1226,3 +1226,93 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
     gap: 0.5rem;
   }
 }
+
+/* ========================================================
+   1. PREMIUM AUTOCOMPLETE DROPDOWN FIX
+   ======================================================== */
+.custom-dropdown {
+  background: var(--bg2) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important; 
+  margin-top: 6px !important;
+  padding: 0 !important;
+}
+
+.custom-dropdown-item {
+  padding: 0.65rem 1rem !important;
+  font-size: 0.85rem !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+  transition: all 0.15s ease !important;
+}
+
+.custom-dropdown-item:hover, 
+.custom-dropdown-item.active-item {
+  background: rgba(99, 102, 241, 0.15) !important;
+  color: #a5b4fc !important;
+  padding-left: 1.25rem !important; /* Slight indent animation on hover */
+}
+
+
+/* ========================================================
+   2. ADD PAGE - DESKTOP VS MOBILE LAYOUT
+   ======================================================== */
+.add-table-inner {
+  min-width: 850px;
+}
+
+@media (max-width: 768px) {
+  /* Remove the container padding and background on mobile to save space */
+  .add-table-wrap {
+    padding: 0.25rem !important;
+    background: transparent !important;
+    border: none !important;
+    overflow-x: hidden !important; /* Stop horizontal scroll */
+  }
+  
+  .add-table-inner {
+    min-width: 100% !important;
+  }
+  
+  /* Hide the horizontal column headers */
+  .bulk-header { 
+    display: none !important; 
+  }
+  
+  /* Turn each row into a beautiful floating card */
+  .bulk-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+    padding: 2.75rem 1rem 1rem 1rem !important; /* Big top padding to leave room for the delete button */
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    position: relative !important;
+    margin-bottom: 1.25rem !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+  }
+  
+  /* Reorder the inputs logically for a 2-column card */
+  .bulk-row > *:nth-child(1) { order: 1; } /* Account */
+  .bulk-row > *:nth-child(2) { order: 2; } /* Date */
+  .bulk-row > *:nth-child(3) { order: 3; } /* Type */
+  .bulk-row > *:nth-child(5) { order: 4; } /* Amount */
+  
+  /* Make the Category and Note span the full width of the card */
+  .bulk-row > *:nth-child(4) { order: 5; grid-column: span 2; } /* Category */
+  .bulk-row > *:nth-child(6) { order: 6; grid-column: span 2; } /* Note */
+  
+  /* Pin the delete button to the top right corner of the card as a circle */
+  .bulk-del-btn {
+    position: absolute !important;
+    top: 0.5rem !important;
+    right: 0.5rem !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: rgba(220, 38, 38, 0.1) !important;
+  }
+}
