@@ -1711,7 +1711,7 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
   );
 }
 
-function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
+function AddTab({ accounts, transactions, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
   
   const recentDescriptions = [...new Set(
@@ -1720,9 +1720,8 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
       .filter(desc => desc && desc.trim() !== '')
   )];
 
-  // Create a factory for a fresh row
   const createEmptyRow = () => ({
-    id: Date.now() + Math.random(), // unique ID for React mapping
+    id: Date.now() + Math.random(),
     account: 'KOTAK', 
     date: today, 
     type: 'Debit', 
@@ -1731,9 +1730,25 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
     amount: ''
   });
 
-  const [rows, setRows] = useState([createEmptyRow()]);
+  // MAGICAL AUTO-SAVE: Loads data from local storage so nothing is ever lost!
+  const [rows, setRows] = useState(() => {
+    const saved = localStorage.getItem('dt_draft_txs');
+    if (saved) {
+      try { 
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [createEmptyRow()];
+  });
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // MAGICAL AUTO-SAVE: Saves to local storage every time you type a letter
+  useEffect(() => {
+    localStorage.setItem('dt_draft_txs', JSON.stringify(rows));
+  }, [rows]);
 
   const updateRow = (id, field, value) => {
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -1743,32 +1758,21 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
     const lastRow = rows[rows.length - 1];
     setRows([...rows, {
       ...lastRow,
-      id: Date.now() + Math.random(), // Need a fresh ID for React
+      id: Date.now() + Math.random(),
       amount: '',
       description: ''
     }]);
   };  
   
   const removeRow = (id) => {
-    if (rows.length === 1) return; // Keep at least one row
+    if (rows.length === 1) {
+      setRows([createEmptyRow()]); 
+      return;
+    }
     setRows(rows.filter(r => r.id !== id));
   };
 
-  const handleClose = () => {
-    // Check if the user has typed anything into any of the rows
-    const isDirty = rows.some(r => r.amount !== '' || r.heading !== '' || r.description !== '');
-    
-    if (isDirty) {
-      if (window.confirm("You have unsaved transactions. Are you sure you want to discard them?")) {
-        onClose();
-      }
-    } else {
-      onClose(); // Close instantly if the form is empty
-    }
-  };
-
   const submit = async () => {
-    // Basic validation: ensure all rows have an amount and heading
     for (let i = 0; i < rows.length; i++) {
       if (!rows[i].amount || isNaN(rows[i].amount) || !rows[i].heading.trim()) {
         return alert(`Row ${i + 1} is missing a valid amount or category.`);
@@ -1777,7 +1781,6 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
 
     setLoading(true);
     try {
-      // Clean up the payload (remove the temporary frontend ID and parse amounts)
       const payload = rows.map(r => ({
         account: r.account,
         date: r.date,
@@ -1792,34 +1795,49 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
       });
 
       if (res.ok) {
-        onAdd(); // This fetches the newly updated balances directly from the database!
+        onAdd(); 
         setSuccess(true);
-        setTimeout(() => { setSuccess(false); onClose(); }, 1500);
+        // Wipe local storage draft only on successful save
+        localStorage.removeItem('dt_draft_txs');
+        setTimeout(() => { 
+            setSuccess(false); 
+            setRows([createEmptyRow()]); 
+        }, 1500);
       } else {
         const errText = await res.text();
         alert(`Failed to save. Server returned: ${res.status}\n${errText.substring(0, 100)}`);
       }
     } catch (e) {
-      alert("Network error: " + e.message + "\n\nIf the server was asleep, please wait 15 seconds and click Save again. You will not lose your typed data.");
+      // The custom alert tells the user their data is completely safe
+      alert("Network error: " + e.message + "\n\nDon't worry, your typed data is safely auto-saved! Just wait a few seconds for the server to wake up and try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // REPLACE onClose with handleClose here ⬇️
-    <div className="modal-backdrop" onClick={handleClose}> 
-      <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title">📝 Log Transactions</div>
-          {/* REPLACE onClose with handleClose here ⬇️ */}
-          <button className="modal-close" onClick={handleClose}>×</button> 
+    <section className="section" style={{ animation: 'fadeUp 0.2s ease', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 className="section-title" style={{ margin: 0, border: 'none' }}>➕ Log Transactions</h2>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text3)', marginTop: '4px' }}>
+            Your progress is auto-saved locally. Take your time!
+          </div>
         </div>
         
-        {/* We removed the huge padding, and added a sensible minHeight so the first row has room to breathe */}
-        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+        <button className="action-btn secondary" onClick={() => {
+          if(window.confirm("Are you sure you want to clear all drafts?")) {
+            setRows([createEmptyRow()]);
+            localStorage.removeItem('dt_draft_txs');
+          }
+        }}>
+          🗑️ Clear Drafts
+        </button>
+      </div>
+
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto', overflowY: 'visible' }}>
+        <div style={{ minWidth: '850px' }}>
           
-          {/* Table Headers */}
           <div className="bulk-grid bulk-header">
             <span>Account</span>
             <span>Date</span>
@@ -1830,11 +1848,10 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
             <span style={{textAlign: 'center'}}>#</span>
           </div>
 
-          {/* Table Rows */}
-          {rows.map((row, index) => (
-            <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
+          {rows.map((row) => (
+            <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
               <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
-                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b]?.emoji} {b}</option>)}
               </select>
               
               <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
@@ -1846,7 +1863,6 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
                 <option value="Investment">💸 Investment</option>
               </select>
 
-              {/* Using a datalist for category autocomplete without messy z-index dropdowns in a grid */}
               <AutocompleteInput 
                 value={row.heading} 
                 onChange={val => updateRow(row.id, 'heading', val)} 
@@ -1869,8 +1885,6 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
               <button 
                 className="bulk-del-btn" 
                 onClick={() => removeRow(row.id)}
-                disabled={rows.length === 1}
-                style={{ opacity: rows.length === 1 ? 0.3 : 1, cursor: rows.length === 1 ? 'not-allowed' : 'pointer' }}
                 title="Remove Row"
               >
                 ×
@@ -1878,24 +1892,22 @@ function AddTransactionModal({ accounts, transactions, onAdd, onClose }) {
             </div>
           ))}
 
-          {/* The Hidden Datalist for native browser autocomplete on Categories */}
           <datalist id="category-options">
             {CATEGORIES.map(cat => <option key={cat} value={cat} />)}
           </datalist>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-            <button className="action-btn secondary" onClick={addRow} style={{ flex: 1, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+            <button className="action-btn secondary" onClick={addRow} style={{ flex: 1, justifyContent: 'center', padding: '0.85rem' }}>
               ➕ Add Row
             </button>
             
-            <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
-              {loading ? "Saving..." : success ? "✅ Saved!" : `💾 Save (${rows.length})`}
+            <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 2, justifyContent: 'center', padding: '0.85rem' }}>
+              {loading ? "⏳ Saving to Database..." : success ? "✅ Saved Successfully!" : `💾 Save to Database (${rows.length})`}
             </button>
           </div>
-
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2722,7 +2734,6 @@ export default function App() {
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false); // <-- ADD THIS LINE  
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   
   // --- Sidebar Resizing Logic ---
@@ -2879,7 +2890,7 @@ export default function App() {
     switch(tab) {
       case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
       case 1: return <MoneyTab accounts={accounts} transactions={transactions} onRefresh={fetchAll} />;
-      case 2: return <AddTab accounts={accounts} onAdd={fetchAll} />;
+      case 2: return <AddTab accounts={accounts} transactions={transactions} onAdd={fetchAll} />;
       case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
       case 4: return <InvestTab investments={investments} onAdd={fetchAll} />;
       default: return null;
@@ -2944,7 +2955,7 @@ export default function App() {
             <button
               key={t.id}
               className={`nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
-              onClick={() => t.add ? setIsAddModalOpen(true) : setTab(t.id)}
+              onClick={() => setTab(t.id)}
               title={sidebarMinimized ? t.label : ''}
               style={{ 
                 justifyContent: sidebarMinimized ? 'center' : (t.add ? 'center' : 'flex-start'),
@@ -3093,16 +3104,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Floating Add Transaction Modal */}
-      {isAddModalOpen && (
-        <AddTransactionModal 
-          accounts={accounts} 
-          transactions={transactions} // <-- Make sure this is passed in!
-          onAdd={fetchAll} 
-          onClose={() => setIsAddModalOpen(false)} 
-        />
-      )}
-
       {/* Floating Add Activity Modal */}
       {isActivityModalOpen && (
         <AddActivityModal 
@@ -3117,7 +3118,7 @@ export default function App() {
           <button
             key={t.id}
             className={`mobile-nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
-            onClick={() => t.add ? setIsAddModalOpen(true) : setTab(t.id)}
+            onClick={() => setTab(t.id)}
           >
             <span className="mobile-nav-icon">{t.icon}</span>
             {/* Split the label so things like "Gym & Activity" don't break the UI */}
