@@ -1835,7 +1835,7 @@ function AddTab({ accounts, transactions, onAdd }) {
         </button>
       </div>
 
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto', overflowY: 'visible' }}>
+      <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
         <div style={{ minWidth: '850px' }}>
           
           <div className="bulk-grid bulk-header">

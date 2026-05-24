@@ -921,50 +921,76 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .bulk-grid { 
   display: grid; 
   grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 40px; 
-  gap: 0.5rem; 
+  gap: 0.6rem; /* Slightly larger gap to breathe */
   align-items: center; 
 }
 .bulk-header {
   font-size: 0.75rem; text-transform: uppercase; color: var(--text2);
-  font-weight: 700; padding: 0 0.5rem 0.5rem; border-bottom: 1px solid var(--border);
-  margin-bottom: 0.5rem;
+  font-weight: 700; padding: 0 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
 }
 .bulk-row {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 0.25rem; margin-bottom: 0.5rem;
-  transition: border-color 0.2s;
+  background: transparent; border: none;
+  padding: 0; margin-bottom: 0.6rem;
+  position: relative;
 }
-.bulk-row:hover { border-color: var(--accent); }
-.bulk-inp {
-  background: transparent; border: none; color: var(--text);
-  font-family: inherit; font-size: 0.85rem; padding: 0.5rem;
-  width: 100%; outline: none; border-radius: 4px;
+
+/* ⬇️ Standardized Inputs for perfectly uniform styling */
+.bulk-inp, .bulk-sel {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  width: 100%;
+  outline: none;
+  border-radius: 8px;
+  height: 40px; /* Forces exact height match */
+  transition: all 0.2s;
+  box-sizing: border-box;
+  line-height: 1.5;
 }
-.bulk-inp:focus { background: var(--bg); }
+
+.bulk-inp:focus, .bulk-sel:focus { 
+  background: var(--bg); 
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+}
+
+/* Overriding OS defaults for Select to perfectly match text inputs */
 .bulk-sel {
-  background: transparent; border: none; color: var(--text);
-  font-family: inherit; font-size: 0.85rem; padding: 0.5rem;
-  width: 100%; outline: none; cursor: pointer; border-radius: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+  padding-right: 2.25rem; /* Room for the custom arrow */
+  cursor: pointer;
 }
-.bulk-sel:focus { background: var(--bg); }
 
 .bulk-del-btn {
-  background: rgba(220, 38, 38, 0.15); /* Slightly deeper red tint */
-  color: #dc2626; /* Darker, stronger red so it's actually readable */
+  background: rgba(220, 38, 38, 0.15); 
+  color: #dc2626; 
   border: none;
-  border-radius: 6px; 
-  min-width: 32px; /* Changed from fixed width so text can breathe! */
-  height: 32px; 
+  border-radius: 8px; 
+  min-width: 32px; 
+  height: 40px; /* Match input height perfectly */
   display: flex;
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: 'DM Sans', sans-serif; /* Forces consistent font */
+  align-items: center; justify-content: center; 
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
 }
-.bulk-del-btn:hover { 
-  background: #b91c1c; /* A very deep, satisfying solid red on hover */
-  color: white; 
+.bulk-del-btn:hover { background: #b91c1c; color: white; }
+
+/* ⬇️ Fixes the cutoff dropdown issue */
+.add-table-wrap {
+  transition: padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.add-table-wrap:has(.custom-dropdown) {
+  padding-bottom: 180px !important; 
 }
 
 
