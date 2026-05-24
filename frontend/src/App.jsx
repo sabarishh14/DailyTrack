@@ -2261,6 +2261,10 @@ function InvestTab({ investments, onAdd }) {
   const [drillDownDate, setDrillDownDate] = useState(null);
   const [drillDownData, setDrillDownData] = useState([]);
   
+  // Sorting states specifically for the drill-down modal
+  const [drillSortBy, setDrillSortBy] = useState("symbol");
+  const [drillSortDir, setDrillSortDir] = useState("asc");
+  
   // Fetch chart data
   useEffect(() => {
     const fetchHistory = async () => {
@@ -2278,9 +2282,48 @@ function InvestTab({ investments, onAdd }) {
   const handleRowClick = async (dateStr) => {
     const res = await fetch(`${API}/investments/${dateStr}/holdings`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
     const data = await res.json();
-    setDrillDownData(data);
+    
+    // Ensure ret_pct is present (backend provides it, but calculate dynamically just in case)
+    const dataWithRet = data.map(d => ({
+      ...d,
+      ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0)
+    }));
+    
+    setDrillDownData(dataWithRet);
     setDrillDownDate(dateStr);
+    setDrillSortBy("symbol"); // Reset sort on open
+    setDrillSortDir("asc");
   };
+
+  // Click handler for drill-down column headers
+  const handleDrillSort = (col) => {
+    if (drillSortBy === col) {
+      setDrillSortDir(drillSortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDrillSortBy(col);
+      setDrillSortDir('desc'); // Default to descending for numbers
+    }
+  };
+
+  // Processed and sorted data for the modal table
+  const processedDrillDownData = useMemo(() => {
+    let data = [...drillDownData];
+    data.sort((a, b) => {
+      let aVal = a[drillSortBy];
+      let bVal = b[drillSortBy];
+      
+      if (typeof aVal === 'string') {
+        if (aVal < bVal) return drillSortDir === 'asc' ? -1 : 1;
+        if (aVal > bVal) return drillSortDir === 'asc' ? 1 : -1;
+        return 0;
+      }
+      
+      if (aVal < bVal) return drillSortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return drillSortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return data;
+  }, [drillDownData, drillSortBy, drillSortDir]);
 
   // Get unique months for the dropdown filter
   const allMonths = useMemo(() => {
@@ -2539,13 +2582,19 @@ function InvestTab({ investments, onAdd }) {
               <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              {drillDownData.length > 0 ? (
+              {processedDrillDownData.length > 0 ? (
                 <div className="data-table">
-                  <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
-                    <span>Fund</span><span>Qty</span><span>Avg Price</span><span>NAV</span><span>Invested</span><span>Current</span>
+                  <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
+                    <span onClick={() => handleDrillSort('symbol')}>Fund {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('nav')}>NAV {drillSortBy === 'nav' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                   </div>
-                  {drillDownData.map((h, i) => (
-                    <div key={i} className="table-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
+                  {processedDrillDownData.map((h, i) => (
+                    <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
                       <span>{h.quantity.toFixed(2)}</span>
                       <span>₹{h.average_price.toFixed(2)}</span>
@@ -2553,6 +2602,9 @@ function InvestTab({ investments, onAdd }) {
                       <span>₹{h.invested_value.toFixed(0)}</span>
                       <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>
                         ₹{h.current_value.toFixed(0)}
+                      </span>
+                      <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>
+                        {fmtPct(h.ret_pct)}
                       </span>
                     </div>
                   ))}
