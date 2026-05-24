@@ -937,53 +937,59 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 
 /* ⬇️ Standardized Inputs for perfectly uniform styling */
 .bulk-inp, .bulk-sel {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.85rem;
-  padding: 0.55rem 0.75rem;
-  width: 100%;
-  outline: none;
-  border-radius: 8px;
-  height: 40px; /* Forces exact height match */
-  transition: all 0.2s;
-  box-sizing: border-box;
-  line-height: 1.5;
+  background-color: var(--bg3) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 0.85rem !important;
+  width: 100% !important;
+  height: 40px !important; /* Forces exact height match */
+  padding: 0 0.85rem !important;
+  margin: 0 !important;
+  outline: none !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+  line-height: normal !important; 
+  transition: all 0.2s ease !important;
 }
 
 .bulk-inp:focus, .bulk-sel:focus { 
-  background: var(--bg); 
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
+  background-color: var(--bg) !important; 
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.15) !important;
 }
 
 /* Overriding OS defaults for Select to perfectly match text inputs */
 .bulk-sel {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1em;
-  padding-right: 2.25rem; /* Room for the custom arrow */
-  cursor: pointer;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 1rem !important;
+  padding-right: 2.25rem !important; /* Room for the custom arrow */
+  cursor: pointer !important;
 }
 
+/* Forces the delete button to match the 40px constraint */
 .bulk-del-btn {
-  background: rgba(220, 38, 38, 0.15); 
-  color: #dc2626; 
-  border: none;
-  border-radius: 8px; 
-  min-width: 32px; 
-  height: 40px; /* Match input height perfectly */
-  display: flex;
-  align-items: center; justify-content: center; 
-  cursor: pointer; transition: all 0.2s;
-  font-family: 'DM Sans', sans-serif;
+  background: rgba(220, 38, 38, 0.15) !important; 
+  color: #dc2626 !important; 
+  border: none !important;
+  border-radius: 8px !important; 
+  min-width: 32px !important; 
+  height: 40px !important; /* MATCHES INPUT EXACTLY */
+  display: flex !important;
+  align-items: center !important; 
+  justify-content: center !important; 
+  cursor: pointer !important; 
+  transition: all 0.2s !important;
+  font-family: 'DM Sans', sans-serif !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
-.bulk-del-btn:hover { background: #b91c1c; color: white; }
+.bulk-del-btn:hover { background: #b91c1c !important; color: white !important; }
 
 /* ⬇️ Fixes the cutoff dropdown issue */
 .add-table-wrap {
@@ -992,7 +998,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .add-table-wrap:has(.custom-dropdown) {
   padding-bottom: 180px !important; 
 }
-
 
 /* ── PREMIUM AUTOCOMPLETE DROPDOWN ─── */
 .custom-dropdown {

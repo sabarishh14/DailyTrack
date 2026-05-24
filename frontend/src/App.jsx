@@ -1680,7 +1680,7 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', height: '40px' }}>
       <input 
         type="text" className="bulk-inp" placeholder={placeholder} 
         value={value} onChange={handleType} onKeyDown={handleKeyDown}
