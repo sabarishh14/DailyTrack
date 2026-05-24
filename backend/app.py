@@ -129,6 +129,7 @@ class Account(db.Model):
     __tablename__ = "accounts"
     account = db.Column(db.String(50), primary_key=True)
     balance = db.Column(db.Float, default=0)
+    real_balance = db.Column(db.Float, nullable=True) # <-- ADD THIS LINE
     balance_tracked = db.Column(db.Boolean, default=True)
 
 class Transaction(db.Model):
@@ -277,19 +278,18 @@ def sync_db_to_sheets():
         
 # ---- ACCOUNTS ----
 @app.route('/api/accounts', methods=['GET'])
-@require_api_key  # <-- Add this line to protect the route
+@require_api_key  
 def get_accounts():
     accounts = Account.query.all()
-
     result = [
         {
             "account": acc.account,
             "balance": acc.balance,
+            "real_balance": acc.real_balance, # <-- ADD THIS LINE
             "balance_tracked": acc.balance_tracked
         }
         for acc in accounts
     ]
-
     return jsonify(result)
 
 @app.route('/api/accounts', methods=['PUT'])
@@ -307,72 +307,6 @@ def update_account():
     db.session.commit()
 
     return jsonify({'success': True})
-
-@app.route('/api/transactions/bulk', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
-def bulk_transactions():
-    rows = request.json  # list of transaction dicts
-    imported_count = 0
-
-    for data in rows:
-        try:
-            date_str = data['date']
-            if 'T' in date_str:
-                date_str = date_str.split('T')[0]
-
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-            month_obj = date_obj.replace(day=1)
-
-            amount_str = str(data.get('amount', '')).strip()
-            if not amount_str:
-                continue
-
-            amount = float(amount_str)
-
-            # Check duplicate in DB
-            duplicate = Transaction.query.filter_by(
-                date=date_obj,
-                account=data['account'],
-                amount=amount,
-                heading=data['heading']
-            ).first()
-
-            if duplicate:
-                continue
-
-            new_tx = Transaction(
-                id=int(datetime.now().timestamp() * 1000) + imported_count,
-                account=data['account'],
-                date=date_obj,
-                month=month_obj,
-                type=data['type'].lower(),
-                heading=data['heading'],
-                description=data.get('description', ''),
-                amount=amount
-            )
-
-            db.session.add(new_tx)
-
-            # Update account balance
-            account = Account.query.filter_by(account=data['account']).first()
-            if account and account.balance_tracked and data['account'] != "CC-PINNACLE 6360":
-                if data['type'].lower() == "credit":
-                    account.balance += amount
-                elif data['type'].lower() == "debit":
-                    account.balance -= amount
-
-            imported_count += 1
-
-        except Exception as e:
-            print("Skipping row:", e)
-            continue
-
-    db.session.commit()
-
-    return jsonify({
-        "success": True,
-        "imported": imported_count
-    })
 
 # ---- TRANSACTIONS ----
 @app.route('/api/transactions', methods=['GET'])
@@ -473,6 +407,38 @@ def add_transaction():
     except Exception as e:
         print(f"❌ Error adding transaction(s): {str(e)}")
         db.session.rollback() # Safely undo everything if there's an error
+        return jsonify({"success": False, "message": str(e)})
+
+@app.route('/api/sync/ocr-balances', methods=['POST'])
+@require_api_key
+def sync_ocr_balances():
+    try:
+        # Trigger GAS to process images
+        payload = {"type": "trigger_ocr"}
+        # High timeout (120s) because OCR processing on Drive takes time
+        response = requests.post(SHEETS_URL, json=payload, timeout=120)
+        res_data = response.json()
+
+        if res_data.get('status') == 'no_images':
+            return jsonify({"success": True, "message": res_data.get('message')})
+
+        if res_data.get('status') == 'success':
+            parsed_balances = res_data.get('data', {})
+            updated_count = 0
+            
+            for bank, amount in parsed_balances.items():
+                if amount != "":
+                    acc = Account.query.filter_by(account=bank).first()
+                    if acc:
+                        acc.real_balance = float(amount)
+                        updated_count += 1
+                        
+            db.session.commit()
+            return jsonify({"success": True, "message": f"✅ Processed screenshots and updated {updated_count} real balances!"})
+        else:
+            return jsonify({"success": False, "message": "Failed to process OCR via Sheets."})
+
+    except Exception as e:
         return jsonify({"success": False, "message": str(e)})
     
 @app.route('/api/transactions/<int:tid>', methods=['DELETE'])

@@ -231,9 +231,9 @@ function LoginPage({ onLogin }) {
 }
 
 // ─── HOME TAB ───────────────────────────────────────────────────────────
-function HomeTab({ accounts, transactions, physical, investments, onSyncBalances, onImportCSV, fetchAllTransactions }) {
+function HomeTab({ accounts, transactions, physical, investments, onSyncBalances, fetchAllTransactions, onRefresh }) {
   if (!physical || !transactions || !accounts) return null;
-
+  const [isReconcileOpen, setIsReconcileOpen] = useState(false);
   const [physMonth, setPhysMonth] = useState(new Date().getMonth());
   const [physYear, setPhysYear] = useState(new Date().getFullYear());
   const [moneyMonth, setMoneyMonth] = useState(new Date().getMonth());
@@ -364,10 +364,6 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <button className="action-btn" onClick={syncTransactionsFromSheets} disabled={syncingSheetsTransactions} style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}>
           {syncingSheetsTransactions ? '⏳ Syncing...' : '📥 Sync Transactions to Sheets'}
         </button>
-        <button className="action-btn secondary" onClick={() => fileRef.current?.click()}>
-          📂 Import Transactions CSV
-        </button>
-        <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileChange} />
         {syncMsg && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: syncMsg.startsWith('✅') ? 'var(--pos)' : 'var(--neg)' }}>{syncMsg}</span>}
       </div>
 
@@ -410,7 +406,12 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 
       {/* Accounts */}
       <section className="section">
-        <h2 className="section-title">🏦 Account Balances</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+           <h2 className="section-title" style={{ margin: 0 }}>🏦 Account Balances</h2>
+           <button className="action-btn secondary" onClick={() => setIsReconcileOpen(true)} style={{ padding: '0.45rem 1rem' }}>
+             ⚖️ Reconcile
+           </button>
+        </div>
         <div className="accounts-grid">
           {accounts
             .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360')
@@ -529,8 +530,14 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         </div>
       </div>
       </section>
-
-    </div>
+      {isReconcileOpen && (
+        <ReconciliationModal 
+          accounts={accounts} 
+          onClose={() => setIsReconcileOpen(false)} 
+          onRefresh={onRefresh} 
+        />
+      )}
+    </div> // This is the closing div of HomeTab
   );
 }
 
@@ -1989,6 +1996,92 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
   );
 }
 
+function ReconciliationModal({ accounts, onClose, onRefresh }) {
+  const [scanning, setScanning] = useState(false);
+
+  const scanBalances = async () => {
+    setScanning(true);
+    try {
+      const res = await fetch(`${API}/sync/ocr-balances`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (data.success) onRefresh();
+    } catch (e) {
+      alert("Error: " + e.message + "\n(This might take a moment, check back later)");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  return (
+     <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95%' }}>
+            <div className="modal-header">
+               <div className="modal-title">⚖️ Reconcile Balances</div>
+               <button className="modal-close" onClick={onClose}>×</button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                   <div style={{ fontSize: '0.85rem', color: 'var(--text2)', maxWidth: '400px', lineHeight: 1.5 }}>
+                      Upload UPI screenshots to your specific Drive folder, then click Scan to detect discrepancies.
+                   </div>
+                   <button className="action-btn" onClick={scanBalances} disabled={scanning} style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)' }}>
+                      {scanning ? '⏳ Scanning Drive...' : '📸 Scan Screenshots'}
+                   </button>
+                </div>
+
+                <div className="data-table">
+                   <div className="table-header" style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
+                      <span>Account</span>
+                      <span>App Tracked</span>
+                      <span>Bank Real</span>
+                      <span>Action Required</span>
+                   </div>
+                   {accounts.filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360').map((acc, i) => {
+                      const tracked = acc.balance || 0;
+                      const real = acc.real_balance;
+                      const diff = real !== null && real !== undefined ? tracked - real : null;
+
+                      let status = "";
+                      let actionClass = "";
+
+                      if (diff === null) {
+                         status = "Not Scanned";
+                         actionClass = "text3";
+                      } else if (diff === 0) {
+                         status = "✅ NO CHANGE";
+                         actionClass = "pos";
+                      } else if (diff < 0) {
+                         // C4 - D4 < 0: Move money OUT of real account
+                         status = `🔴 REDUCE ₹${Math.abs(diff)}`;
+                         actionClass = "neg";
+                      } else {
+                         // C4 - D4 > 0: Move money INTO real account
+                         status = `🟢 INCREASE ₹${Math.abs(diff)}`;
+                         actionClass = "pos";
+                      }
+
+                      return (
+                         <div key={acc.account} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
+                            <span style={{ fontWeight: 600 }}>{BANKS[acc.account]?.emoji} {acc.account}</span>
+                            <span style={{ fontFamily: 'Syne, sans-serif' }}>{fmt(tracked)}</span>
+                            <span style={{ fontFamily: 'Syne, sans-serif', color: real !== null ? 'var(--accent2)' : 'var(--text3)' }}>
+                               {real !== null ? fmt(real) : "—"}
+                            </span>
+                            <span className={actionClass} style={{ fontWeight: 800, fontSize: '0.85rem' }}>{status}</span>
+                         </div>
+                      );
+                   })}
+                </div>
+            </div>
+        </div>
+     </div>
+  );
+}
 
       
 function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
@@ -2784,7 +2877,7 @@ export default function App() {
 
   const renderTab = () => {
     switch(tab) {
-      case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} onImportCSV={importCSV} fetchAllTransactions={fetchAllTransactions} />;      
+      case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
       case 1: return <MoneyTab accounts={accounts} transactions={transactions} onRefresh={fetchAll} />;
       case 2: return <AddTab accounts={accounts} onAdd={fetchAll} />;
       case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
@@ -2810,84 +2903,6 @@ export default function App() {
   fetchAll(); // refresh UI
 }, [fetchAll]);
 
-const importCSV = useCallback((csvText) => {
-  // Proper CSV parser that handles quoted fields like "3,001.00"
-  const parseCSVLine = (line) => {
-    const cols = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        cols.push(cur.trim());
-        cur = '';
-      } else {
-        cur += ch;
-      }
-    }
-    cols.push(cur.trim());
-    return cols;
-  };
-
-  const lines = csvText.trim().split('\n').filter(l => l.trim());
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
-
-  const col = (row, name) => {
-    const i = headers.findIndex(h => h.includes(name.toLowerCase()));
-    return i >= 0 ? (row[i] || '').trim() : '';
-  };
-
-  const parsed = lines.slice(1).map(line => {
-    const row = parseCSVLine(line);
-
-    // Date: DD/MM/YYYY → YYYY-MM-DD
-    const rawDate = col(row, 'date');
-    const dateParts = rawDate.split('/');
-    const isoDate = dateParts.length === 3
-      ? `${dateParts[2]}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}`
-      : rawDate;
-
-    // Amount: strip commas → float
-    const amount = parseFloat(col(row, 'amount').replace(/,/g, '')) || 0;
-
-    // Type: normalise to lowercase
-    const type = col(row, 'Debit').toLowerCase(); // header is "Debit/Credit"
-
-    return {
-      date: isoDate,
-      month: col(row, 'month'),
-      type,
-      heading: col(row, 'heading'),
-      description: col(row, 'description'),
-      amount,
-      account: col(row, 'account'),
-    };
-  }).filter(r => r.account && r.amount);
-
-  if (parsed.length === 0) {
-    alert('No valid rows found in CSV.');
-    return;
-  }
-
-  // Single bulk request instead of one per row
-  fetch(`${API}/transactions/bulk`, {
-    method: 'POST',
-    headers: { 
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getToken()}` 
-},
-    body: JSON.stringify(parsed),
-  })
-    .then(r => r.json())
-    .then(data => {
-      alert(`✅ Imported ${data.imported} transactions successfully!`);
-      fetchAll();
-    })
-    .catch(e => alert('❌ Import failed: ' + e.message));
-
-}, [fetchAll]);
 
   if (!isLoggedIn) return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
   if (appLoading) return <LoadingScreen />;
