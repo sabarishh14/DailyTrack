@@ -3022,6 +3022,20 @@ const importCSV = useCallback((csvText) => {
             }}>
                {today.toLocaleDateString('en-IN', {weekday:'long'})}
             </div>
+            
+            {/* NEW: Version and Build Time */}
+            <div style={{
+               opacity: sidebarMinimized ? 0 : 1,
+               maxHeight: sidebarMinimized ? 0 : '20px',
+               marginTop: '8px',
+               fontSize: '0.6rem',
+               color: 'var(--border2)',
+               transition: 'all 0.3s ease',
+               overflow: 'hidden',
+               fontFamily: "'DM Sans', monospace"
+            }}>
+               v:{__COMMIT_SHA__} • {__BUILD_TIME__}
+            </div>
           </div>
         </div>
       </aside>
