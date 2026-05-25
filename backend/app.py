@@ -116,8 +116,11 @@ def set_security_headers(response):
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,      # Checks if the DB connection is alive before using it
+    "pool_recycle": 300,        # Reconnects every 5 minutes to prevent stale idle connections
     "connect_args": {
-        "sslmode": "require"
+        "sslmode": "require",
+        "connect_timeout": 10   # Gives Neon an extra 10 seconds to wake up from cold start
     }
 }
 

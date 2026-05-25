@@ -1,0 +1,26 @@
+name: Sync Backend to Hugging Face Space
+
+# This ensures the action only runs when you push to main 
+# AND only when you actually change files in the backend folder.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetches all history so the subtree push works
+
+      - name: Push backend folder to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Split out the backend folder and push it to the root of the HF space
+          git subtree push --prefix backend https://sabarishhh14:$HF_TOKEN@huggingface.co/spaces/sabarishhh14/dailytrack-v2 main

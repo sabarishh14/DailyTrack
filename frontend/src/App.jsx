@@ -2847,29 +2847,33 @@ export default function App() {
   const fetchAll = useCallback(async (showLoading = false) => {
     if (showLoading) setAppLoading(true);
     try {
-      // Fire ALL 4 requests in parallel to eliminate network waterfall
+      // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
+      const fetchWithCheck = async (url) => {
+        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+        if (!r.ok) throw new Error(`Server waking up: ${r.status}`);
+        return r.json();
+      };
+
+      // Fire ALL 4 requests in parallel
       const [acc, phy, inv, txRes] = await Promise.all([
-        fetch(`${API}/accounts`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
-        fetch(`${API}/physical`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
-        fetch(`${API}/investments`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json()),
-        fetch(`${API}/transactions?limit=100&offset=0`, { headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json())
+        fetchWithCheck(`${API}/accounts`),
+        fetchWithCheck(`${API}/physical`),
+        fetchWithCheck(`${API}/investments`),
+        fetchWithCheck(`${API}/transactions?limit=100&offset=0`)
       ]);
       
-      // Merge stored balances into accounts (localStorage takes priority)
       setAccounts(acc);
       setTransactions(txRes.transactions);
-      setAllTransactionsLoaded(false); // Mark as not fully loaded yet
+      setAllTransactionsLoaded(false); 
       setPhysical(phy);
       setInvestments(inv);
       
-      // ONLY stop loading if we successfully reached this point
       if (showLoading) setAppLoading(false); 
     } catch(e) {
-      console.error("API error — retrying in 3s...", e);
-      // Pass showLoading back in so the loading screen STAYS up while retrying
+      console.warn("Server is asleep or database is booting. Retrying in 3 seconds...", e.message);
+      // The loading screen stays up, and we try again automatically!
       setTimeout(() => fetchAll(showLoading), 3000); 
     }
-    // REMOVED the finally block! This prevents the blank screen glitch.
   }, []);
 
   useEffect(() => { if (isLoggedIn) fetchAll(true); }, [fetchAll, isLoggedIn]);
