@@ -22,5 +22,17 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Split out the backend folder and push it to the root of the HF space
-          git subtree push --prefix backend https://sabarishhh14:$HF_TOKEN@huggingface.co/spaces/sabarishhh14/dailytrack-v2 main
+          # 1. Clone the Hugging Face Space to a temporary folder
+          git clone https://sabarishhh14:${HF_TOKEN}@huggingface.co/spaces/sabarishhh14/dailytrack-v2 hf-space
+          
+          # 2. Copy all files from our GitHub backend/ folder into the HF folder
+          # (This updates code but safely preserves files like firebase-credentials.json)
+          cp -a backend/. hf-space/
+          
+          # 3. Commit and push the changes back to Hugging Face
+          cd hf-space
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Auto-sync backend from GitHub" || echo "No changes to commit"
+          git push

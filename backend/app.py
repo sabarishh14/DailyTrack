@@ -234,6 +234,37 @@ def get_transactions_for_sync():
         })
     return result
 
+# ==========================================
+# HEALTH CHECK & DEPLOYMENT INFO
+# ==========================================
+# Capture the exact time the container starts
+ist_timezone = pytz.timezone('Asia/Kolkata')
+BOOT_TIME = datetime.now(ist_timezone).strftime('%B %d, %Y at %I:%M %p IST')
+
+def get_git_commit():
+    try:
+        # Try to read the commit hash directly from the hidden .git folder
+        if os.path.exists('.git/HEAD'):
+            with open('.git/HEAD', 'r') as f:
+                ref = f.read().strip().split(' ')[-1]
+            with open(f'.git/{ref}', 'r') as f:
+                return f.read().strip()[:7]
+    except Exception:
+        pass
+    return "latest"
+
+COMMIT_HASH = get_git_commit()
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        "app": "DailyTrack API",
+        "status": "🟢 Online",
+        "version": "2.1.0",
+        "commit": COMMIT_HASH,
+        "deployed_at": BOOT_TIME
+    })
+
 @app.route("/test-db")
 def test_db():
     return {"status": "Database connected successfully"}
