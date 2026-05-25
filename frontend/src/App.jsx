@@ -2353,7 +2353,6 @@ function GymTab({ physical, onOpenModal }) {
 }
 
 // ─── INVEST TAB ───────────────────────────────────────────────────────────
-// ─── INVEST TAB ───────────────────────────────────────────────────────────
 function InvestTab({ investments, onAdd }) {
   const [syncing, setSyncing] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
@@ -2364,31 +2363,16 @@ function InvestTab({ investments, onAdd }) {
   const [syncingSheets, setSyncingSheets] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [selectedFund, setSelectedFund] = useState("");
+  
+  // Drill-down states
   const [drillDownDate, setDrillDownDate] = useState(null);
   const [drillDownData, setDrillDownData] = useState([]);
-  
+  const [drillDownType, setDrillDownType] = useState(null); // "MF" or "EQUITY"
   const [drillSortBy, setDrillSortBy] = useState("symbol");
   const [drillSortDir, setDrillSortDir] = useState("asc");
 
-  // NEW: 3-State Toggle and Equity Data
+  // 3-State Toggle
   const [viewMode, setViewMode] = useState("ALL"); // "ALL", "MF", "EQUITY"
-  const [equity, setEquity] = useState([]);
-
-  // Fetch Equity Holdings
-  useEffect(() => {
-    const fetchEquity = async () => {
-      try {
-        const res = await fetch(`${API}/equity`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
-        if (res.ok) {
-          const data = await res.json();
-          setEquity(data);
-        }
-      } catch (e) {
-        console.error("Failed to fetch equity:", e);
-      }
-    };
-    fetchEquity();
-  }, []);
   
   // Fetch chart data
   useEffect(() => {
@@ -2404,53 +2388,60 @@ function InvestTab({ investments, onAdd }) {
   }, [selectedFund]);
 
   // Fetch drill-down data when a date is clicked
-  const handleRowClick = async (dateStr) => {
-    const res = await fetch(`${API}/investments/${dateStr}/holdings`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+  const handleRowClick = async (dateStr, type) => {
+    if (type === "ALL") {
+      alert("Please select the 'Mutual Funds' or 'Equity' tab above to view the detailed breakdown.");
+      return;
+    }
+    
+    const endpoint = type === "EQUITY" ? "equity_holdings" : "holdings";
+    const res = await fetch(`${API}/investments/${dateStr}/${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
     const data = await res.json();
     
-    // Ensure ret_pct is present (backend provides it, but calculate dynamically just in case)
+    // Ensure ret_pct is dynamically calculated if missing
     const dataWithRet = data.map(d => ({
       ...d,
       ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0)
     }));
     
     setDrillDownData(dataWithRet);
+    setDrillDownType(type);
     setDrillDownDate(dateStr);
-    setDrillSortBy("symbol"); // Reset sort on open
+    setDrillSortBy("symbol"); 
     setDrillSortDir("asc");
   };
 
-  // Click handler for drill-down column headers
   const handleDrillSort = (col) => {
     if (drillSortBy === col) {
       setDrillSortDir(drillSortDir === 'asc' ? 'desc' : 'asc');
     } else {
       setDrillSortBy(col);
-      setDrillSortDir('desc'); // Default to descending for numbers
+      setDrillSortDir('desc');
     }
   };
 
-  // Processed and sorted data for the modal table
+  // Sorted data for the modal table
   const processedDrillDownData = useMemo(() => {
     let data = [...drillDownData];
     data.sort((a, b) => {
       let aVal = a[drillSortBy];
       let bVal = b[drillSortBy];
       
-      if (typeof aVal === 'string') {
-        if (aVal < bVal) return drillSortDir === 'asc' ? -1 : 1;
-        if (aVal > bVal) return drillSortDir === 'asc' ? 1 : -1;
-        return 0;
+      // Handle the LTP vs NAV naming dynamically
+      if (drillSortBy === 'price') {
+         aVal = drillDownType === "EQUITY" ? a.ltp : a.nav;
+         bVal = drillDownType === "EQUITY" ? b.ltp : b.nav;
       }
       
-      if (aVal < bVal) return drillSortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return drillSortDir === 'asc' ? 1 : -1;
-      return 0;
+      if (typeof aVal === 'string') {
+        return drillSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return drillSortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
     return data;
-  }, [drillDownData, drillSortBy, drillSortDir]);
+  }, [drillDownData, drillSortBy, drillSortDir, drillDownType]);
 
-  // Get unique months for the dropdown filter
+  // Unique months for the dropdown
   const allMonths = useMemo(() => {
     return [...new Set(investments.map(inv => {
       if (!inv.date) return null;
@@ -2458,8 +2449,7 @@ function InvestTab({ investments, onAdd }) {
       if (isNaN(d.getTime())) return null;
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     }))]
-    .filter(Boolean)
-    .sort().reverse()
+    .filter(Boolean).sort().reverse()
     .map(ym => {
       const [y, m] = ym.split('-');
       const d = new Date(y, m - 1, 1);
@@ -2467,73 +2457,51 @@ function InvestTab({ investments, onAdd }) {
     });
   }, [investments]);
 
-  // Apply filters and sorting for Historical Data (ALL / MF views)
+  // Unified Sorting & Filtering for ALL views
   const processedData = useMemo(() => {
     let data = [...investments];
     
-    // Filter
     if (filterMonth) {
       data = data.filter(inv => {
         if (!inv.date) return false;
         const d = new Date(inv.date);
-        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        return ym === filterMonth;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === filterMonth;
       });
     }
 
-    // Sort
     data.sort((a, b) => {
-      let aVal, bVal;
-      
-      if (sortBy === 'date') {
-        aVal = new Date(a.date).getTime();
-        bVal = new Date(b.date).getTime();
-      } else if (sortBy === 'ret_amount') {
-        // Dynamic based on view mode (Total vs MF)
-        const aCurr = viewMode === 'ALL' ? a.total_curr : a.curr_mf;
-        const aInv = viewMode === 'ALL' ? a.total_inv : a.inv_mf;
-        const bCurr = viewMode === 'ALL' ? b.total_curr : b.curr_mf;
-        const bInv = viewMode === 'ALL' ? b.total_inv : b.inv_mf;
-        aVal = parseFloat(aCurr || 0) - parseFloat(aInv || 0);
-        bVal = parseFloat(bCurr || 0) - parseFloat(bInv || 0);
-      } else {
-        // Fallback for number fields (total_inv, curr_mf, etc.)
-        aVal = parseFloat(a[sortBy] || 0);
-        bVal = parseFloat(b[sortBy] || 0);
-      }
+      // Dynamic value extractor based on current ViewMode
+      const getVal = (item, key) => {
+         if (key === 'date') return new Date(item.date).getTime();
+         
+         const invVal = viewMode === 'ALL' ? parseFloat(item.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(item.inv_stocks || 0) : parseFloat(item.inv_mf || 0);
+         const currVal = viewMode === 'ALL' ? parseFloat(item.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(item.curr_stocks || 0) : parseFloat(item.curr_mf || 0);
+         const retPct = viewMode === 'ALL' ? parseFloat(item.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(item.ret_pct_stocks || 0) : parseFloat(item.ret_pct_mf || 0);
+         const statusStr = viewMode === 'ALL' ? item.total_status : viewMode === 'EQUITY' ? item.status_stocks : item.status_mf;
+         
+         if (key === 'inv') return invVal;
+         if (key === 'curr') return currVal;
+         if (key === 'ret_amount') return currVal - invVal;
+         if (key === 'ret_pct') return retPct;
+         if (key === 'status') return statusStr;
+         return 0;
+      };
 
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
+      const aVal = getVal(a, sortBy);
+      const bVal = getVal(b, sortBy);
 
-    return data;
-  }, [investments, filterMonth, sortBy, sortDir, viewMode]);
-
-  // Sorting for Equity View
-  const sortedEquity = useMemo(() => {
-    let data = [...equity];
-    data.sort((a, b) => {
-      // Safely default to 'symbol' if the current sortBy doesn't exist on equity
-      const safeSortBy = a[sortBy] !== undefined ? sortBy : 'symbol';
-      let aVal = a[safeSortBy];
-      let bVal = b[safeSortBy];
-      
       if (typeof aVal === 'string') {
         return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
+
     return data;
-  }, [equity, sortBy, sortDir]);
+  }, [investments, filterMonth, sortBy, sortDir, viewMode]);
 
   const handleSort = (col) => {
-    if (sortBy === col) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(col);
-      setSortDir('desc'); // Default to highest/newest first when changing columns
-    }
+    if (sortBy === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
   };
 
   const handleOpenKite = () => {
@@ -2564,9 +2532,6 @@ function InvestTab({ investments, onAdd }) {
         onAdd(); 
         setShowTokenInput(false);
         setTokenStr("");
-        // Reload Equity list specifically
-        fetch(`${API}/equity`, { headers: { 'Authorization': `Bearer ${getToken()}` } })
-          .then(r => r.json()).then(setEquity);
       } else {
         alert("❌ Sync Failed: " + data.message);
       }
@@ -2582,11 +2547,7 @@ function InvestTab({ investments, onAdd }) {
     try {
       const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
-      if (data.success) {
-        alert(data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message);
-      } else {
-        alert("❌ Sync Failed: " + data.message);
-      }
+      alert(data.success ? (data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message) : "❌ Sync Failed: " + data.message);
     } catch (e) {
       alert("❌ Network Error: " + e.message);
     } finally {
@@ -2597,64 +2558,40 @@ function InvestTab({ investments, onAdd }) {
   return (
     <div className="invest-layout" style={{ display: 'block' }}>
       
-      {/* Controls Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select className="sel" style={{ width: 'auto', minWidth: '180px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)} disabled={viewMode === "EQUITY"}>
+          <select className="sel" style={{ width: 'auto', minWidth: '180px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
             <option value="">📅 All Months</option>
-            {allMonths.map(m => (
-              <option key={m.val} value={m.val}>{m.label}</option>
-            ))}
+            {allMonths.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
           </select>
           <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 500 }}>
-            Showing {viewMode === "EQUITY" ? equity.length : processedData.length} records
+            Showing {processedData.length} records
           </span>
         </div>
         
         {!showTokenInput ? (
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button 
-              className="action-btn" 
-              style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}
-              onClick={handleSyncToSheets}
-              disabled={syncingSheets}
-            >
+            <button className="action-btn" style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }} onClick={handleSyncToSheets} disabled={syncingSheets}>
               {syncingSheets ? '⏳ Syncing...' : '📥 Sync to Sheets'}
             </button>
-            <button 
-              className="action-btn" 
-              style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }}
-              onClick={handleOpenKite} 
-            >
+            <button className="action-btn" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
               ⚡ Sync with Kite
             </button>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', animation: 'fadeIn 0.3s ease' }}>
-            <input 
-              className="inp" 
-              placeholder="Paste 127.0.0.1 URL here..." 
-              value={tokenStr} 
-              onChange={e => setTokenStr(e.target.value)}
-              style={{ width: '250px', padding: '0.55rem 0.8rem', borderRadius: '8px' }}
-            />
-            <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>
-              {syncing ? '⏳...' : 'Submit'}
-            </button>
-            <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }} disabled={syncing}>
-              Cancel
-            </button>
+            <input className="inp" placeholder="Paste 127.0.0.1 URL here..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ width: '250px', padding: '0.55rem 0.8rem', borderRadius: '8px' }} />
+            <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>{syncing ? '⏳...' : 'Submit'}</button>
+            <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }} disabled={syncing}>Cancel</button>
           </div>
         )}
       </div>
       
-      {/* Investment Analyser */}
       <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h3 className="section-title" style={{ margin: 0 }}>📈 Investment Analyser</h3>
           <select className="sel" style={{ width: 'auto' }} value={selectedFund} onChange={e => setSelectedFund(e.target.value)}>
             <option value="">Overall Portfolio</option>
-            {/* Can populate dynamically if desired later */}
             <option value="NIFTY_50_INDEX">Sample Filter</option>
           </select>
         </div>
@@ -2664,10 +2601,7 @@ function InvestTab({ investments, onAdd }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis dataKey="date" stroke="var(--text2)" fontSize={12} tickFormatter={d => formatDate(d)} />
               <YAxis stroke="var(--text2)" fontSize={12} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-              <Tooltip 
-                contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
-                formatter={(value) => [`₹${value.toLocaleString()}`, ""]}
-              />
+              <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }} formatter={(value) => [`₹${value.toLocaleString()}`, ""]} />
               <Legend />
               <Line type="monotone" name="Current Value" dataKey="value" stroke="var(--accent)" strokeWidth={3} dot={false} />
               <Line type="monotone" name="Invested Amount" dataKey="invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
@@ -2684,20 +2618,15 @@ function InvestTab({ investments, onAdd }) {
               key={mode}
               onClick={() => {
                 setViewMode(mode);
-                setSortBy(mode === "EQUITY" ? "symbol" : "date"); // Reset sort nicely when swapping
-                setSortDir(mode === "EQUITY" ? "asc" : "desc");
+                setSortBy("date");
+                setSortDir("desc");
               }}
               style={{
                 padding: '0.6rem 1.5rem',
-                borderRadius: '999px',
-                border: 'none',
+                borderRadius: '999px', border: 'none',
                 background: viewMode === mode ? 'var(--accent)' : 'transparent',
                 color: viewMode === mode ? '#fff' : 'var(--text2)',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                outline: 'none'
+                fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
               }}
             >
               {mode === "ALL" ? "Combined Net Worth" : mode === "MF" ? "Mutual Funds" : "Equity (Stocks)"}
@@ -2709,87 +2638,64 @@ function InvestTab({ investments, onAdd }) {
       {/* UNIFIED DATA TABLE */}
       <div>
         <div className="data-table">
-          <div className="table-header inv-cols" style={{ 
-            cursor: 'pointer', userSelect: 'none', 
-            gridTemplateColumns: viewMode === 'EQUITY' ? '2fr 1fr 1fr 1fr 1fr 1fr' : '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' 
-          }}>
-            {viewMode === 'EQUITY' ? (
-              <>
-                <span onClick={() => handleSort('symbol')}>Symbol {sortBy === 'symbol' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('quantity')}>Qty {sortBy === 'quantity' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('average_price')}>Avg Price {sortBy === 'average_price' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('ltp')}>LTP {sortBy === 'ltp' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('invested_value')}>Invested {sortBy === 'invested_value' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('current_value')}>Current {sortBy === 'current_value' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-              </>
-            ) : (
-              <>
-                <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort(viewMode === 'ALL' ? 'total_inv' : 'inv_mf')}>{viewMode === 'ALL' ? 'TOTAL INV' : 'INV (MF)'} {sortBy === (viewMode === 'ALL' ? 'total_inv' : 'inv_mf') && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort(viewMode === 'ALL' ? 'total_curr' : 'curr_mf')}>{viewMode === 'ALL' ? 'TOTAL CURR' : 'CURR (MF)'} {sortBy === (viewMode === 'ALL' ? 'total_curr' : 'curr_mf') && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort(viewMode === 'ALL' ? 'total_ret_pct' : 'ret_pct_mf')}>RET % {sortBy === (viewMode === 'ALL' ? 'total_ret_pct' : 'ret_pct_mf') && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                <span onClick={() => handleSort(viewMode === 'ALL' ? 'total_status' : 'status_mf')}>Status {sortBy === (viewMode === 'ALL' ? 'total_status' : 'status_mf') && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-              </>
-            )}
+          <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
+            <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+            <span onClick={() => handleSort('inv')}>
+              {viewMode === 'ALL' ? 'TOTAL INV' : viewMode === 'EQUITY' ? 'INV (EQ)' : 'INV (MF)'} 
+              {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+            </span>
+            <span onClick={() => handleSort('curr')}>
+              {viewMode === 'ALL' ? 'TOTAL CURR' : viewMode === 'EQUITY' ? 'CURR (EQ)' : 'CURR (MF)'} 
+              {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+            </span>
+            <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+            <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+            <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
           </div>
           
-          {viewMode === 'EQUITY' ? (
-            sortedEquity.length > 0 ? sortedEquity.map((e, i) => (
-              <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr' }}>
-                <span style={{ fontWeight: 600 }}>{e.symbol}</span>
-                <span>{e.quantity}</span>
-                <span>₹{e.average_price.toFixed(2)}</span>
-                <span>₹{e.ltp.toFixed(2)}</span>
-                <span>{fmt(e.invested_value)}</span>
-                <span className={e.current_value >= e.invested_value ? 'pos' : 'neg'}>{fmt(e.current_value)}</span>
+          {processedData.length > 0 ? processedData.map((inv, i) => {
+            const invVal = viewMode === 'ALL' ? parseFloat(inv.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(inv.inv_stocks || 0) : parseFloat(inv.inv_mf || 0);
+            const currVal = viewMode === 'ALL' ? parseFloat(inv.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(inv.curr_stocks || 0) : parseFloat(inv.curr_mf || 0);
+            const retPct = viewMode === 'ALL' ? parseFloat(inv.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(inv.ret_pct_stocks || 0) : parseFloat(inv.ret_pct_mf || 0);
+            const statusStr = viewMode === 'ALL' ? inv.total_status : viewMode === 'EQUITY' ? inv.status_stocks : inv.status_mf;
+            const ret = currVal - invVal;
+            
+            return (
+              <div 
+                key={i} 
+                className={`table-row inv-cols ${i%2===0?'row-even':''}`}
+                onClick={() => handleRowClick(inv.date.split('T')[0], viewMode)}
+                style={{ cursor: viewMode === 'ALL' ? 'default' : 'pointer' }}
+                title={viewMode === 'ALL' ? 'Select MF or Equity to view daily breakdown' : `Click to view detailed ${viewMode} breakdown`}
+              >
+                <span>{formatDate(inv.date)}</span>
+                <span>{fmt(invVal)}</span>
+                <span>{fmt(currVal)}</span>
+                <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                <span className={retPct >= 0 ? 'pos' : 'neg'}>{fmtPct(retPct)}</span>
+                <span style={{fontSize:'1.2rem'}}>{statusStr || '—'}</span>
               </div>
-            )) : <div className="empty-state">No equity holdings synced yet. Click "Sync with Kite".</div>
-          ) : (
-            processedData.length > 0 ? processedData.map((inv, i) => {
-              const invVal = viewMode === 'ALL' ? parseFloat(inv.total_inv || 0) : parseFloat(inv.inv_mf || 0);
-              const currVal = viewMode === 'ALL' ? parseFloat(inv.total_curr || 0) : parseFloat(inv.curr_mf || 0);
-              const retPct = viewMode === 'ALL' ? parseFloat(inv.total_ret_pct || 0) : parseFloat(inv.ret_pct_mf || 0);
-              const statusStr = viewMode === 'ALL' ? inv.total_status : inv.status_mf;
-              const ret = currVal - invVal;
-              
-              return (
-                <div 
-                  key={i} 
-                  className={`table-row inv-cols ${i%2===0?'row-even':''}`}
-                  onClick={() => handleRowClick(inv.date.split('T')[0])}
-                  style={{ cursor: 'pointer' }}
-                  title="Click to view detailed Mutual Fund breakdown"
-                >
-                  <span>{formatDate(inv.date)}</span>
-                  <span>{fmt(invVal)}</span>
-                  <span>{fmt(currVal)}</span>
-                  <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                  <span className={retPct >= 0 ? 'pos' : 'neg'}>{fmtPct(retPct)}</span>
-                  <span style={{fontSize:'1.2rem'}}>{statusStr || '—'}</span>
-                </div>
-              );
-            }) : <div className="empty-state">No investment snapshots match your filters.</div>
-          )}
+            );
+          }) : <div className="empty-state">No investment snapshots match your filters.</div>}
         </div>
       </div>
 
-      {/* Drill-down Modal */}
+      {/* Drill-down Modal (Shared for MF & Equity) */}
       {drillDownDate && (
         <div className="modal-backdrop" onClick={() => setDrillDownDate(null)}>
           <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">MF Portfolio on {formatDate(drillDownDate)}</div>
+              <div className="modal-title">{drillDownType === 'EQUITY' ? 'Equity' : 'MF'} Portfolio on {formatDate(drillDownDate)}</div>
               <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               {processedDrillDownData.length > 0 ? (
                 <div className="data-table">
                   <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
-                    <span onClick={() => handleDrillSort('symbol')}>Fund {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('nav')}>NAV {drillSortBy === 'nav' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
@@ -2799,19 +2705,15 @@ function InvestTab({ investments, onAdd }) {
                       <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
                       <span>{h.quantity.toFixed(2)}</span>
                       <span>₹{h.average_price.toFixed(2)}</span>
-                      <span>₹{h.nav.toFixed(2)}</span>
+                      <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
                       <span>₹{h.invested_value.toFixed(0)}</span>
-                      <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>
-                        ₹{h.current_value.toFixed(0)}
-                      </span>
-                      <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>
-                        {fmtPct(h.ret_pct)}
-                      </span>
+                      <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>₹{h.current_value.toFixed(0)}</span>
+                      <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(h.ret_pct)}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="empty-state">No individual fund data saved for this date.</div>
+                <div className="empty-state">No individual data saved for this date.</div>
               )}
             </div>
           </div>

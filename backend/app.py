@@ -900,6 +900,21 @@ def sync_kite_direct():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
+@app.route('/api/investments/<date_str>/equity_holdings', methods=['GET'])
+@require_api_key
+def get_daily_equity_holdings(date_str):
+    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+    holdings = EquityHolding.query.filter_by(date=date_obj).all()
+    return jsonify([{
+        "symbol": h.symbol,
+        "quantity": h.quantity,
+        "average_price": h.average_price,
+        "ltp": h.ltp,
+        "invested_value": h.invested_value,
+        "current_value": h.current_value,
+        "ret_pct": ((h.current_value - h.invested_value) / h.invested_value * 100) if h.invested_value > 0 else 0
+    } for h in holdings])
+
 @app.route('/api/sync/investments-to-sheets', methods=['POST'])
 @require_api_key  # <-- Add this line to protect the route
 def sync_investments_to_sheets():
