@@ -965,8 +965,18 @@ def sync_investments_to_sheets():
             "data": [
                 {
                     "date": inv.date.strftime("%Y-%m-%d"),
+                    "inv_stocks": float(inv.inv_stocks),
+                    "curr_stocks": float(inv.curr_stocks),
+                    "ret_pct_stocks": float(inv.ret_pct_stocks),
+                    "status_stocks": inv.status_stocks,
+                    "inv_mf": float(inv.inv_mf),
+                    "curr_mf": float(inv.curr_mf),
+                    "ret_pct_mf": float(inv.ret_pct_mf),
+                    "status_mf": inv.status_mf,
                     "total_inv": float(inv.total_inv),
-                    "total_curr": float(inv.total_curr)
+                    "total_curr": float(inv.total_curr),
+                    "total_ret_pct": float(inv.total_ret_pct),
+                    "total_status": inv.total_status
                 } for inv in unsynced_invs
             ]
         }

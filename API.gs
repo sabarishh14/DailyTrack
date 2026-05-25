@@ -1,87 +1,3 @@
-// function doPost(e) {
-//   try {
-//     const data = JSON.parse(e.postData.contents);
-
-//     const {
-//       date,
-//       month,
-//       type,
-//       heading,
-//       description,
-//       amount,
-//       account
-//     } = data;
-
-//     const id = Utilities.getUuid();
-//     const createdAt = new Date();
-//     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-//     let sheetName = account;
-
-//     // If account is Cash → use IDBI sheet
-//     if (account === "Cash") {
-//       sheetName = "IDBI";
-//     }
-
-//     const sheet = ss.getSheetByName(sheetName);
-//     if (!sheet) {
-//       return jsonResponse("error", "Sheet not found");
-//     }
-
-//     const lastUsed = sheet.getLastRow();
-//     const colA = sheet.getRange(1, 1, lastUsed).getValues();
-
-//     let lastRow = 0;
-//     for (let i = colA.length - 1; i >= 0; i--) {
-//       if (colA[i][0] !== "") {
-//         lastRow = i + 1;
-//         break;
-//       }
-//     }
-
-//     const newRow = lastRow + 1;
-
-//         // Insert main data
-//     sheet.getRange(newRow, 1, 1, 8).setValues([[
-//       new Date(date),
-//       month,
-//       type,
-//       heading,
-//       description,
-//       amount,
-//       id,
-//       createdAt
-//     ]]);
-
-//     // SPECIAL CASE: IDBI sheet (Cash + IDBI dual balance)
-//     if (sheetName === "IDBI") {
-
-//       // Copy IDBI balance formula (G)
-//       sheet.getRange(lastRow, 7).copyTo(sheet.getRange(newRow, 7));
-
-//       // Copy Purse balance formula (H)
-//       sheet.getRange(lastRow, 8).copyTo(sheet.getRange(newRow, 8));
-
-//       // Set Cash/IDBI selector (I)
-//       sheet.getRange(newRow, 9).setValue(account);   
-//     } else {
-
-//       // NORMAL BANK SHEETS
-//       // Copy only Balance formula (G)
-//       sheet.getRange(lastRow, 7).copyTo(sheet.getRange(newRow, 7));
-
-//       // Set Account column (H)
-//       sheet.getRange(newRow, 8).setValue(account);
-//     }
-
-//     return jsonResponse("success", "Row inserted");
-
-//   } catch (err) {
-//     return jsonResponse("error", err.toString());
-//   }
-// }
-
-
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
@@ -91,9 +7,17 @@ function doPost(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     // ==========================================
-    // 1. INSERT OR EDIT TRANSACTIONS
+    // 1. TRIGGER OCR FOR BALANCES
     // ==========================================
-    if (type === "transactions") {
+    if (type === "trigger_ocr") {
+      const res = triggerOCR();
+      return ContentService.createTextOutput(JSON.stringify(res)).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ==========================================
+    // 2. INSERT OR EDIT TRANSACTIONS
+    // ==========================================
+    else if (type === "transactions") {
       let errors = [];
       let inserted = 0;
 
@@ -254,7 +178,7 @@ function doPost(e) {
     }
 
     // ==========================================
-    // 4. INVESTMENTS LOGIC
+    // 4. INVESTMENTS LOGIC (Stocks + MF + Total)
     // ==========================================
     else if (type === "investments") {
       const sheet = ss.getSheetByName("INVES-T-RACKER");
@@ -267,6 +191,7 @@ function doPost(e) {
         const lastRow = sheet.getLastRow();
         if (lastRow < 2) return;
 
+        // Check if date already exists to prevent duplicates
         const dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
         const exists = dates.some(d => {
           if (!d[0]) return false;
@@ -275,19 +200,33 @@ function doPost(e) {
         });
         if (exists) return; 
   
-        const prevRow = lastRow;
-        const prevValues = sheet.getRange(prevRow, 2, 1, 4).getValues()[0]; 
-        const prevFormulasR1C1 = sheet.getRange(prevRow, 8, 1, 6).getFormulasR1C1(); 
-
-        sheet.insertRowAfter(prevRow);
-        const newRow = prevRow + 1;
-        sheet.getRange(newRow, 1).setValue(snapshotDate).setNumberFormat("dd/MM/yyyy");
-        sheet.getRange(newRow, 2, 1, 4).setValues([prevValues]);
-        sheet.getRange(newRow, 6, 1, 2).setValues([[inv.total_inv, inv.total_curr]]);
-        sheet.getRange(newRow, 8, 1, 6).setFormulasR1C1(prevFormulasR1C1);
+        // Insert new row
+        sheet.insertRowAfter(lastRow);
+        const newRow = lastRow + 1;
+        
+        // Write all 13 columns directly from the Python backend!
+        sheet.getRange(newRow, 1, 1, 13).setValues([[
+          snapshotDate,          // A: Date
+          inv.inv_stocks,        // B: INV (Stocks)
+          inv.curr_stocks,       // C: CURR (Stocks)
+          inv.ret_pct_stocks,    // D: RET (Stocks)
+          inv.status_stocks,     // E: Stocks Status
+          inv.inv_mf,            // F: INV (MF)
+          inv.curr_mf,           // G: CURR (MF)
+          inv.ret_pct_mf,        // H: RET (MF)
+          inv.status_mf,         // I: MF Status
+          inv.total_inv,         // J: Total INV
+          inv.total_curr,        // K: Total CURR
+          inv.total_ret_pct,     // L: Total RET
+          inv.total_status       // M: Total Status
+        ]]);
+        
+        // Ensure date is formatted cleanly
+        sheet.getRange(newRow, 1).setNumberFormat("dd/MM/yyyy");
         
         inserted++;
       });
+      
       return ContentService.createTextOutput(JSON.stringify({status: "success", message: `${inserted} investments synced`})).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -385,6 +324,101 @@ function getTransactions() {
   return ContentService
     .createTextOutput(JSON.stringify(allTransactions))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ==========================================
+// REAL BALANCE OCR ENGINE
+// ==========================================
+function triggerOCR() {
+  const FOLDER_ID = "1QdOpIOuHhzOEtXGhBhswtgiY0c-nKF5N"; // Your folder ID
+  const folder = DriveApp.getFolderById(FOLDER_ID);
+  const files = folder.getFiles();
+
+  let allText = "";
+  let processed = 0;
+
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getMimeType().includes("image")) {
+      const blob = file.getBlob();
+      const resource = { title: file.getName() };
+      
+      // Requires Advanced Drive API Service!
+      const docFile = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: "en" });
+      const doc = DocumentApp.openById(docFile.id);
+      allText += doc.getBody().getText() + "\n";
+
+      DriveApp.getFileById(docFile.id).setTrashed(true);
+      file.setTrashed(true);
+      processed++;
+    }
+  }
+
+  if (processed === 0) {
+    return { status: "no_images", message: "⚠️ No screenshots found in folder." };
+  }
+
+  const parsedData = extractAndAppendBalances(allText);
+  return { status: "success", data: parsedData };
+}
+
+function extractAndAppendBalances(text) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let helper = ss.getSheetByName("BALANCES");
+  if (!helper) helper = ss.insertSheet("BALANCES");
+
+  const today = new Date();
+
+  // OCR cleanup
+  text = text.replace(/\*/g, "₹");
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+
+  // Banks in screen order
+  const banks = [
+    { key: "IDBI", regex: /idbi/i },
+    { key: "INDIAN", regex: /indian/i },
+    { key: "FEDERAL", regex: /federal/i },
+    { key: "ICICI", regex: /icici/i },
+    { key: "CUB", regex: /city/i },
+    { key: "KOTAK", regex: /kotak/i }
+  ];
+
+  const detectedBanks = [];
+  for (const line of lines) {
+    for (const bank of banks) {
+      if (bank.regex.test(line)) {
+        detectedBanks.push(bank.key);
+        break;
+      }
+    }
+  }
+
+  const detectedAmounts = [];
+  for (const line of lines) {
+    const amtMatch = line.match(/([0-9,]+\.[0-9]+)/);
+    if (amtMatch) {
+      detectedAmounts.push(Math.round(parseFloat(amtMatch[1].replace(/,/g, ""))));
+    }
+  }
+
+  // Map sequentially
+  const result = {};
+  for (let i = 0; i < detectedBanks.length; i++) {
+    result[detectedBanks[i]] = detectedAmounts[i] || "";
+  }
+
+  // Write row
+  helper.appendRow([
+    today,
+    result["KOTAK"] || "",
+    result["IDBI"] || "",
+    result["FEDERAL"] || "",
+    result["CUB"] || "",
+    result["INDIAN"] || "",
+    result["ICICI"] || ""
+  ]);
+
+  return result;
 }
 
 function jsonResponse(status, message) {
