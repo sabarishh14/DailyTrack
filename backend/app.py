@@ -147,6 +147,18 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     synced = db.Column(db.Boolean, default=False)  # NEW
 
+class EquityHolding(db.Model):
+    __tablename__ = "equity_holdings"
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    date = db.Column(db.Date, nullable=False, index=True)
+    symbol = db.Column(db.String(100), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)
+    average_price = db.Column(db.Float, nullable=False)
+    ltp = db.Column(db.Float, nullable=False)
+    invested_value = db.Column(db.Float, nullable=False)
+    current_value = db.Column(db.Float, nullable=False)
+
 class PhysicalActivity(db.Model):
     __tablename__ = "physical_activity"
 
@@ -711,6 +723,24 @@ def get_investments():
 
     return jsonify(result)
 
+@app.route('/api/equity', methods=['GET'])
+@require_api_key
+def get_equity():
+    # Fetch the latest available equity snapshot
+    latest_date = db.session.query(db.func.max(EquityHolding.date)).scalar()
+    if not latest_date:
+        return jsonify([])
+        
+    records = EquityHolding.query.filter_by(date=latest_date).all()
+    return jsonify([{
+        "symbol": r.symbol,
+        "quantity": r.quantity,
+        "average_price": r.average_price,
+        "ltp": r.ltp,
+        "invested_value": r.invested_value,
+        "current_value": r.current_value
+    } for r in records])
+
 @app.route('/api/investments', methods=['POST'])
 @require_api_key  # <-- Add this line to protect the route
 def add_investment():
@@ -753,111 +783,121 @@ def sync_kite_direct():
         return jsonify({"success": False, "message": "Kite API credentials not configured"})
 
     try:
-        # Force the server to calculate "today" based on Indian Standard Time
         ist_timezone = pytz.timezone('Asia/Kolkata')
         today_date = datetime.now(ist_timezone).date()
         
-        # 1. Check if already synced today to prevent duplicates
+        # 1. Check if already synced today
         if Investment.query.filter_by(date=today_date).first():
             return jsonify({"success": False, "message": f"Already synced investments for {today_date.strftime('%d/%m/%Y')}!"})
 
-        # 2. Generate Checksum & Get Access Token
+        # 2. Auth with Kite
         raw = KITE_API_KEY + request_token + KITE_API_SECRET
         checksum = hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
         token_res = requests.post("https://api.kite.trade/session/token", data={
-            "api_key": KITE_API_KEY,
-            "request_token": request_token,
-            "checksum": checksum
-        })
+            "api_key": KITE_API_KEY, "request_token": request_token, "checksum": checksum
+        }).json()
         
-        token_data = token_res.json()
-        if token_data.get('status') != 'success':
-            return jsonify({"success": False, "message": "Kite Auth Failed. Is your Request Token valid for today?"})
+        if token_res.get('status') != 'success':
+            return jsonify({"success": False, "message": "Kite Auth Failed. Token might be expired."})
         
-        access_token = token_data['data']['access_token']
-        print("✅ Access token generated")
-
-        # 3. Fetch Holdings
+        access_token = token_res['data']['access_token']
         headers = {"Authorization": f"token {KITE_API_KEY}:{access_token}"}
-        holdings_res = requests.get("https://api.kite.trade/mf/holdings", headers=headers)
-        holdings_data = holdings_res.json().get('data', [])
-        
-        if not holdings_data:
-            return jsonify({"success": False, "message": "No MF holdings found in Kite."})
-        print(f"✅ Fetched {len(holdings_data)} holdings")
 
-        # 4. Fetch Instruments (for latest NAV and Real Names)
+        # ==========================================
+        # 3. PROCESS MUTUAL FUNDS
+        # ==========================================
+        mf_res = requests.get("https://api.kite.trade/mf/holdings", headers=headers).json()
+        mf_holdings = mf_res.get('data', [])
+        
         instruments_res = requests.get("https://api.kite.trade/mf/instruments")
         reader = csv.DictReader(io.StringIO(instruments_res.text))
-        mf_data_map = {}
-        for row in reader:
-            if row.get('tradingsymbol'):
-                mf_data_map[row['tradingsymbol']] = {
-                    'nav': float(row.get('last_price', 0) or 0),
-                    'name': row.get('name', row['tradingsymbol'])
-                }
-        print("✅ Parsed instruments CSV for NAVs and Names")
+        mf_data_map = {row['tradingsymbol']: {'nav': float(row.get('last_price', 0) or 0), 'name': row.get('name', row['tradingsymbol'])} for row in reader if row.get('tradingsymbol')}
 
-        # 5. Calculate Totals and Prepare Holdings
-        total_inv = 0.0
-        total_curr = 0.0
-        daily_holdings = []
+        mf_total_inv = 0.0
+        mf_total_curr = 0.0
+        mf_records = []
 
-        for h in holdings_data:
+        for h in mf_holdings:
             raw_symbol = h['tradingsymbol']
-            qty = float(h['quantity'])
-            avg_price = float(h['average_price'])
+            qty, avg_price = float(h['quantity']), float(h['average_price'])
             
             fund_info = mf_data_map.get(raw_symbol)
-            if not fund_info or not fund_info['nav']:
-                continue
+            if not fund_info or not fund_info['nav']: continue
                 
-            nav = fund_info['nav']
-            real_name = fund_info['name'] # Extract the actual name
+            nav, real_name = fund_info['nav'], fund_info['name']
+            inv_val, curr_val = (qty * avg_price), (qty * nav)
             
-            fund_inv = (qty * avg_price)
-            fund_curr = (qty * nav)
+            mf_total_inv += inv_val
+            mf_total_curr += curr_val
             
-            total_inv += fund_inv
-            total_curr += fund_curr
-            
-            # Create holding record using the real name
-            daily_holdings.append(MutualFundHolding(
-                id=int(datetime.now().timestamp() * 1000) + len(daily_holdings),
-                date=today_date,
-                symbol=real_name, # <--- Saved as Real Name here
-                quantity=qty,
-                average_price=avg_price,
-                nav=nav,
-                invested_value=fund_inv,
-                current_value=fund_curr
+            mf_records.append(MutualFundHolding(
+                id=int(datetime.now().timestamp() * 1000) + len(mf_records),
+                date=today_date, symbol=real_name, quantity=qty, average_price=avg_price,
+                nav=nav, invested_value=inv_val, current_value=curr_val
             ))
-            
-        # 6. Calculate Returns and Status (Keep your existing code here)
-        ret_pct = ((total_curr - total_inv) / total_inv * 100) if total_inv > 0 else 0
-        prev = Investment.query.filter(Investment.date < today_date).order_by(Investment.date.desc()).first()
-        status = "⬆️💹" if not prev or ret_pct >= prev.ret_pct_mf else "⬇️📉"
 
-        # 7. Save to Database
+        # ==========================================
+        # 4. PROCESS EQUITY (STOCKS)
+        # ==========================================
+        eq_res = requests.get("https://api.kite.trade/portfolio/holdings", headers=headers).json()
+        eq_holdings = eq_res.get('data', [])
+        
+        eq_total_inv = 0.0
+        eq_total_curr = 0.0
+        eq_records = []
+
+        for e in eq_holdings:
+            qty, avg_price, ltp = e['quantity'], e['average_price'], e['last_price']
+            inv_val, curr_val = (qty * avg_price), (qty * ltp)
+            
+            eq_total_inv += inv_val
+            eq_total_curr += curr_val
+            
+            eq_records.append(EquityHolding(
+                id=int(datetime.now().timestamp() * 1000) + e.get('instrument_token', len(eq_records)),
+                date=today_date, symbol=e['tradingsymbol'], quantity=qty, average_price=avg_price,
+                ltp=ltp, invested_value=inv_val, current_value=curr_val
+            ))
+
+        # ==========================================
+        # 5. CALCULATE GRAND TOTALS & RETURNS
+        # ==========================================
+        prev = Investment.query.filter(Investment.date < today_date).order_by(Investment.date.desc()).first()
+        
+        mf_ret_pct = ((mf_total_curr - mf_total_inv) / mf_total_inv * 100) if mf_total_inv > 0 else 0
+        mf_status = "⬆️💹" if not prev or mf_ret_pct >= prev.ret_pct_mf else "⬇️📉"
+
+        eq_ret_pct = ((eq_total_curr - eq_total_inv) / eq_total_inv * 100) if eq_total_inv > 0 else 0
+        eq_status = "⬆️💹" if not prev or eq_ret_pct >= prev.ret_pct_stocks else "⬇️📉"
+
+        grand_inv = mf_total_inv + eq_total_inv
+        grand_curr = mf_total_curr + eq_total_curr
+        grand_ret_pct = ((grand_curr - grand_inv) / grand_inv * 100) if grand_inv > 0 else 0
+        grand_status = "⬆️💹" if not prev or grand_ret_pct >= prev.total_ret_pct else "⬇️📉"
+
+        # ==========================================
+        # 6. SAVE TO DATABASE
+        # ==========================================
         new_inv = Investment(
-            id=int(datetime.now().timestamp() * 1000),
-            date=today_date,
-            inv_stocks=0.0, curr_stocks=0.0, ret_pct_stocks=0.0, status_stocks="—",
-            inv_mf=total_inv, curr_mf=total_curr, ret_pct_mf=ret_pct, status_mf=status,
-            total_inv=total_inv, total_curr=total_curr, total_ret_pct=ret_pct, total_status=status
+            id=int(datetime.now().timestamp() * 1000), date=today_date,
+            inv_stocks=eq_total_inv, curr_stocks=eq_total_curr, ret_pct_stocks=eq_ret_pct, status_stocks=eq_status,
+            inv_mf=mf_total_inv, curr_mf=mf_total_curr, ret_pct_mf=mf_ret_pct, status_mf=mf_status,
+            total_inv=grand_inv, total_curr=grand_curr, total_ret_pct=grand_ret_pct, total_status=grand_status
         )
+        
         db.session.add(new_inv)
-        db.session.add_all(daily_holdings) # <--- ADD THIS LINE
+        db.session.add_all(mf_records)
+        db.session.add_all(eq_records)
         db.session.commit()
 
-        print(f"✅ Synced to DB! Inv: {total_inv}, Curr: {total_curr}")
-        return jsonify({"success": True, "message": f"Successfully synced from Kite!"})
+        return jsonify({"success": True, "message": f"Successfully synced Combined Portfolio!"})
 
     except Exception as e:
         print(f"❌ Kite Sync Error: {str(e)}")
         import traceback
         traceback.print_exc()
+        db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
 @app.route('/api/sync/investments-to-sheets', methods=['POST'])
