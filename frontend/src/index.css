@@ -247,6 +247,38 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 .chip-dropdown-item:hover { background: rgba(99,102,241,0.12); color: var(--text); }
 .chip-dropdown-item.selected { color: #a5b4fc; }
+
+/* Quick Clear Button on Chips */
+.chip-clear {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); margin-left: 2px;
+  font-size: 0.85rem; line-height: 1; color: var(--text);
+  transition: all 0.2s ease; cursor: pointer;
+}
+.chip-clear:hover { background: var(--neg); color: #fff; }
+[data-theme="light"] .chip-clear { background: rgba(0,0,0,0.1); color: var(--text); }
+[data-theme="light"] .chip-clear:hover { background: var(--neg); color: #fff; }
+
+/* Dropdown Sticky Search */
+.chip-search-container {
+  padding: 0.4rem 0.5rem; position: sticky; top: 0; 
+  background: #1a2235; z-index: 2; 
+  border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.2rem;
+}
+[data-theme="light"] .chip-search-container {
+  background: var(--card); border-bottom-color: var(--border2);
+}
+.chip-search-input {
+  width: 100%; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; padding: 0.4rem 0.6rem; color: var(--text); 
+  font-size: 0.8rem; outline: none; font-family: 'DM Sans', sans-serif;
+}
+.chip-search-input:focus { border-color: var(--accent); }
+[data-theme="light"] .chip-search-input {
+  background: var(--bg3); border-color: var(--border);
+}
+
 .chip-checkbox {
   width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
   border: 1.5px solid rgba(255,255,255,0.2);

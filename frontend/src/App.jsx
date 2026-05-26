@@ -582,7 +582,19 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const dropdownRef = useRef(null);
-  
+  // Analyzer filters - multi-select
+  const [chartAccounts, setChartAccounts] = useState(new Set());
+  const [chartTypes, setChartTypes] = useState(new Set(['Debit'])); // Defaults to Debit
+  const [chartMonths, setChartMonths] = useState(new Set([currentMonthLabel]));
+  const [chartYears, setChartYears] = useState(new Set()); // <-- ADD THIS
+  const [chartHeadings, setChartHeadings] = useState(new Set());
+
+  // Table filters - multi-select
+  const [filterAccounts, setFilterAccounts] = useState(new Set());
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  // ... (keep existing)
+  const [filterMonths, setFilterMonths] = useState(new Set([currentMonthLabel]));
+  const [filterYears, setFilterYears] = useState(new Set()); // <-- ADD THIS
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
 
   // Analyzer filters - multi-select
@@ -619,6 +631,11 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   /// Change actions: 90 to actions: 130
   const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
 
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced]);
+  
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -665,7 +682,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   }, [filterDesc]);
 
   // Memoize expensive computations
-  const { allMonths, allHeadings, allAccountsList, allTypes } = useMemo(() => {
+  const { allMonths, allYears, allHeadings, allAccountsList, allTypes } = useMemo(() => { // <-- Destructure allYears
     return {
       allMonths: [...new Set(transactions.map(t => {
         if (!t.date) return null;
@@ -680,6 +697,16 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         const d = new Date(y, m - 1, 1);
         return `${d.toLocaleString('default', { month: 'long' })} ${y}`;
       }),
+      // --- ADD THIS BLOCK FOR YEARS ---
+      allYears: [...new Set(transactions.map(t => {
+        if (!t.date) return null;
+        const d = new Date(t.date);
+        if (isNaN(d.getTime())) return null;
+        return d.getFullYear().toString();
+      }))]
+      .filter(Boolean)
+      .sort().reverse(),
+      // --------------------------------
       allHeadings: [...new Set(transactions.map(t => t.heading))].sort(),
       allAccountsList: [...new Set(transactions.map(t => t.account))].sort(),
       allTypes: [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1))
@@ -707,8 +734,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const accountMatch = chartAccounts.size === 0 || chartAccounts.has(t.account);
       const typeMatch = chartTypes.size === 0 || chartTypes.has(capitalizedType);
       const monthMatch = chartMonths.size === 0 || chartMonths.has(ml);
+      const yearStr = d.getFullYear().toString(); // <-- ADD THIS
+      const yearMatch = chartYears.size === 0 || chartYears.has(yearStr); // <-- ADD THIS
       const headingMatch = chartHeadings.size === 0 || chartHeadings.has(t.heading);
-      return accountMatch && typeMatch && monthMatch && headingMatch;
+      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch; // <-- UPDATE THIS
     });
 
     // If exactly one heading is selected, drill down into descriptions!
@@ -726,7 +755,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
-  }, [transactions, chartAccounts, chartTypes, chartMonths, chartHeadings]);
+  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
 
   // Memoize table filtered and sorted results
   const tableFiltered = useMemo(() => {
@@ -748,10 +777,15 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         return txDate >= from && txDate <= to;
       })();
       const monthMatch = filterMonths.size === 0 || filterMonths.has(ml);
+      
+      const yearStr = d.getFullYear().toString(); // <-- ADD THIS
+      const yearMatch = filterYears.size === 0 || filterYears.has(yearStr); // <-- ADD THIS
+      
       const typeMatch = filterTypes.size === 0 || filterTypes.has(capitalizedType);
       const headingMatch = filterHeadings.size === 0 || filterHeadings.has(t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      return accountMatch && dateMatch && monthMatch && typeMatch && headingMatch && descMatch;
+      
+      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch; // <-- UPDATE THIS
     }).sort((a, b) => {
       let aVal, bVal;
       if (sortBy === 'date') {
@@ -787,7 +821,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         return res !== 0 ? res : b.id - a.id; 
       }
     });
-  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]);
+  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
 
   // Paginate the filtered results
   const totalPages = Math.ceil(tableFiltered.length / rowsPerPage);
@@ -873,7 +907,16 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
 
   // Multi-select dropdown component
   const MultiSelectDropdown = ({ label, icon, options, selected, onToggle, dropdownKey }) => {
+    const [searchTerm, setSearchTerm] = useState("");
+    
+    // Clear search when dropdown closes
+    useEffect(() => {
+      if (openDropdown !== dropdownKey) setSearchTerm("");
+    }, [openDropdown, dropdownKey]);
+
+    const filteredOptions = options.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()));
     const allSelected = selected.size === options.length && options.length > 0;
+    
     const toggleSelectAll = () => {
       if (allSelected) {
         onToggle(new Set());
@@ -890,11 +933,32 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
           <span>{icon}</span>
           <span>{label}</span>
           {selected.size > 0 && <span className="chip-count">{selected.size}</span>}
+          {selected.size > 0 && (
+            <span 
+              className="chip-clear" 
+              onClick={(e) => { e.stopPropagation(); onToggle(new Set()); }}
+              title="Clear filter"
+            >
+              ×
+            </span>
+          )}
           <span className="chip-arrow">▼</span>
         </button>
 
         {openDropdown === dropdownKey && (
           <div className="chip-dropdown">
+            {options.length > 5 && (
+              <div className="chip-search-container">
+                <input 
+                  type="text" 
+                  placeholder={`Search ${label}...`}
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="chip-search-input"
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+            )}
             {options.length > 0 && (
               <>
                 <div
@@ -907,7 +971,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 </div>
               </>
             )}
-            {options.map(opt => (
+            {filteredOptions.map(opt => (
               <div
                 key={opt}
                 className={`chip-dropdown-item ${selected.has(opt) ? 'selected' : ''}`}
@@ -917,6 +981,9 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 <span>{opt}</span>
               </div>
             ))}
+            {filteredOptions.length === 0 && options.length > 0 && (
+              <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>
+            )}
             {options.length === 0 && (
               <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No options</div>
             )}
@@ -1028,6 +1095,14 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 dropdownKey="analyzerMonth"
               />
               <MultiSelectDropdown
+                label="Year"
+                icon="📆"
+                options={allYears}
+                selected={chartYears}
+                onToggle={setChartYears}
+                dropdownKey="analyzerYear"
+              />
+              <MultiSelectDropdown
                 label="Heading"
                 icon="🏷️"
                 options={allHeadings}
@@ -1035,19 +1110,21 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 onToggle={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
-              {(chartAccounts.size > 0 || chartTypes.size > 0 || chartMonths.size > 0 || chartHeadings.size > 0) && (
+              {(chartAccounts.size > 0 || chartTypes.size > 0 || chartMonths.size > 0 || chartYears.size > 0 || chartHeadings.size > 0) && ( // <-- Added chartYears
                 <button 
                   className="filter-chip" 
                   onClick={() => {
                     setChartAccounts(new Set());
                     setChartTypes(new Set());
-                    setChartMonths(new Set()); // <-- Empties the month completely!
+                    setChartMonths(new Set());
+                    setChartYears(new Set()); // <-- ADD THIS
                     setChartHeadings(new Set());
                   }}
                   style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
                 >
                   <span>❌</span><span>Clear</span>
                 </button>
+                
               )}
             </div>
 
@@ -1224,7 +1301,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                             setFilterAccounts(new Set(chartAccounts));
                             setFilterTypes(new Set(chartTypes));
                             setFilterMonths(new Set(chartMonths));
-                            
+                            setFilterYears(new Set(chartYears)); // <-- ADD THIS
                             document.querySelector('.tx-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                           }}
                         >
@@ -1322,13 +1399,21 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             onToggle={setFilterTypes}
             dropdownKey="tableType"
           />
-          <MultiSelectDropdown
+         <MultiSelectDropdown
             label="Month"
             icon="📅"
             options={allMonths}
             selected={filterMonths}
             onToggle={setFilterMonths}
             dropdownKey="tableMonth"
+          />
+          <MultiSelectDropdown
+            label="Year"
+            icon="📆"
+            options={allYears}
+            selected={filterYears}
+            onToggle={setFilterYears}
+            dropdownKey="tableYear"
           />
           <MultiSelectDropdown
             label="Heading"
@@ -1372,6 +1457,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterAccounts(new Set());
                 setFilterTypes(new Set());
                 setFilterMonths(new Set());
+                setFilterYears(new Set()); // <-- ADD THIS
                 setFilterHeadings(new Set());
                 setFilterDateFrom("");
                 setFilterDateTo("");
