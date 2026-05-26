@@ -587,15 +587,11 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [chartTypes, setChartTypes] = useState(new Set(['Debit'])); // Defaults to Debit
   const [chartMonths, setChartMonths] = useState(new Set([currentMonthLabel]));
   const [chartYears, setChartYears] = useState(new Set()); // <-- ADD THIS
-  const [chartHeadings, setChartHeadings] = useState(new Set());
 
   const [filterYears, setFilterYears] = useState(new Set()); // <-- ADD THIS
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
 
   // Analyzer filters - multi-select
-  const [chartAccounts, setChartAccounts] = useState(new Set());
-  const [chartTypes, setChartTypes] = useState(new Set(['Debit'])); // Defaults to Debit
-  const [chartMonths, setChartMonths] = useState(new Set([currentMonthLabel]));
   const [chartHeadings, setChartHeadings] = useState(new Set());
 
   // Table filters - multi-select
