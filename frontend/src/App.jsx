@@ -577,6 +577,8 @@ function CustomPieTooltip({ active, payload, pieData }) {
 
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
 function MoneyTab({ accounts, transactions, onRefresh }) {
+  const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
+  
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -589,7 +591,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [chartYears, setChartYears] = useState(new Set()); // <-- ADD THIS
 
   const [filterYears, setFilterYears] = useState(new Set()); // <-- ADD THIS
-  const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
 
   // Analyzer filters - multi-select
   const [chartHeadings, setChartHeadings] = useState(new Set());
