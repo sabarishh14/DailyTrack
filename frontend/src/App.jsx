@@ -589,11 +589,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [chartYears, setChartYears] = useState(new Set()); // <-- ADD THIS
   const [chartHeadings, setChartHeadings] = useState(new Set());
 
-  // Table filters - multi-select
-  const [filterAccounts, setFilterAccounts] = useState(new Set());
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  // ... (keep existing)
-  const [filterMonths, setFilterMonths] = useState(new Set([currentMonthLabel]));
   const [filterYears, setFilterYears] = useState(new Set()); // <-- ADD THIS
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
 
@@ -635,7 +630,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   useEffect(() => {
     setCurrentPage(0);
   }, [filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced]);
-  
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
