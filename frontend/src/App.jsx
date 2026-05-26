@@ -2395,6 +2395,7 @@ function GymTab({ physical, onOpenModal }) {
            </div>
         </div>
 
+
         <button className="action-btn" onClick={onOpenModal}>
           ➕ Log Activity
         </button>
