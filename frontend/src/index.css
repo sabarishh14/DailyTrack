@@ -214,15 +214,13 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 .filter-chip .chip-count {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.65rem; font-weight: 700;
-  border-radius: 50%;
+  height: 18px; min-width: 18px; padding: 0 4px;
+  color: #fff; font-size: 0.65rem; font-weight: 700;
+  border-radius: 9px; margin-left: 2px;
 }
-.filter-chip .chip-count.chip-count-exclude {
-  background: var(--neg);
-}
+.filter-chip .chip-count.inc { background: var(--accent); }
+.filter-chip .chip-count.exc { background: var(--neg); }
+
 .filter-chip .chip-arrow {
   font-size: 0.6rem;
   opacity: 0.6;
@@ -254,7 +252,16 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   font-size: 0.85rem; color: var(--text3);
 }
 .chip-dropdown-item:hover { background: rgba(99,102,241,0.12); color: var(--text); }
-.chip-dropdown-item.selected { color: #a5b4fc; }
+
+.chip-dropdown-item.included { background: rgba(99,102,241,0.08); color: var(--text); }
+.chip-dropdown-item.excluded { background: rgba(239,68,68,0.05); color: var(--text3); }
+.chip-dropdown-item.excluded span { text-decoration: line-through; opacity: 0.7; }
+
+.chip-helper-text {
+  font-size: 0.65rem; color: var(--text3); text-align: center;
+  padding: 0.35rem; margin-bottom: 0.25rem; font-weight: 500;
+  background: rgba(255,255,255,0.02); border-radius: 6px;
+}
 
 /* Quick Clear Button on Chips */
 .chip-clear {
@@ -299,11 +306,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
-.chip-checkbox.checked { background: var(--accent); border-color: var(--accent); }
-.chip-checkbox.checked::after { content: '✓'; font-size: 0.65rem; color: #fff; font-weight: 700; }
 
-.chip-checkbox.exclude.checked { background: var(--neg); border-color: var(--neg); }
-.chip-checkbox.exclude.checked::after { content: '×'; font-size: 0.8rem; }
+.chip-checkbox.included { background: var(--accent); border-color: var(--accent); }
+.chip-checkbox.included::after { content: '✓'; font-size: 0.65rem; color: #fff; font-weight: 700; }
+
+.chip-checkbox.excluded { background: rgba(239, 68, 68, 0.15); border-color: var(--neg); }
+.chip-checkbox.excluded::after { content: '×'; font-size: 0.85rem; color: var(--neg); font-weight: 700; line-height: 1; }
 
 /* ── TRANSACTION TABLE (upgraded) ─── */
 .tx-table-wrap {

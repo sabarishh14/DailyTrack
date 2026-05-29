@@ -584,23 +584,23 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const dropdownRef = useRef(null);
-  // Analyzer filters - multi-select
-  const [chartAccounts, setChartAccounts] = useState({ mode: 'include', items: new Set() });
-  const [chartTypes, setChartTypes] = useState({ mode: 'include', items: new Set(['Debit']) }); // Defaults to Debit
-  const [chartMonths, setChartMonths] = useState({ mode: 'include', items: new Set([currentMonthLabel]) });
-  const [chartYears, setChartYears] = useState({ mode: 'include', items: new Set() });
-  const [chartHeadings, setChartHeadings] = useState({ mode: 'include', items: new Set() });
+  // Analyzer filters - 3-State Multi-select
+  const [chartAccounts, setChartAccounts] = useState({ included: new Set(), excluded: new Set() });
+  const [chartTypes, setChartTypes] = useState({ included: new Set(['Debit']), excluded: new Set() }); // Defaults to Debit
+  const [chartMonths, setChartMonths] = useState({ included: new Set([currentMonthLabel]), excluded: new Set() });
+  const [chartYears, setChartYears] = useState({ included: new Set(), excluded: new Set() });
+  const [chartHeadings, setChartHeadings] = useState({ included: new Set(), excluded: new Set() });
 
-  // Table filters - multi-select
-  const [filterYears, setFilterYears] = useState({ mode: 'include', items: new Set() });
-  const [filterAccounts, setFilterAccounts] = useState({ mode: 'include', items: new Set() });
+  // Table filters - 3-State Multi-select
+  const [filterYears, setFilterYears] = useState({ included: new Set(), excluded: new Set() });
+  const [filterAccounts, setFilterAccounts] = useState({ included: new Set(), excluded: new Set() });
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterDateFromDebounced, setFilterDateFromDebounced] = useState("");
   const [filterDateToDebounced, setFilterDateToDebounced] = useState("");
-  const [filterMonths, setFilterMonths] = useState({ mode: 'include', items: new Set([currentMonthLabel]) });
-  const [filterTypes, setFilterTypes] = useState({ mode: 'include', items: new Set() });
-  const [filterHeadings, setFilterHeadings] = useState({ mode: 'include', items: new Set() });
+  const [filterMonths, setFilterMonths] = useState({ included: new Set([currentMonthLabel]), excluded: new Set() });
+  const [filterTypes, setFilterTypes] = useState({ included: new Set(), excluded: new Set() });
+  const [filterHeadings, setFilterHeadings] = useState({ included: new Set(), excluded: new Set() });
   const [filterDesc, setFilterDesc] = useState("");
   const [filterDescDebounced, setFilterDescDebounced] = useState("");
 
@@ -662,7 +662,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       months.add(label);
       cursor.setMonth(cursor.getMonth() + 1);
     }
-    setFilterMonths(prev => ({ ...prev, items: months }));
+    setFilterMonths(prev => ({ ...prev, included: months }));
   }, [filterDateFromDebounced, filterDateToDebounced]);
 
   useEffect(() => {
@@ -703,11 +703,12 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   }, [transactions]);
 
   // Multi-select toggle functions
-  // Helper to check match based on include/exclude mode
+  // Helper to check match based on 3-State filtering
   const checkMatch = (filterState, value) => {
-    if (filterState.items.size === 0) return true;
-    if (filterState.mode === 'include') return filterState.items.has(value);
-    return !filterState.items.has(value);
+    const { included, excluded } = filterState;
+    if (excluded.has(value)) return false; // Exclusion always wins
+    if (included.size > 0 && !included.has(value)) return false; // If there are inclusions, MUST be included
+    return true;
   };
 
  // Memoize analyzer filtered results (with Drill-Down logic)
@@ -729,8 +730,8 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch;
     });
 
-    // If exactly one heading is selected (in include mode), drill down into descriptions!
-    const isShowingDescriptions = chartHeadings.mode === 'include' && chartHeadings.items.size === 1;
+    // If exactly one heading is included, drill down into descriptions!
+    const isShowingDescriptions = chartHeadings.included.size === 1;
     const pieData = {};
     
     filtered.forEach(t => { 
@@ -894,10 +895,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     );
   };
 
-  // Multi-select dropdown component
+  // Multi-select dropdown component (3-State Logic)
   const MultiSelectDropdown = ({ label, icon, options, filterState, setFilterState, dropdownKey }) => {
     const [searchTerm, setSearchTerm] = useState("");
-    const { mode, items } = filterState;
+    const { included, excluded } = filterState;
     
     // Clear search when dropdown closes
     useEffect(() => {
@@ -905,36 +906,52 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     }, [openDropdown, dropdownKey]);
 
     const filteredOptions = options.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()));
-    const allSelected = items.size === options.length && options.length > 0;
+    const allSelected = included.size === options.length && options.length > 0;
     
-    const toggleItem = (opt) => {
-      const newItems = new Set(items);
-      if (newItems.has(opt)) newItems.delete(opt);
-      else newItems.add(opt);
-      setFilterState({ ...filterState, items: newItems });
+    // 3-State Toggle: Neutral -> Included -> Excluded -> Neutral
+    const handleItemClick = (opt) => {
+      const newInc = new Set(included);
+      const newExc = new Set(excluded);
+
+      if (newInc.has(opt)) {
+        newInc.delete(opt);
+        newExc.add(opt);
+      } else if (newExc.has(opt)) {
+        newExc.delete(opt);
+      } else {
+        newInc.add(opt);
+      }
+      setFilterState({ included: newInc, excluded: newExc });
     };
 
     const toggleSelectAll = () => {
-      if (allSelected) setFilterState({ ...filterState, items: new Set() });
-      else setFilterState({ ...filterState, items: new Set(options) });
+      if (allSelected) {
+        setFilterState({ included: new Set(), excluded: new Set() });
+      } else {
+        setFilterState({ included: new Set(options), excluded: new Set() });
+      }
     };
     
-    const isExclude = mode === 'exclude';
-    const hasSelection = items.size > 0;
+    const hasSelection = included.size > 0 || excluded.size > 0;
+    const isExcludeOnly = included.size === 0 && excluded.size > 0;
 
     return (
       <div style={{ position: 'relative' }}>
         <button
-          className={`filter-chip ${hasSelection ? (isExclude ? 'exclude-active' : 'active') : ''} ${openDropdown === dropdownKey ? 'open' : ''}`}
+          className={`filter-chip ${hasSelection ? (isExcludeOnly ? 'exclude-active' : 'active') : ''} ${openDropdown === dropdownKey ? 'open' : ''}`}
           onClick={() => setOpenDropdown(openDropdown === dropdownKey ? null : dropdownKey)}
         >
           <span>{icon}</span>
-          <span style={{ textDecoration: isExclude && hasSelection ? 'line-through' : 'none', opacity: isExclude && hasSelection ? 0.7 : 1 }}>{label}</span>
-          {hasSelection && <span className={`chip-count ${isExclude ? 'chip-count-exclude' : ''}`}>{items.size}</span>}
+          <span style={{ textDecoration: isExcludeOnly ? 'line-through' : 'none', opacity: isExcludeOnly ? 0.8 : 1 }}>{label}</span>
+          
+          {/* Dual Status Counters */}
+          {included.size > 0 && <span className="chip-count inc">{included.size}</span>}
+          {excluded.size > 0 && <span className="chip-count exc">{excluded.size}</span>}
+
           {hasSelection && (
             <span 
               className="chip-clear" 
-              onClick={(e) => { e.stopPropagation(); setFilterState({ ...filterState, items: new Set() }); }}
+              onClick={(e) => { e.stopPropagation(); setFilterState({ included: new Set(), excluded: new Set() }); }}
               title="Clear filter"
             >
               ×
@@ -945,20 +962,9 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
 
         {openDropdown === dropdownKey && (
           <div className="chip-dropdown">
-            {/* FILTER MODE TOGGLE */}
-            <div style={{ display: 'flex', gap: '4px', padding: '0.4rem', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', margin: '4px 4px 8px 4px' }}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setFilterState({ ...filterState, mode: 'include' }); }}
-                style={{ flex: 1, padding: '0.4rem', borderRadius: '6px', border: 'none', background: !isExclude ? 'var(--pos)' : 'transparent', color: !isExclude ? '#fff' : 'var(--text2)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-              >
-                ✅ Include
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setFilterState({ ...filterState, mode: 'exclude' }); }}
-                style={{ flex: 1, padding: '0.4rem', borderRadius: '6px', border: 'none', background: isExclude ? 'var(--neg)' : 'transparent', color: isExclude ? '#fff' : 'var(--text2)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-              >
-                🚫 Exclude
-              </button>
+            
+            <div className="chip-helper-text">
+              Tap once to include • Tap again to exclude
             </div>
 
             {options.length > 5 && (
@@ -980,7 +986,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                   onClick={toggleSelectAll}
                   style={{ fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '4px' }}
                 >
-                  <div className={`chip-checkbox ${isExclude ? 'exclude' : ''} ${allSelected ? 'checked' : ''}`} />
+                  <div className={`chip-checkbox ${allSelected ? 'included' : ''}`} />
                   <span>{allSelected ? 'Clear All' : 'Select All'}</span>
                 </div>
               </>
@@ -988,11 +994,11 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             {filteredOptions.map(opt => (
               <div
                 key={opt}
-                className={`chip-dropdown-item ${items.has(opt) ? 'selected' : ''}`}
-                onClick={() => toggleItem(opt)}
+                className={`chip-dropdown-item ${included.has(opt) ? 'included' : ''} ${excluded.has(opt) ? 'excluded' : ''}`}
+                onClick={() => handleItemClick(opt)}
               >
-                <div className={`chip-checkbox ${isExclude ? 'exclude' : ''} ${items.has(opt) ? 'checked' : ''}`} />
-                <span style={{ textDecoration: isExclude && items.has(opt) ? 'line-through' : 'none' }}>{opt}</span>
+                <div className={`chip-checkbox ${included.has(opt) ? 'included' : ''} ${excluded.has(opt) ? 'excluded' : ''}`} />
+                <span>{opt}</span>
               </div>
             ))}
             {filteredOptions.length === 0 && options.length > 0 && (
@@ -1124,15 +1130,17 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
-              {(chartAccounts.items.size > 0 || chartTypes.items.size > 0 || chartMonths.items.size > 0 || chartYears.items.size > 0 || chartHeadings.items.size > 0) && (
+              {(chartAccounts.included.size > 0 || chartAccounts.excluded.size > 0 || 
+                chartTypes.included.size > 0 || chartTypes.excluded.size > 0 || 
+                chartMonths.included.size > 0 || chartMonths.excluded.size > 0 || 
+                chartYears.included.size > 0 || chartYears.excluded.size > 0 || 
+                chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0) && (
                 <button 
                   className="filter-chip" 
                   onClick={() => {
-                    setChartAccounts({ mode: 'include', items: new Set() });
-                    setChartTypes({ mode: 'include', items: new Set() });
-                    setChartMonths({ mode: 'include', items: new Set() });
-                    setChartYears({ mode: 'include', items: new Set() });
-                    setChartHeadings({ mode: 'include', items: new Set() });
+                    const empty = { included: new Set(), excluded: new Set() };
+                    setChartAccounts(empty); setChartTypes(empty); setChartMonths(empty);
+                    setChartYears(empty); setChartHeadings(empty);
                   }}
                   style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
                 >
@@ -1262,7 +1270,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                       // Highlight based on whether we are looking at Headings or Descriptions
                       const isSelected = isShowingDescriptions 
                         ? filterDesc === d.name 
-                        : filterHeadings.items.has(d.name);
+                        : filterHeadings.included.has(d.name);
                       
                       return (
                         <div 
@@ -1305,8 +1313,8 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                               }
                             } else {
                               // Drills down the chart AND filters the table below!
-                              setChartHeadings({ mode: 'include', items: new Set([d.name]) });
-                              setFilterHeadings({ mode: 'include', items: new Set([d.name]) });
+                              setChartHeadings({ included: new Set([d.name]), excluded: new Set() });
+                              setFilterHeadings({ included: new Set([d.name]), excluded: new Set() });
                               setFilterDesc("");
                             }
                             
@@ -1463,18 +1471,19 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             onChange={e => setFilterDesc(e.target.value)}
             style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
           />
-          {(filterAccounts.items.size > 0 || filterTypes.items.size > 0 || filterMonths.items.size > 0 || filterYears.items.size > 0 || filterHeadings.items.size > 0 || filterDateFrom || filterDateTo || filterDesc) && (
+          {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 || 
+            filterTypes.included.size > 0 || filterTypes.excluded.size > 0 || 
+            filterMonths.included.size > 0 || filterMonths.excluded.size > 0 || 
+            filterYears.included.size > 0 || filterYears.excluded.size > 0 || 
+            filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 || 
+            filterDateFrom || filterDateTo || filterDesc) && (
             <button 
               className="filter-chip" 
               onClick={() => {
-                setFilterAccounts({ mode: 'include', items: new Set() });
-                setFilterTypes({ mode: 'include', items: new Set() });
-                setFilterMonths({ mode: 'include', items: new Set() });
-                setFilterYears({ mode: 'include', items: new Set() });
-                setFilterHeadings({ mode: 'include', items: new Set() });
-                setFilterDateFrom("");
-                setFilterDateTo("");
-                setFilterDesc("");
+                const empty = { included: new Set(), excluded: new Set() };
+                setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
+                setFilterYears(empty); setFilterHeadings(empty);
+                setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
               }}
               style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
             >
