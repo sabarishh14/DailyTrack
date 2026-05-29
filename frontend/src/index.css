@@ -207,6 +207,11 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   border-color: rgba(99,102,241,0.55);
   color: #a5b4fc;
 }
+.filter-chip.exclude-active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fca5a5;
+}
 .filter-chip .chip-count {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px;
@@ -214,6 +219,9 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   color: #fff;
   font-size: 0.65rem; font-weight: 700;
   border-radius: 50%;
+}
+.filter-chip .chip-count.chip-count-exclude {
+  background: var(--neg);
 }
 .filter-chip .chip-arrow {
   font-size: 0.6rem;
@@ -260,6 +268,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 [data-theme="light"] .chip-clear { background: rgba(0,0,0,0.1); color: var(--text); }
 [data-theme="light"] .chip-clear:hover { background: var(--neg); color: #fff; }
 
+[data-theme="light"] .filter-chip.exclude-active {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: var(--neg);
+}
+
 /* Dropdown Sticky Search */
 .chip-search-container {
   padding: 0.4rem 0.5rem; position: sticky; top: 0; 
@@ -287,6 +301,9 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 .chip-checkbox.checked { background: var(--accent); border-color: var(--accent); }
 .chip-checkbox.checked::after { content: '✓'; font-size: 0.65rem; color: #fff; font-weight: 700; }
+
+.chip-checkbox.exclude.checked { background: var(--neg); border-color: var(--neg); }
+.chip-checkbox.exclude.checked::after { content: '×'; font-size: 0.8rem; }
 
 /* ── TRANSACTION TABLE (upgraded) ─── */
 .tx-table-wrap {
