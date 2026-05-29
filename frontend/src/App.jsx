@@ -602,12 +602,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [filterTypes, setFilterTypes] = useState({ included: new Set(), excluded: new Set() });
   const [filterHeadings, setFilterHeadings] = useState({ included: new Set(), excluded: new Set() });
   const [filterDesc, setFilterDesc] = useState("");
-  const [filterDescMode, setFilterDescMode] = useState("include");
-  
-  // Analyzer text search
-  const [chartDesc, setChartDesc] = useState("");
-  const [chartDescDebounced, setChartDescDebounced] = useState("");
-  const [chartDescMode, setChartDescMode] = useState("include");
   const [filterDescDebounced, setFilterDescDebounced] = useState("");
 
   // Dropdown visibility
@@ -676,11 +670,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     return () => clearTimeout(timer);
   }, [filterDesc]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setChartDescDebounced(chartDesc), 300);
-    return () => clearTimeout(timer);
-  }, [chartDesc]);
-
   // Memoize expensive computations
   const { allMonths, allYears, allHeadings, allAccountsList, allTypes } = useMemo(() => { // <-- Destructure allYears
     return {
@@ -738,13 +727,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const yearStr = d.getFullYear().toString();
       const yearMatch = checkMatch(chartYears, yearStr);
       const headingMatch = checkMatch(chartHeadings, t.heading);
-      const descMatch = (() => {
-        if (!chartDescDebounced) return true;
-        const text = (t.description || '').toLowerCase();
-        const search = chartDescDebounced.toLowerCase();
-        return chartDescMode === 'include' ? text.includes(search) : !text.includes(search);
-      })();
-      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch && descMatch;
+      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch;
     });
 
     // If exactly one heading is included, drill down into descriptions!
@@ -762,7 +745,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
-  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings, chartDescDebounced, chartDescMode]);
+  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
 
   // Memoize table filtered and sorted results
   const tableFiltered = useMemo(() => {
@@ -790,12 +773,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
-      const descMatch = (() => {
-        if (!filterDescDebounced) return true;
-        const text = (t.description || '').toLowerCase();
-        const search = filterDescDebounced.toLowerCase();
-        return filterDescMode === 'include' ? text.includes(search) : !text.includes(search);
-      })();
+      const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
       
       return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch;
     }).sort((a, b) => {
@@ -833,7 +811,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         return res !== 0 ? res : b.id - a.id; 
       }
     });
-  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, filterDescMode, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
+  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
 
   // Paginate the filtered results
   const totalPages = Math.ceil(tableFiltered.length / rowsPerPage);
@@ -916,29 +894,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       </div>
     );
   };
-
-  // Description Text Filter Component
-  const DescFilter = ({ value, onChange, mode, onModeChange }) => (
-    <div className={`filter-desc-wrapper ${mode === 'exclude' && value ? 'exclude-active' : value ? 'active' : ''}`}>
-      <button
-        onClick={(e) => { e.stopPropagation(); onModeChange(mode === 'include' ? 'exclude' : 'include'); }}
-        className={`filter-desc-toggle ${mode}`}
-        title={mode === 'exclude' ? "Excluding (Click to Include)" : "Including (Click to Exclude)"}
-      >
-        {mode === 'exclude' ? '🚫' : '🔍'}
-      </button>
-      <input
-        type="text"
-        placeholder={mode === 'exclude' ? "Exclude Note..." : "Search Note..."}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="filter-desc-input"
-      />
-      {value && (
-        <button onClick={(e) => { e.stopPropagation(); onChange(''); }} className="filter-desc-clear">×</button>
-      )}
-    </div>
-  );
 
   // Multi-select dropdown component (3-State Logic)
   const MultiSelectDropdown = ({ label, icon, options, filterState, setFilterState, dropdownKey }) => {
@@ -1175,19 +1130,17 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
-              <DescFilter value={chartDesc} onChange={setChartDesc} mode={chartDescMode} onModeChange={setChartDescMode} />
               {(chartAccounts.included.size > 0 || chartAccounts.excluded.size > 0 || 
                 chartTypes.included.size > 0 || chartTypes.excluded.size > 0 || 
                 chartMonths.included.size > 0 || chartMonths.excluded.size > 0 || 
                 chartYears.included.size > 0 || chartYears.excluded.size > 0 || 
-                chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0 || chartDesc) && (
+                chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0) && (
                 <button 
                   className="filter-chip" 
                   onClick={() => {
                     const empty = { included: new Set(), excluded: new Set() };
                     setChartAccounts(empty); setChartTypes(empty); setChartMonths(empty);
                     setChartYears(empty); setChartHeadings(empty);
-                    setChartDesc(""); setChartDescMode("include");
                   }}
                   style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
                 >
@@ -1356,7 +1309,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                                 setFilterDesc("");
                               } else {
                                 setFilterDesc(d.name === "No Description" ? "" : d.name);
-                                setFilterDescMode("include");
                                 setFilterHeadings({ ...chartHeadings });
                               }
                             } else {
@@ -1512,7 +1464,13 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
           )}
         </div>
-          <DescFilter value={filterDesc} onChange={setFilterDesc} mode={filterDescMode} onModeChange={setFilterDescMode} />
+          <input
+            className="inp"
+            placeholder="🔍 Description"
+            value={filterDesc}
+            onChange={e => setFilterDesc(e.target.value)}
+            style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
+          />
           {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 || 
             filterTypes.included.size > 0 || filterTypes.excluded.size > 0 || 
             filterMonths.included.size > 0 || filterMonths.excluded.size > 0 || 
@@ -1526,7 +1484,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
                 setFilterYears(empty); setFilterHeadings(empty);
                 setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
-                setFilterDescMode("include");
               }}
               style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
             >
