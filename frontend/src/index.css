@@ -1068,6 +1068,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   border: 1px solid var(--border);
   border-radius: 6px; 
   z-index: 9999; 
+  max-height: 200px;
+  overflow-y: auto;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 

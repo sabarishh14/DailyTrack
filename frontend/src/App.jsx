@@ -1825,7 +1825,7 @@ function CustomSelect({ value, onChange, options, style }) {
   const selectedLabel = options.find(o => o.value === value)?.label || "Select...";
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '40px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '40px', zIndex: show ? 50 : 1 }}>
       <div 
         className="bulk-inp" 
         style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', justifyContent: 'space-between', userSelect: 'none', ...style }}
