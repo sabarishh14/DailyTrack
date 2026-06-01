@@ -1820,50 +1820,9 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
   );
 }
 
-function CustomSelect({ value, onChange, options, style }) {
-  const [show, setShow] = useState(false);
-  const selectedLabel = options.find(o => o.value === value)?.label || "Select...";
-
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '40px', zIndex: show ? 50 : 1 }}>
-      <div 
-        className="bulk-inp" 
-        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', justifyContent: 'space-between', userSelect: 'none', ...style }}
-        onClick={() => setShow(!show)}
-        tabIndex={0}
-        onBlur={() => setTimeout(() => setShow(false), 200)}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLabel}</span>
-        <span style={{ fontSize: '0.6rem', opacity: 0.6, transform: show ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginLeft: '8px' }}>▼</span>
-      </div>
-      {show && (
-        <div className="custom-dropdown">
-          {options.map((opt) => (
-            <div 
-              key={opt.value} 
-              className={`custom-dropdown-item ${opt.value === value ? 'active-item' : ''}`} 
-              onClick={() => { onChange(opt.value); setShow(false); }}
-            >
-              {opt.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AddTab({ accounts, transactions, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
-  
-  const accountOptions = Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }));
-  const typeOptions = [
-    { label: '🔴 Debit', value: 'Debit' },
-    { label: '🟢 Credit', value: 'Credit' },
-    { label: '💰 Savings', value: 'Savings' },
-    { label: '💸 Investment', value: 'Investment' }
-  ];
-  
+ 
   const recentDescriptions = [...new Set(
     (transactions || [])
       .map(t => t.description)
@@ -2000,19 +1959,18 @@ function AddTab({ accounts, transactions, onAdd }) {
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
-             <CustomSelect 
-                value={row.account} 
-                onChange={val => updateRow(row.id, 'account', val)} 
-                options={accountOptions} 
-              />
+             <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b]?.emoji} {b}</option>)}
+              </select>
 
               <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
 
-              <CustomSelect 
-                value={row.type} 
-                onChange={val => updateRow(row.id, 'type', val)} 
-                options={typeOptions} 
-              />
+              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
+                <option value="Debit">🔴 Debit</option>
+                <option value="Credit">🟢 Credit</option>
+                <option value="Savings">💰 Savings</option>
+                <option value="Investment">💸 Investment</option>
+              </select>
 
               <AutocompleteInput 
                 value={row.heading} 
@@ -2063,13 +2021,6 @@ function AddTab({ accounts, transactions, onAdd }) {
 }
 
 function EditTransactionModal({ tx, onClose, onRefresh }) {
-  const accountOptions = Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }));
-  const typeOptions = [
-    { label: '🔴 Debit', value: 'Debit' },
-    { label: '🟢 Credit', value: 'Credit' },
-    { label: '💰 Savings', value: 'Savings' },
-    { label: '💸 Investment', value: 'Investment' }
-  ];
 
   const [form, setForm] = useState({
     date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
@@ -2121,32 +2072,29 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
           <div className="bulk-grid bulk-row" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg2)', border: 'none' }}>
            <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Account</label>
-            <CustomSelect 
-              style={{ background: 'var(--bg3)' }} 
-              value={form.account} 
-              onChange={val => updateField('account', val)} 
-              options={accountOptions} 
-            />
+            <select className="bulk-sel" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.account} onChange={e => updateField('account', e.target.value)}>
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
+              </select>
           </div>
 
           <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Date</label>
-            <input type="date" className="bulk-inp" style={{ background: 'var(--bg3)' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
+            <input type="date" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
           </div>
 
           <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Type</label>
-            <CustomSelect 
-              style={{ background: 'var(--bg3)' }} 
-              value={form.type} 
-              onChange={val => updateField('type', val)} 
-              options={typeOptions} 
-            />
+            <select className="bulk-sel" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.type} onChange={e => updateField('type', e.target.value)}>
+                <option value="Debit">🔴 Debit</option>
+                <option value="Credit">🟢 Credit</option>
+                <option value="Savings">💰 Savings</option>
+                <option value="Investment">💸 Investment</option>
+              </select>
           </div>
 
           <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Amount (₹)</label>
-            <input type="number" className="bulk-inp" style={{ background: 'var(--bg3)' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} />
+            <input type="number" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} />
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -2156,7 +2104,7 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Note</label>
-            <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
+            <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
           </div>
           </div>
 
@@ -2259,13 +2207,6 @@ function ReconciliationModal({ accounts, onClose, onRefresh }) {
 
       
 function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
-  const accountOptions = Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }));
-  const typeOptions = [
-    { label: '🔴 Debit', value: 'Debit' },
-    { label: '🟢 Credit', value: 'Credit' },
-    { label: '💰 Savings', value: 'Savings' },
-    { label: '💸 Investment', value: 'Investment' }
-  ];
 
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(
@@ -2324,17 +2265,16 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
-             <CustomSelect 
-                value={row.account} 
-                onChange={val => updateRow(row.id, 'account', val)} 
-                options={accountOptions} 
-              />
+             <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
+                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b]?.emoji} {b}</option>)}
+              </select>
               <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
-              <CustomSelect 
-                value={row.type} 
-                onChange={val => updateRow(row.id, 'type', val)} 
-                options={typeOptions} 
-              />
+              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
+                <option value="Debit">🔴 Debit</option>
+                <option value="Credit">🟢 Credit</option>
+                <option value="Savings">💰 Savings</option>
+                <option value="Investment">💸 Investment</option>
+              </select>
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={CATEGORIES} placeholder="Category" />
               <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
