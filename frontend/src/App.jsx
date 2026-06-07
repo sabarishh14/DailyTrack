@@ -779,11 +779,13 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      // NEW: Visibility Match Logic
+      
       const visibilityMatch = (() => {
+        if (filterVisibility.included.size === 0 && filterVisibility.excluded.size === 0) return true;
         const statusLabel = t.exclude_analytics ? "Excluded" : "Active";
         return checkMatch(filterVisibility, statusLabel);
       })();
+
       return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch && visibilityMatch;
     }).sort((a, b) => {
       let aVal, bVal;
@@ -820,7 +822,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         return res !== 0 ? res : b.id - a.id; 
       }
     });
-  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
+  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, filterVisibility, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
 
   // Paginate the filtered results
   const totalPages = Math.ceil(tableFiltered.length / rowsPerPage);
@@ -1163,21 +1165,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterState={setChartYears}
                 dropdownKey="analyzerYear"
               />
-              {/* NEW: Visibility Filter */}
-              <MultiSelectDropdown
-                label="Visibility"
-                icon="👁️"
-                options={["Excluded", "Active"]}
-                filterState={{
-                  included: new Set(), // We will derive this logic below
-                  excluded: new Set()
-                }}
-                setFilterState={(state) => {
-                  // Logic: if "Excluded" is included, only show excluded. 
-                  // This is a custom mini-logic for this specific filter.
-                }}
-                dropdownKey="tableVisibility"
-              />
               <MultiSelectDropdown
                 label="Heading"
                 icon="🏷️"
@@ -1461,7 +1448,15 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         
         {/* Table Filters */}
         <div className="filter-bar" ref={dropdownRef}>
-        <MultiSelectDropdown
+          <MultiSelectDropdown
+            label="Visibility"
+            icon="👁️"
+            options={["Active", "Excluded"]}
+            filterState={filterVisibility}
+            setFilterState={setFilterVisibility}
+            dropdownKey="tableVisibility"
+          />
+          <MultiSelectDropdown
             label="Account"
             icon="🏦"
             options={allAccountsList}
@@ -1533,6 +1528,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             filterMonths.included.size > 0 || filterMonths.excluded.size > 0 || 
             filterYears.included.size > 0 || filterYears.excluded.size > 0 || 
             filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 || 
+            filterVisibility.included.size > 0 || filterVisibility.excluded.size > 0 ||
             filterDateFrom || filterDateTo || filterDesc) && (
             <button 
               className="filter-chip" 
