@@ -148,7 +148,8 @@ class Transaction(db.Model):
     heading = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
     amount = db.Column(db.Float, nullable=False)
-    synced = db.Column(db.Boolean, default=False)  # NEW
+    synced = db.Column(db.Boolean, default=False)
+    exclude_analytics = db.Column(db.Boolean, default=False)
 
 class EquityHolding(db.Model):
     __tablename__ = "equity_holdings"
@@ -394,7 +395,8 @@ def get_transactions():
             "type": tx.type,
             "heading": tx.heading,
             "description": tx.description,
-            "amount": tx.amount
+            "amount": tx.amount,
+            "exclude_analytics": getattr(tx, 'exclude_analytics', False)
         }
         for tx in transactions
     ]
@@ -431,7 +433,8 @@ def add_transaction():
                 type=tx_type,
                 heading=item['heading'],
                 description=item.get('description', ''),
-                amount=amount
+                amount=amount,
+                exclude_analytics=item.get('exclude_analytics', False)
             )
             db.session.add(new_tx)
             
@@ -549,6 +552,7 @@ def edit_transaction(tid):
         tx.description = data.get('description', '')
         tx.amount = float(data['amount'])
         tx.account = data['account']
+        tx.exclude_analytics = data.get('exclude_analytics', False)
         
         # Mark as unsynced so it gets pushed to Sheets again
         tx.synced = False 
@@ -607,6 +611,7 @@ def bulk_edit_transactions():
             tx.description = data.get('description', '')
             tx.amount = float(data['amount'])
             tx.account = data['account']
+            tx.exclude_analytics = data.get('exclude_analytics', False)
             
             # Mark as unsynced so Google Sheets catches the changes
             tx.synced = False 

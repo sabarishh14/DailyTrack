@@ -1,3 +1,6 @@
 ## DailyTrack - Track Daily 😡
 
 A full-stack personal finance and lifestyle tracking system featuring real-time bank balance monitoring, transaction management with Google Sheets sync, investment portfolio tracking via Zerodha Kite API, and physical activity logging — secured with Firebase Google Authentication and a JWT-based backend API.
+
+git reset --hard HEAD~1
+git push origin main --force

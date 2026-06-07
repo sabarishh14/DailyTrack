@@ -715,6 +715,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
  // Memoize analyzer filtered results (with Drill-Down logic)
   const { analyzerFiltered, pieArr, isShowingDescriptions } = useMemo(() => {
     const filtered = transactions.filter(t => {
+      if (t.exclude_analytics) return false; // Hides it from charts and stats
       if (!t.date) return false;
       const d = new Date(t.date);
       if (isNaN(d.getTime())) return false;
@@ -1654,7 +1655,10 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                   <span className={`tx-amount ${t.type === 'Debit' ? 'neg' : t.type === 'Credit' ? 'pos' : t.type === 'investment' ? 'blue-text' : 'accent'}`}>
                     {t.type === 'Debit' ? '−' : '+'}{fmt(t.amount)}
                   </span>
-                  <span className="tx-heading">{t.heading}</span>
+                  <span className="tx-heading">
+                    {t.exclude_analytics && <span title="Excluded from Analytics" style={{ marginRight: '6px', fontSize: '0.9rem', cursor: 'help' }}>🙈</span>}
+                    {t.heading}
+                  </span>
                   <span className="tx-desc">{t.description || '—'}</span>
                   <span className="tx-actions">
                     {/* Add e.stopPropagation() to the action buttons */}
@@ -1727,6 +1731,46 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 </p>
               </div>
             )}
+
+            {/* Quick Exclude Toggle */}
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>Spending Analyser</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '2px' }}>Include this transaction in pie chart & stats</div>
+              </div>
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const updatedTx = { ...actionMenuTx, exclude_analytics: !actionMenuTx.exclude_analytics };
+                  setActionMenuTx(updatedTx); // Optimistic UI update for instant feedback
+                  try {
+                    const res = await fetch(`${API}/transactions/${actionMenuTx.id}`, {
+                      method: "PUT",
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                      body: JSON.stringify({ ...updatedTx, amount: parseFloat(updatedTx.amount) }),
+                    });
+                    if (res.ok) onRefresh();
+                  } catch (err) {
+                    alert("Error updating transaction: " + err.message);
+                    setActionMenuTx(actionMenuTx); // Revert on network failure
+                  }
+                }}
+                style={{
+                  width: '46px', height: '26px', borderRadius: '13px',
+                  background: actionMenuTx.exclude_analytics ? 'var(--border2)' : 'var(--pos)',
+                  position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.2s',
+                  flexShrink: 0
+                }}
+              >
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: '3px',
+                  left: actionMenuTx.exclude_analytics ? '3px' : '23px',
+                  transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                }} />
+              </button>
+            </div>
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem' }}>
@@ -2028,7 +2072,8 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
     type: tx.type,
     heading: tx.heading,
     amount: tx.amount,
-    description: tx.description || ''
+    description: tx.description || '',
+    exclude_analytics: tx.exclude_analytics || false
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -2105,6 +2150,27 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Note</label>
             <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <div 
+              onClick={() => updateField('exclude_analytics', !form.exclude_analytics)}
+              style={{
+                width: '44px', height: '24px', borderRadius: '12px',
+                background: form.exclude_analytics ? 'var(--neg)' : 'var(--border2)',
+                position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
+              }}
+            >
+              <div style={{
+                width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: '3px', left: form.exclude_analytics ? '23px' : '3px',
+                transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Exclude from Analyser</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Hide this transaction from the pie chart and stats</div>
+            </div>
           </div>
           </div>
 
