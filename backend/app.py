@@ -543,8 +543,22 @@ def edit_transaction(tid):
             elif tx.type in ['Debit', 'Savings']:
                 old_account.balance += tx.amount
 
+        # Check if actual financial data changed before triggering a sync
+        date_str = data['date']
+        if 'T' in date_str:
+            date_str = date_str.split('T')[0]
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+
+        needs_sync = (
+            str(tx.date) != date_str or
+            tx.type != data['type'] or
+            tx.heading != data['heading'] or
+            (tx.description or '') != data.get('description', '') or
+            tx.amount != float(data['amount']) or
+            tx.account != data['account']
+        )
+
         # 2. UPDATE the transaction fields
-        date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
         tx.date = date_obj
         tx.month = date_obj.replace(day=1)
         tx.type = data['type']
@@ -554,8 +568,9 @@ def edit_transaction(tid):
         tx.account = data['account']
         tx.exclude_analytics = data.get('exclude_analytics', False)
         
-        # Mark as unsynced so it gets pushed to Sheets again
-        tx.synced = False 
+        # Mark as unsynced ONLY if core fields changed (ignore exclude toggle)
+        if needs_sync:
+            tx.synced = False 
 
         # 3. APPLY the new transaction's impact on the balance
         new_account = Account.query.filter_by(account=tx.account).first()
@@ -604,6 +619,16 @@ def bulk_edit_transactions():
                 date_str = date_str.split('T')[0]
                 
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+
+            needs_sync = (
+                str(tx.date) != date_str or
+                tx.type != data['type'] or
+                tx.heading != data['heading'] or
+                (tx.description or '') != data.get('description', '') or
+                tx.amount != float(data['amount']) or
+                tx.account != data['account']
+            )
+
             tx.date = date_obj
             tx.month = date_obj.replace(day=1)
             tx.type = data['type']
@@ -613,8 +638,9 @@ def bulk_edit_transactions():
             tx.account = data['account']
             tx.exclude_analytics = data.get('exclude_analytics', False)
             
-            # Mark as unsynced so Google Sheets catches the changes
-            tx.synced = False 
+            # Mark as unsynced ONLY if core fields changed
+            if needs_sync:
+                tx.synced = False 
 
             # 3. APPLY the new transaction's impact on the balance
             new_account = Account.query.filter_by(account=tx.account).first()
@@ -701,7 +727,7 @@ def category_exclude():
         for tx in txs:
             if getattr(tx, 'exclude_analytics', False) != exclude:
                 tx.exclude_analytics = exclude
-                tx.synced = False
+                # We do NOT set tx.synced = False here since this doesn't affect Sheets
                 updated_count += 1
 
         db.session.commit()
