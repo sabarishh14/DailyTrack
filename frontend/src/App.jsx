@@ -585,6 +585,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [lastSelectedIdx, setLastSelectedIdx] = useState(null); // Tracks last click for Shift-Select
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const dropdownRef = useRef(null);
   // Analyzer filters - 3-State Multi-select
   const [chartAccounts, setChartAccounts] = useState({ included: new Set(), excluded: new Set() });
