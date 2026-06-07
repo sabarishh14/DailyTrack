@@ -1113,7 +1113,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
               style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)' }}
               title="Manage Categories"
             >
-              ⚙️ Manage Categories
+              ⚙️ Manage 
             </button>
             <span className={`analyser-chevron ${expanded ? 'open' : ''}`}>▼</span>
           </div>
@@ -2503,7 +2503,7 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
         <div className="modal-header">
-          <div className="modal-title">⚙️ Manage </div>
+          <div className="modal-title">⚙️ Manage Categories</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         
