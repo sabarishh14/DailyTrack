@@ -606,7 +606,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [filterHeadings, setFilterHeadings] = useState({ included: new Set(), excluded: new Set() });
   const [filterDesc, setFilterDesc] = useState("");
   const [filterDescDebounced, setFilterDescDebounced] = useState("");
-  const [filterVisibility, setFilterVisibility] = useState({ included: new Set(), excluded: new Set() });
+  const [filterVisibility, setFilterVisibility] = useState({ included: new Set(), excluded: new Set() }); // NEW STATE
 
   // Dropdown visibility
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -779,7 +779,12 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch;
+      // NEW: Visibility Match Logic
+      const visibilityMatch = (() => {
+        const statusLabel = t.exclude_analytics ? "Excluded" : "Active";
+        return checkMatch(filterVisibility, statusLabel);
+      })();
+      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch && visibilityMatch;
     }).sort((a, b) => {
       let aVal, bVal;
       if (sortBy === 'date') {
@@ -1118,6 +1123,14 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
           <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
+                <MultiSelectDropdown
+                label="Visibility"
+                icon="👁️"
+                options={["Active", "Excluded"]}
+                filterState={filterVisibility}
+                setFilterState={setFilterVisibility}
+                dropdownKey="tableVisibility"
+              />
               <MultiSelectDropdown
                 label="Account"
                 icon="🏦"
@@ -1526,7 +1539,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
               onClick={() => {
                 const empty = { included: new Set(), excluded: new Set() };
                 setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
-                setFilterYears(empty); setFilterHeadings(empty);
+                setFilterYears(empty); setFilterHeadings(empty); setFilterVisibility(empty);
                 setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
               }}
               style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
@@ -1549,19 +1562,6 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
                 {' '}out
               </span>
-            </div>
-
-            {/* Bulk Actions - Select All Excluded Button */}
-            <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className="action-btn secondary" 
-                onClick={() => {
-                  const ids = new Set(tableFiltered.filter(t => t.exclude_analytics).map(t => t.id));
-                  setSelectedIds(ids);
-                }}
-              >
-                🔍 Select All Excluded
-              </button>
             </div>
 
             {/* Pagination Controls */}
@@ -2456,10 +2456,28 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
 // ─── ADD ACTIVITY MODAL ─────────────────────────────────────────────
 function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh }) {
   const [loadingCat, setLoadingCat] = useState(null);
-  const [search, setSearch] = useState(""); // NEW: Search state
+  const [search, setSearch] = useState("");
 
-  // Filter headings based on search
-  const filteredHeadings = allHeadings.filter(h => h.toLowerCase().includes(search.toLowerCase()));
+  // 1. Compute exclusion status for all categories (Prevents recalculating during sorts)
+  const exclusionMap = useMemo(() => {
+    const map = {};
+    allHeadings.forEach(cat => {
+      const catTxs = transactions.filter(t => t.heading === cat);
+      map[cat] = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
+    });
+    return map;
+  }, [allHeadings, transactions]);
+
+  // 2. Filter by search, then sort (Excluded items at the top, then Alphabetical)
+  const displayHeadings = useMemo(() => {
+    return allHeadings
+      .filter(h => h.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => {
+        if (exclusionMap[a] && !exclusionMap[b]) return -1; // 'a' is excluded, move up
+        if (!exclusionMap[a] && exclusionMap[b]) return 1;  // 'b' is excluded, move up
+        return a.localeCompare(b); // Alphabetical tie-breaker
+      });
+  }, [allHeadings, search, exclusionMap]);
 
   const toggleCategory = async (heading, currentExcluded) => {
     setLoadingCat(heading);
@@ -2485,11 +2503,11 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
         <div className="modal-header">
-          <div className="modal-title">⚙️ Manage Categories</div>
+          <div className="modal-title">⚙️ Manage </div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-
-        {/* NEW: Search Bar */}
+        
+        {/* Search Bar */}
         <div style={{ padding: '1rem 1.5rem 0' }}>
             <input 
                 className="inp" 
@@ -2498,26 +2516,22 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
                 onChange={e => setSearch(e.target.value)}
             />
         </div>
-        
-        <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', padding: '1.5rem' }}>
+
+        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: '1.5rem' }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '1.5rem', lineHeight: 1.6, background: 'rgba(99,102,241,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
             Exclude entire categories from the Spending Analyser pie chart and statistics. 
             <br/><br/><strong style={{ color: 'var(--accent)' }}>✨ Magic Feature:</strong> If a category is hidden here, any <i>new</i> transactions you log in this category will be automatically excluded in the future!
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {filteredHeadings.map(cat => {
-              const catTxs = transactions.filter(t => t.heading === cat);
-              // It's considered globally excluded if every single transaction in it is hidden
-              const isExcluded = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
-              const count = catTxs.length;
+            {displayHeadings.map(cat => {
+              const isExcluded = exclusionMap[cat];
 
               return (
-                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '0.95rem', color: isExcluded ? 'var(--text3)' : 'var(--text)', fontWeight: 600, textDecoration: isExcluded ? 'line-through' : 'none', transition: 'all 0.2s' }}>{cat}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{count} transaction{count !== 1 ? 's' : ''}</span>
-                  </div>
+                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.95rem', color: isExcluded ? 'var(--text3)' : 'var(--text)', fontWeight: 600, textDecoration: isExcluded ? 'line-through' : 'none', transition: 'all 0.2s' }}>
+                    {cat}
+                  </span>
                   <button
                     onClick={() => toggleCategory(cat, isExcluded)}
                     disabled={loadingCat === cat}
@@ -2539,6 +2553,12 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
                 </div>
               );
             })}
+            
+            {displayHeadings.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)', fontSize: '0.9rem' }}>
+                No categories found matching "{search}"
+              </div>
+            )}
           </div>
         </div>
       </div>
