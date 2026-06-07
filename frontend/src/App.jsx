@@ -1100,7 +1100,17 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
               </div>
             </div>
           </div>
-          <span className={`analyser-chevron ${expanded ? 'open' : ''}`}>▼</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
+              className="action-btn secondary" 
+              style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)' }}
+              title="Manage Categories"
+            >
+              ⚙️ Manage Categories
+            </button>
+            <span className={`analyser-chevron ${expanded ? 'open' : ''}`}>▼</span>
+          </div>
         </div>
 
         {expanded && (
@@ -1722,6 +1732,16 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         />
       )}
 
+      {/* CATEGORY MANAGER MODAL */}
+      {isCategoryModalOpen && (
+        <CategoryExclusionModal 
+          transactions={transactions}
+          allHeadings={allHeadings}
+          onClose={() => setIsCategoryModalOpen(false)}
+          onRefresh={onRefresh}
+        />
+      )}
+
       {/* TRANSACTION DETAILS / ACTION MENU MODAL */}
       {actionMenuTx && (
         <div className="modal-backdrop" onClick={() => setActionMenuTx(null)}>
@@ -1954,16 +1974,25 @@ function AddTab({ accounts, transactions, onAdd }) {
 
     setLoading(true);
     try {
-      const payload = rows.map(r => ({
-        account: r.account,
-        date: r.date,
-        type: r.type,
-        heading: r.heading.trim(),
-        description: r.description.trim() || "",
-        amount: parseFloat(r.amount)
-      }));
+              const payload = rows.map(r => {
+                const catName = r.heading.trim();
+                const catTxs = transactions.filter(t => t.heading === catName);
+                
+                // ✨ MAGIC RULE: if all previous transactions in this category are excluded, automatically exclude this new one!
+                const isAutoExclude = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
+                
+                return {
+                  account: r.account,
+                  date: r.date,
+                  type: r.type,
+                  heading: catName,
+                  description: r.description.trim() || "",
+                  amount: parseFloat(r.amount),
+                  exclude_analytics: isAutoExclude
+                };
+              });
 
-      const res = await fetch(`${API}/transactions`, {
+              const res = await fetch(`${API}/transactions`, {
         method: "POST", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify(payload),
       });
 
@@ -2395,6 +2424,83 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
 }
 
 // ─── ADD ACTIVITY MODAL ─────────────────────────────────────────────
+function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh }) {
+  const [loadingCat, setLoadingCat] = useState(null);
+
+  const toggleCategory = async (heading, currentExcluded) => {
+    setLoadingCat(heading);
+    try {
+      const res = await fetch(`${API}/transactions/category/exclude`, {
+        method: "PUT",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ heading, exclude: !currentExcluded })
+      });
+      if (res.ok) {
+        onRefresh();
+      } else {
+        alert("Failed to update category.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setLoadingCat(null);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+        <div className="modal-header">
+          <div className="modal-title">⚙️ Manage Categories</div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', padding: '1.5rem' }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '1.5rem', lineHeight: 1.6, background: 'rgba(99,102,241,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
+            Exclude entire categories from the Spending Analyser pie chart and statistics. 
+            <br/><br/><strong style={{ color: 'var(--accent)' }}>✨ Magic Feature:</strong> If a category is hidden here, any <i>new</i> transactions you log in this category will be automatically excluded in the future!
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            {allHeadings.map(cat => {
+              const catTxs = transactions.filter(t => t.heading === cat);
+              // It's considered globally excluded if every single transaction in it is hidden
+              const isExcluded = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
+              const count = catTxs.length;
+
+              return (
+                <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '0.95rem', color: isExcluded ? 'var(--text3)' : 'var(--text)', fontWeight: 600, textDecoration: isExcluded ? 'line-through' : 'none', transition: 'all 0.2s' }}>{cat}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{count} transaction{count !== 1 ? 's' : ''}</span>
+                  </div>
+                  <button
+                    onClick={() => toggleCategory(cat, isExcluded)}
+                    disabled={loadingCat === cat}
+                    style={{
+                      width: '46px', height: '26px', borderRadius: '13px',
+                      background: isExcluded ? 'var(--border2)' : 'var(--pos)',
+                      position: 'relative', border: 'none', cursor: loadingCat === cat ? 'wait' : 'pointer', transition: 'background 0.2s',
+                      opacity: loadingCat === cat ? 0.5 : 1, flexShrink: 0
+                    }}
+                  >
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                      position: 'absolute', top: '3px',
+                      left: isExcluded ? '3px' : '23px',
+                      transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                    }} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddActivityModal({ onAdd, onClose }) {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ 

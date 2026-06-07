@@ -682,6 +682,35 @@ def bulk_delete_transactions():
         return jsonify({"success": False, "message": str(e)})
     
 # ---- PHYSICAL ACTIVITY ----
+@app.route('/api/transactions/category/exclude', methods=['PUT', 'OPTIONS'])
+@require_api_key
+def category_exclude():
+    if request.method == 'OPTIONS':
+        return '', 200
+    try:
+        data = request.json
+        heading = data.get('heading')
+        exclude = data.get('exclude', False)
+
+        if not heading:
+            return jsonify({"success": False, "message": "Heading is required"}), 400
+
+        # Find all transactions with this category and flip their flag
+        txs = Transaction.query.filter_by(heading=heading).all()
+        updated_count = 0
+        for tx in txs:
+            if getattr(tx, 'exclude_analytics', False) != exclude:
+                tx.exclude_analytics = exclude
+                tx.synced = False
+                updated_count += 1
+
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Updated {updated_count} transactions"})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+
 @app.route('/api/physical', methods=['GET'])
 @require_api_key  # <-- Add this line to protect the route
 def get_physical():
