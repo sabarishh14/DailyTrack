@@ -1655,11 +1655,17 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                   <span className={`tx-amount ${t.type === 'Debit' ? 'neg' : t.type === 'Credit' ? 'pos' : t.type === 'investment' ? 'blue-text' : 'accent'}`}>
                     {t.type === 'Debit' ? '−' : '+'}{fmt(t.amount)}
                   </span>
-                  <span className="tx-heading">
-                    {t.exclude_analytics && <span title="Excluded from Analytics" style={{ marginRight: '6px', fontSize: '0.9rem', cursor: 'help' }}>🙈</span>}
-                    {t.heading}
+                  <span className="tx-heading">{t.heading}</span>
+                  <span className="tx-desc" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.description || '—'}
+                    </span>
+                    {t.exclude_analytics && (
+                      <span title="Excluded from Analytics" style={{ marginLeft: '8px', fontSize: '0.9rem', cursor: 'help', flexShrink: 0 }}>
+                        🙈
+                      </span>
+                    )}
                   </span>
-                  <span className="tx-desc">{t.description || '—'}</span>
                   <span className="tx-actions">
                     {/* Add e.stopPropagation() to the action buttons */}
                     <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
