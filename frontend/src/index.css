@@ -24,6 +24,18 @@
   --radius-lg: 18px;
 }
 
+@media (max-width: 768px) {
+  .bulk-row > .bulk-hide-btn {
+    position: absolute !important;
+    top: 0.75rem !important;
+    right: 0.75rem !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    margin: 0 !important;
+  }
+}
+
 /* ── LIGHT THEME OVERRIDES ─── */
 [data-theme="light"] {
   --bg: #eef2f6;       /* A beautiful, soft grey background */

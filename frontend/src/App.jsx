@@ -583,6 +583,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [lastSelectedIdx, setLastSelectedIdx] = useState(null); // Tracks last click for Shift-Select
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const dropdownRef = useRef(null);
   // Analyzer filters - 3-State Multi-select
@@ -1023,11 +1024,25 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
     }
   };
 
-  const toggleSelection = (id) => {
+  const handleRowSelect = (e, id, index) => {
+    e.stopPropagation();
     const newSet = new Set(selectedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
+
+    if (e.shiftKey && lastSelectedIdx !== null) {
+      // Shift-Click Bulk Select
+      const start = Math.min(lastSelectedIdx, index);
+      const end = Math.max(lastSelectedIdx, index);
+      for (let j = start; j <= end; j++) {
+        newSet.add(paginatedRows[j].id);
+      }
+    } else {
+      // Normal Click Toggle
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+    }
+
     setSelectedIds(newSet);
+    setLastSelectedIdx(index); // Remember this click
   };
 
   const handleBulkDelete = async () => {
@@ -1590,7 +1605,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         <div className="tx-table-wrap">
           <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
             <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={handleSelectAll}>
-              <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'checked' : ''}`} />
+              <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />
             </div>
             <div className="tx-col-header" onClick={() => handleSortClick('date')}>
               <span>Date</span>
@@ -1641,9 +1656,8 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                   style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
                   onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
                 >
-                  {/* Add e.stopPropagation() to the checkbox span */}
-                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); toggleSelection(t.id); }}>
-                    <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'checked' : ''}`} />
+                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={(e) => handleRowSelect(e, t.id, i)}>
+                    <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'included' : ''}`} />
                   </span>
                   <span className="tx-date">{formatDate(t.date)}</span>
                   <span className="tx-account">
@@ -2284,7 +2298,8 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
   const [rows, setRows] = useState(
     transactions.map(tx => ({
       ...tx,
-      date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : ''
+      date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
+      exclude_analytics: tx.exclude_analytics || false
     }))
   );
   const [loading, setLoading] = useState(false);
@@ -2302,7 +2317,7 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
     }
     setLoading(true);
     try {
-      const payload = rows.map(r => ({ ...r, amount: parseFloat(r.amount) }));
+      const payload = rows.map(r => ({ ...r, amount: parseFloat(r.amount), exclude_analytics: r.exclude_analytics }))
       const res = await fetch(`${API}/transactions/bulk-edit`, {
         method: "PUT", 
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, 
@@ -2332,7 +2347,7 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
           
           <div className="bulk-grid bulk-header">
-            <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span>
+            <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span><span style={{textAlign: 'center'}} title="Exclude from Analyser">🙈</span>
           </div>
 
           {rows.map((row) => (
@@ -2350,6 +2365,20 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={CATEGORIES} placeholder="Category" />
               <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
+              
+              <button 
+                className="bulk-hide-btn"
+                onClick={() => updateRow(row.id, 'exclude_analytics', !row.exclude_analytics)}
+                style={{
+                  background: row.exclude_analytics ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg3)',
+                  border: row.exclude_analytics ? '1px solid var(--neg)' : '1px solid var(--border)',
+                  color: row.exclude_analytics ? 'var(--neg)' : 'var(--text2)',
+                  borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '40px', padding: 0, transition: 'all 0.2s', margin: 0
+                }}
+                title={row.exclude_analytics ? "Excluded from Analytics" : "Included in Analytics"}
+              >
+                {row.exclude_analytics ? '🙈' : '👁️'}
+              </button>
             </div>
           ))}
 
