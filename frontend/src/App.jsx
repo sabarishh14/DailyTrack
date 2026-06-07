@@ -778,8 +778,20 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      
-      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch;
+      // Add this inside the filter logic in tableFiltered
+      const visibilityMatch = (() => {
+        // If nothing is selected, show everything
+        if (filterVisibility.included.size === 0) return true;
+        
+        if (filterVisibility.included.has("Excluded")) {
+            return t.exclude_analytics === true;
+        }
+        if (filterVisibility.included.has("Active")) {
+            return t.exclude_analytics !== true;
+        }
+        return true;
+      })();
+      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch && visibilityMatch;
     }).sort((a, b) => {
       let aVal, bVal;
       if (sortBy === 'date') {
@@ -1150,6 +1162,21 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 setFilterState={setChartYears}
                 dropdownKey="analyzerYear"
               />
+              {/* NEW: Visibility Filter */}
+              <MultiSelectDropdown
+                label="Visibility"
+                icon="👁️"
+                options={["Excluded", "Active"]}
+                filterState={{
+                  included: new Set(), // We will derive this logic below
+                  excluded: new Set()
+                }}
+                setFilterState={(state) => {
+                  // Logic: if "Excluded" is included, only show excluded. 
+                  // This is a custom mini-logic for this specific filter.
+                }}
+                dropdownKey="tableVisibility"
+              />
               <MultiSelectDropdown
                 label="Heading"
                 icon="🏷️"
@@ -1424,6 +1451,19 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
             )}
           </div>
         )}
+      </div>
+      
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
+        <button 
+          className="action-btn secondary" 
+          onClick={() => {
+              // Simple logic to set selectedIds to all currently excluded items
+              const ids = new Set(tableFiltered.filter(t => t.exclude_analytics).map(t => t.id));
+              setSelectedIds(ids);
+          }}
+        >
+          🔍 Select All Excluded
+        </button>
       </div>
 
       {/* Transactions Table */}
@@ -2427,6 +2467,10 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
 // ─── ADD ACTIVITY MODAL ─────────────────────────────────────────────
 function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh }) {
   const [loadingCat, setLoadingCat] = useState(null);
+  const [search, setSearch] = useState(""); // NEW: Search state
+
+  // Filter headings based on search
+  const filteredHeadings = allHeadings.filter(h => h.toLowerCase().includes(search.toLowerCase()));
 
   const toggleCategory = async (heading, currentExcluded) => {
     setLoadingCat(heading);
@@ -2455,6 +2499,17 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
           <div className="modal-title">⚙️ Manage Categories</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
+
+        {/* NEW: Search Bar */}
+        <div style={{ padding: '1rem 1.5rem 0' }}>
+            <input 
+                className="inp" 
+                placeholder="🔍 Search categories..." 
+                value={search} 
+                onChange={e => setSearch(e.target.value)}
+            />
+        </div>
+        
         <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', padding: '1.5rem' }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '1.5rem', lineHeight: 1.6, background: 'rgba(99,102,241,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
             Exclude entire categories from the Spending Analyser pie chart and statistics. 
@@ -2462,7 +2517,7 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {allHeadings.map(cat => {
+            {filteredHeadings.map(cat => {
               const catTxs = transactions.filter(t => t.heading === cat);
               // It's considered globally excluded if every single transaction in it is hidden
               const isExcluded = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
