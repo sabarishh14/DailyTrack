@@ -606,6 +606,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
   const [filterHeadings, setFilterHeadings] = useState({ included: new Set(), excluded: new Set() });
   const [filterDesc, setFilterDesc] = useState("");
   const [filterDescDebounced, setFilterDescDebounced] = useState("");
+  const [filterVisibility, setFilterVisibility] = useState({ included: new Set(), excluded: new Set() });
 
   // Dropdown visibility
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -778,20 +779,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      // Add this inside the filter logic in tableFiltered
-      const visibilityMatch = (() => {
-        // If nothing is selected, show everything
-        if (filterVisibility.included.size === 0) return true;
-        
-        if (filterVisibility.included.has("Excluded")) {
-            return t.exclude_analytics === true;
-        }
-        if (filterVisibility.included.has("Active")) {
-            return t.exclude_analytics !== true;
-        }
-        return true;
-      })();
-      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch && visibilityMatch;
+      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch;
     }).sort((a, b) => {
       let aVal, bVal;
       if (sortBy === 'date') {
@@ -1453,19 +1441,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
         )}
       </div>
       
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
-        <button 
-          className="action-btn secondary" 
-          onClick={() => {
-              // Simple logic to set selectedIds to all currently excluded items
-              const ids = new Set(tableFiltered.filter(t => t.exclude_analytics).map(t => t.id));
-              setSelectedIds(ids);
-          }}
-        >
-          🔍 Select All Excluded
-        </button>
-      </div>
-
+      
       {/* Transactions Table */}
       <section className="section">
         <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
@@ -1573,6 +1549,19 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
                 {' '}out
               </span>
+            </div>
+
+            {/* Bulk Actions - Select All Excluded Button */}
+            <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+              <button 
+                className="action-btn secondary" 
+                onClick={() => {
+                  const ids = new Set(tableFiltered.filter(t => t.exclude_analytics).map(t => t.id));
+                  setSelectedIds(ids);
+                }}
+              >
+                🔍 Select All Excluded
+              </button>
             </div>
 
             {/* Pagination Controls */}
