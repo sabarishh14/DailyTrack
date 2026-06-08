@@ -2156,18 +2156,26 @@ function AddTab({ accounts, transactions, onAdd }) {
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
-             <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
-                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b]?.emoji} {b}</option>)}
-              </select>
+             <CustomSelect 
+                value={row.account} 
+                onChange={val => updateRow(row.id, 'account', val)} 
+                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
+                minWidth="140px" 
+              />
 
-              <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
+              <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
 
-              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
-                <option value="Debit">🔴 Debit</option>
-                <option value="Credit">🟢 Credit</option>
-                <option value="Savings">💰 Savings</option>
-                <option value="Investment">💸 Investment</option>
-              </select>
+              <CustomSelect 
+                value={row.type} 
+                onChange={val => updateRow(row.id, 'type', val)} 
+                options={[
+                  { label: '🔴 Debit', value: 'Debit' },
+                  { label: '🟢 Credit', value: 'Credit' },
+                  { label: '💰 Savings', value: 'Savings' },
+                  { label: '💸 Investment', value: 'Investment' }
+                ]} 
+                minWidth="130px" 
+              />
 
               <AutocompleteInput 
                 value={row.heading} 
@@ -2270,24 +2278,32 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
           <div className="bulk-grid bulk-row" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg2)', border: 'none' }}>
            <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Account</label>
-            <select className="bulk-sel" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.account} onChange={e => updateField('account', e.target.value)}>
-                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b].emoji} {b}</option>)}
-              </select>
+            <CustomSelect 
+              value={form.account} 
+              onChange={val => updateField('account', val)} 
+              options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
+              width="100%" 
+            />
           </div>
 
           <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Date</label>
-            <input type="date" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
+            <input type="date" className="bulk-inp" style={{ background: 'var(--card)', padding: '0.75rem', height: '36px' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
           </div>
 
           <div className="form-group">
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Type</label>
-            <select className="bulk-sel" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.type} onChange={e => updateField('type', e.target.value)}>
-                <option value="Debit">🔴 Debit</option>
-                <option value="Credit">🟢 Credit</option>
-                <option value="Savings">💰 Savings</option>
-                <option value="Investment">💸 Investment</option>
-              </select>
+            <CustomSelect 
+              value={form.type} 
+              onChange={val => updateField('type', val)} 
+              options={[
+                { label: '🔴 Debit', value: 'Debit' },
+                { label: '🟢 Credit', value: 'Credit' },
+                { label: '💰 Savings', value: 'Savings' },
+                { label: '💸 Investment', value: 'Investment' }
+              ]} 
+              width="100%" 
+            />
           </div>
 
           <div className="form-group">
@@ -2523,16 +2539,24 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
-             <select className="bulk-sel" value={row.account} onChange={e => updateRow(row.id, 'account', e.target.value)}>
-                {Object.keys(BANKS).map(b => <option key={b} value={b}>{BANKS[b]?.emoji} {b}</option>)}
-              </select>
-              <input type="date" className="bulk-inp" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
-              <select className="bulk-sel" value={row.type} onChange={e => updateRow(row.id, 'type', e.target.value)}>
-                <option value="Debit">🔴 Debit</option>
-                <option value="Credit">🟢 Credit</option>
-                <option value="Savings">💰 Savings</option>
-                <option value="Investment">💸 Investment</option>
-              </select>
+             <CustomSelect 
+                value={row.account} 
+                onChange={val => updateRow(row.id, 'account', val)} 
+                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
+                minWidth="140px" 
+              />
+              <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
+              <CustomSelect 
+                value={row.type} 
+                onChange={val => updateRow(row.id, 'type', val)} 
+                options={[
+                  { label: '🔴 Debit', value: 'Debit' },
+                  { label: '🟢 Credit', value: 'Credit' },
+                  { label: '💰 Savings', value: 'Savings' },
+                  { label: '💸 Investment', value: 'Investment' }
+                ]} 
+                minWidth="130px" 
+              />
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={CATEGORIES} placeholder="Category" />
               <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
