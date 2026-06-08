@@ -3310,27 +3310,34 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 <div className="analyser-body" style={{ padding: '1.5rem', animation: 'fadeIn 0.2s ease' }}>
                   
                   {section.id === "MARKET" ? (
-                    /* 🚀 OLD UNIFIED TABLE MOVED INSIDE MARKET ACCORDION */
+                    /* 🚀 UPGRADED MARKET TABLE (Pagination + Click Cues) */
                     <div>
                       <div className="data-table">
-                        <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
+                        <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr' }}>
                           <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span>Action</span>
                         </div>
                         {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
                           const ret = inv.total_curr - inv.total_inv;
                           return (
-                            <div key={i} className={`table-row inv-cols ${i%2===0?'row-even':''}`} onClick={() => openDrillDown(inv.date.split('T')[0])} style={{ cursor: 'pointer' }}>
-                              <span>{formatDate(inv.date)}</span>
-                              <span>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
-                              <span>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
+                            <div 
+                              key={i} 
+                              className={`table-row inv-cols ${i%2===0?'row-even':''}`} 
+                              onClick={() => openDrillDown(inv.date.split('T')[0])} 
+                              style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr', transition: 'background 0.2s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <span style={{ fontWeight: 600 }}>{formatDate(inv.date)}</span>
+                              <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
+                              <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
                               <span className={ret >= 0 ? 'pos' : 'neg'}>{showBalances ? fmt(ret) : '₹ ••••••'}</span>
                               <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
-                              <span style={{fontSize:'1.2rem'}}>{inv.total_status || '—'}</span>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>🔍 View Split</span>
                             </div>
                           );
                         }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
@@ -3338,10 +3345,23 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
 
                       {/* 🚀 PAGINATION CONTROLS */}
                       {invTotalPages > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.5rem 1rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
-                            Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.75rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                            <select 
+                              className="sel" 
+                              style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderRadius: '8px', background: 'var(--card)' }} 
+                              value={invRowsPerPage} 
+                              onChange={e => { setInvRowsPerPage(Number(e.target.value)); setInvCurrentPage(0); }}
+                            >
+                              <option value={10}>10 rows</option>
+                              <option value={25}>25 rows</option>
+                              <option value={50}>50 rows</option>
+                              <option value={100}>100 rows</option>
+                            </select>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+                              Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
+                            </span>
+                          </div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>← Prev</button>
                             <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600 }}>Page {invCurrentPage + 1} / {invTotalPages}</span>
@@ -3351,48 +3371,39 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                       )}
                     </div>
                   ) : (
-                    /* 🚀 NEW TABLE STRUCTURE FOR MANUAL ASSETS */
+                    /* 🚀 FIXED TABLE STRUCTURE FOR MANUAL ASSETS */
                     <div className="data-table">
-                      <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
-                        <span>Asset Name</span>
-                        <span>Type</span>
-                        <span>Invested</span>
-                        <span>Current Value</span>
-                        <span>Return ₹</span>
-                        <span>Updated</span>
-                        <span style={{textAlign: 'right'}}>Actions</span>
-                      </div>
-                      {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
-                        const ret = asset.current_value - asset.invested_value;
-                        return (
-                          <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600 }}>{asset.name}</span>
-                            <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
-                            <span>{fmt(asset.invested_value)}</span>
-                            <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
-                            <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                              <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
-                            </span>
+                      {sectionAssets.length > 0 ? (
+                        <>
+                          <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                            <span>Asset Name</span>
+                            <span>Type</span>
+                            <span>Invested</span>
+                            <span>Current Value</span>
+                            <span>Return ₹</span>
+                            <span>Updated</span>
+                            <span style={{textAlign: 'right'}}>Actions</span>
                           </div>
-                        );
-                      }) : <div className="empty-state">No assets added in this category yet.</div>}
-                      {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
-                        const ret = asset.current_value - asset.invested_value;
-                        return (
-                          <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 600 }}>{asset.name}</span>
-                            <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
-                            <span>{fmt(asset.invested_value)}</span>
-                            <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                            <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                              <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
-                            </span>
-                          </div>
-                        );
-                      }) : <div className="empty-state">No assets added in this category yet.</div>}
+                          {sectionAssets.map((asset, i) => {
+                            const ret = asset.current_value - asset.invested_value;
+                            return (
+                              <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                                <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
+                                <span>{fmt(asset.invested_value)}</span>
+                                <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
+                                <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
+                                <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                  <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <div className="empty-state">No assets added in this category yet.</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3409,9 +3420,33 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
       {drillDownDate && (
         <div className="modal-backdrop" onClick={() => setDrillDownDate(null)}>
           <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">{drillDownType === 'EQUITY' ? 'Equity' : 'MF'} Portfolio on {formatDate(drillDownDate)}</div>
-              <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
+            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <div className="modal-title">Portfolio on {formatDate(drillDownDate)}</div>
+                <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => fetchDrillDownData(drillDownDate, 'EQUITY')}
+                  style={{
+                    padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: drillDownType === 'EQUITY' ? 'var(--card)' : 'transparent',
+                    color: drillDownType === 'EQUITY' ? 'var(--accent)' : 'var(--text2)',
+                    border: drillDownType === 'EQUITY' ? '1px solid var(--accent)' : '1px solid transparent',
+                    boxShadow: drillDownType === 'EQUITY' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none'
+                  }}
+                >📈 Equity (Stocks)</button>
+                <button 
+                  onClick={() => fetchDrillDownData(drillDownDate, 'MF')}
+                  style={{
+                    padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: drillDownType === 'MF' ? 'var(--card)' : 'transparent',
+                    color: drillDownType === 'MF' ? 'var(--accent)' : 'var(--text2)',
+                    border: drillDownType === 'MF' ? '1px solid var(--accent)' : '1px solid transparent',
+                    boxShadow: drillDownType === 'MF' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none'
+                  }}
+                >🏦 Mutual Funds</button>
+              </div>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               {processedDrillDownData.length > 0 ? (
