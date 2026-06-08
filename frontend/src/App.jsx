@@ -395,12 +395,18 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
             <div className="phys-info-sub">{MONTHS[physMonth]} {physYear}</div>
           </div>
           <div className="phys-controls">
-            <select className="sel" style={{ width: 'auto' }} value={physMonth} onChange={e => setPhysMonth(parseInt(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select className="sel" style={{ width: 'auto' }} value={physYear} onChange={e => setPhysYear(parseInt(e.target.value))}>
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <CustomSelect 
+              value={physMonth} 
+              onChange={val => setPhysMonth(parseInt(val))} 
+              options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
+              minWidth="120px" 
+            />
+            <CustomSelect 
+              value={physYear} 
+              onChange={val => setPhysYear(parseInt(val))} 
+              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
+              minWidth="90px" 
+            />
           </div>
         </div>
       </div>
@@ -572,6 +578,72 @@ function CustomPieTooltip({ active, payload, pieData }) {
           ({pct}%)
         </span>
       </div>
+    </div>
+  );
+}
+
+// ─── REUSABLE CUSTOM SELECT ─────────────────────────────────────────────
+function CustomSelect({ value, onChange, options, icon, placeholder, width = 'auto', minWidth = '120px' }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = options.filter(o => {
+    const label = typeof o === 'object' ? o.label : o;
+    return String(label).toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const displayValue = options.find(o => (typeof o === 'object' ? o.value : o) === value);
+  const displayLabel = displayValue ? (typeof displayValue === 'object' ? displayValue.label : displayValue) : placeholder;
+
+  return (
+    <div style={{ position: 'relative', width }} ref={containerRef}>
+      <button
+        className={`filter-chip ${isOpen ? 'open' : ''} ${value !== "" && value !== undefined ? 'active' : ''}`}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(!isOpen); }}
+        style={{ width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem', height: '36px', borderRadius: '8px', margin: 0, border: isOpen || value ? '1px solid var(--accent)' : '1px solid var(--border)' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+          {icon && <span>{icon}</span>}
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>{displayLabel}</span>
+        </div>
+        <span className="chip-arrow">▼</span>
+      </button>
+      
+      {isOpen && (
+        <div className="chip-dropdown" style={{ width: 'max-content', minWidth: '100%', right: 0, left: 'auto', top: 'calc(100% + 4px)', maxHeight: '300px', overflowY: 'auto', zIndex: 1000 }}>
+          {options.length > 5 && (
+            <div className="chip-search-container">
+              <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="chip-search-input" onClick={e => e.stopPropagation()} />
+            </div>
+          )}
+          {filtered.map((opt, i) => {
+            const val = typeof opt === 'object' ? opt.value : opt;
+            const lbl = typeof opt === 'object' ? opt.label : opt;
+            const isSelected = val === value;
+            return (
+              <div 
+                key={i} 
+                className={`chip-dropdown-item ${isSelected ? 'selected' : ''}`} 
+                onClick={() => { onChange(val); setIsOpen(false); setSearchTerm(""); }} 
+                style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.4', padding: '0.6rem 0.85rem' }}
+              >
+                <div className={`chip-checkbox ${isSelected ? 'checked' : ''}`} style={{ borderRadius: '50%', flexShrink: 0 }} />
+                <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>{lbl}</span>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -2782,19 +2854,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
   // 🚀 DRILLDOWN STATES
   const [selectedAsset, setSelectedAsset] = useState("");
   const [assetHistory, setAssetHistory] = useState([]);
-  const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
-  const drilldownRef = useRef(null);
-
-  // Close custom dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (drilldownRef.current && !drilldownRef.current.contains(e.target)) {
-        setIsDrilldownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  
 
   // Fetch history specifically when a micro-asset is selected
   useEffect(() => {
@@ -3264,53 +3324,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           ))}
           {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }} ref={drilldownRef}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
-              
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={`filter-chip ${isDrilldownOpen ? 'open' : ''}`}
-                  onClick={() => setIsDrilldownOpen(!isDrilldownOpen)}
-                  style={{
-                    minWidth: '180px', maxWidth: '240px', justifyContent: 'space-between', padding: '0.45rem 0.85rem',
-                    borderRadius: '8px', background: 'var(--card)', border: selectedAsset ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    color: selectedAsset ? 'var(--accent)' : 'var(--text)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, margin: 0, height: '36px',
-                    boxShadow: selectedAsset ? '0 2px 8px rgba(99,102,241,0.1)' : 'none'
-                  }}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {selectedAsset || "-- Entire Category --"}
-                  </span>
-                  <span className="chip-arrow">▼</span>
-                </button>
-
-                {isDrilldownOpen && (
-                  <div className="chip-dropdown" style={{ width: '100%', right: 0, left: 'auto', top: 'calc(100% + 4px)', maxHeight: '280px', overflowY: 'auto' }}>
-                    
-                    <div
-                      className={`chip-dropdown-item ${!selectedAsset ? 'selected' : ''}`}
-                      onClick={() => { setSelectedAsset(""); setIsDrilldownOpen(false); }}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}
-                    >
-                      <div className={`chip-checkbox ${!selectedAsset ? 'checked' : ''}`} style={{ borderRadius: '50%' }} />
-                      <span style={{ fontWeight: !selectedAsset ? 700 : 500, color: !selectedAsset ? 'var(--text)' : 'var(--text2)' }}>-- Entire Category --</span>
-                    </div>
-                    
-                    {assetList[chartCategory].map(sym => (
-                      <div
-                        key={sym}
-                        className={`chip-dropdown-item ${selectedAsset === sym ? 'selected' : ''}`}
-                        onClick={() => { setSelectedAsset(sym); setIsDrilldownOpen(false); }}
-                      >
-                        <div className={`chip-checkbox ${selectedAsset === sym ? 'checked' : ''}`} style={{ borderRadius: '50%' }} />
-                        <span style={{ fontWeight: selectedAsset === sym ? 700 : 500, color: selectedAsset === sym ? 'var(--text)' : 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {sym}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CustomSelect
+                value={selectedAsset}
+                onChange={val => setSelectedAsset(val)}
+                options={[
+                  { label: '-- Entire Category --', value: '' },
+                  ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
+                ]}
+                placeholder="-- Entire Category --"
+                minWidth="200px"
+              />
             </div>
           )}
         </div>
@@ -3397,17 +3422,17 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                       {invTotalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.75rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
                           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                            <select 
-                              className="sel" 
-                              style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', borderRadius: '8px', background: 'var(--card)' }} 
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                            <CustomSelect 
                               value={invRowsPerPage} 
-                              onChange={e => { setInvRowsPerPage(Number(e.target.value)); setInvCurrentPage(0); }}
-                            >
-                              <option value={10}>10 rows</option>
-                              <option value={25}>25 rows</option>
-                              <option value={50}>50 rows</option>
-                              <option value={100}>100 rows</option>
-                            </select>
+                              onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
+                              options={[10, 25, 50, 100].map(r => ({ label: `${r} rows`, value: r }))}
+                              minWidth="110px"
+                            />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+                              Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
+                            </span>
+                          </div>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
                               Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
                             </span>
