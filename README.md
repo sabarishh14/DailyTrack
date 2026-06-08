@@ -4,3 +4,5 @@ A full-stack personal finance and lifestyle tracking system featuring real-time 
 
 git reset --hard HEAD~1
 git push origin main --force
+
+python -c "from app import app, db; app.app_context().push(); db.create_all()"

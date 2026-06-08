@@ -2259,6 +2259,40 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
   );
 }
 
+function AddManualAssetModal({ onClose, onAdd }) {
+  const [form, setForm] = useState({ category: 'FD', name: '', invested_value: '', current_value: '' });
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/manual_assets`, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) { onAdd(); onClose(); }
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div className="modal-title">➕ Add Asset</div></div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <select className="sel" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+            {['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+          <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
+          <button className="submit-btn" onClick={submit}>{loading ? 'Saving...' : 'Save Asset'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReconciliationModal({ accounts, onClose, onRefresh }) {
   const [scanning, setScanning] = useState(false);
 
@@ -2733,16 +2767,53 @@ function GymTab({ physical, onOpenModal }) {
 }
 
 // ─── INVEST TAB ───────────────────────────────────────────────────────────
-function InvestTab({ investments, onAdd }) {
-  const [syncing, setSyncing] = useState(false);
+function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [syncing, setSyncing] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
   const [sortBy, setSortBy] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tokenStr, setTokenStr] = useState("");
   const [syncingSheets, setSyncingSheets] = useState(false);
-  const [historyData, setHistoryData] = useState([]);
-  const [selectedFund, setSelectedFund] = useState("");
+  
+  // 🚀 NEW MASTER CHART STATES
+  const [chartCategory, setChartCategory] = useState('ALL');
+  const [timeframe, setTimeframe] = useState('ALL');
+  
+  // 🚀 DRILLDOWN STATES
+  const [selectedAsset, setSelectedAsset] = useState("");
+  const [assetHistory, setAssetHistory] = useState([]);
+
+  // Fetch history specifically when a micro-asset is selected
+  useEffect(() => {
+    if (!selectedAsset) { setAssetHistory([]); return; }
+    
+    const fetchAssetHistory = async () => {
+      const res = await fetch(`${API}/investments/history?symbol=${encodeURIComponent(selectedAsset)}&type=${chartCategory}`, { 
+        headers: { 'Authorization': `Bearer ${getToken()}` } 
+      });
+      if (res.ok) setAssetHistory(await res.json());
+    };
+    fetchAssetHistory();
+  }, [selectedAsset, chartCategory]);
+  
+  // Clear the drilldown if the user changes the main category
+  useEffect(() => { setSelectedAsset(""); }, [chartCategory]);
+
+  // 🚀 NEW ACCORDION & MODAL STATES
+  const [expandedSection, setExpandedSection] = useState('MARKET');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // 🚀 HANDLER TO DELETE MANUAL ASSETS
+  const handleDeleteManualAsset = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this asset?")) return;
+    try {
+      const res = await fetch(`${API}/manual_assets/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) onAdd(); // Refreshes all data
+    } catch(e) { alert("Error deleting asset: " + e.message); }
+  };
   
   // Drill-down states
   const [drillDownDate, setDrillDownDate] = useState(null);
@@ -2754,18 +2825,44 @@ function InvestTab({ investments, onAdd }) {
   // 3-State Toggle
   const [viewMode, setViewMode] = useState("ALL"); // "ALL", "MF", "EQUITY"
   
-  // Fetch chart data
-  useEffect(() => {
-    const fetchHistory = async () => {
-      const url = selectedFund 
-        ? `${API}/investments/history?symbol=${encodeURIComponent(selectedFund)}`
-        : `${API}/investments/history`;
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
-      const data = await res.json();
-      setHistoryData(data);
-    };
-    fetchHistory();
-  }, [selectedFund]);
+  // 🚀 DYNAMIC CHART DATA PROCESSOR (Handles both Totals AND Single Assets)
+  const chartData = useMemo(() => {
+    // 1. CHOOSE SOURCE: If a specific asset is selected, use its API history. Otherwise, use global totals.
+    let data = selectedAsset ? [...assetHistory] : [...investments].reverse();
+    if (!data || data.length === 0) return [];
+    
+    // 2. APPLY TIMEFRAME
+    if (timeframe !== 'ALL') {
+      const now = new Date();
+      let cutoffDate = new Date();
+      if (timeframe === '1M') cutoffDate.setMonth(now.getMonth() - 1);
+      else if (timeframe === '3M') cutoffDate.setMonth(now.getMonth() - 3);
+      else if (timeframe === '6M') cutoffDate.setMonth(now.getMonth() - 6);
+      else if (timeframe === '1Y') cutoffDate.setFullYear(now.getFullYear() - 1);
+      else if (timeframe === 'YTD') cutoffDate = new Date(now.getFullYear(), 0, 1);
+      
+      data = data.filter(d => new Date(d.date) >= cutoffDate);
+    }
+    
+    // 3. MAP VALUES
+    return data.map(d => {
+       if (selectedAsset) {
+         // Drilldown data is already formatted by the backend
+         return { date: formatDate(d.date), Current: d.Current || 0, Invested: d.Invested || 0 };
+       }
+       
+       // Otherwise, we map the global totals
+       let curr = 0; let inv = 0;
+       if (chartCategory === 'ALL') { curr = d.total_curr; inv = d.total_inv; }
+       else if (chartCategory === 'EQUITY') { curr = d.curr_stocks; inv = d.inv_stocks; }
+       else if (chartCategory === 'MF') { curr = d.curr_mf; inv = d.inv_mf; }
+       else if (chartCategory === 'PROVIDENT') { curr = d.curr_prov; inv = d.inv_prov; }
+       else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
+       else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
+       
+       return { date: formatDate(d.date), Current: curr || 0, Invested: inv || 0 };
+    });
+  }, [investments, chartCategory, timeframe, selectedAsset, assetHistory]);
 
   // Fetch drill-down data when a date is clicked
   const handleRowClick = async (dateStr, type) => {
@@ -2935,130 +3032,280 @@ function InvestTab({ investments, onAdd }) {
     }
   };
 
+  // 🚀 CALCULATE DATA FOR NEW HERO SECTION
+  const latest = investments.length > 0 ? investments[0] : null;
+  const pieData = latest ? [
+    { name: "Equity", value: latest.curr_stocks || 0, fill: "#6366f1" },
+    { name: "Mutual Funds", value: latest.curr_mf || 0, fill: "#8b5cf6" },
+    { name: "Fixed Income", value: latest.curr_fixed || 0, fill: "#10b981" },
+    { name: "Provident", value: latest.curr_prov || 0, fill: "#f59e0b" },
+    { name: "Gold", value: latest.curr_gold || 0, fill: "#eab308" }
+  ].filter(d => d.value > 0) : [];
+
   return (
     <div className="invest-layout" style={{ display: 'block' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select className="sel" style={{ width: 'auto', minWidth: '180px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
-            <option value="">📅 All Months</option>
-            {allMonths.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-          </select>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 500 }}>
-            Showing {processedData.length} records
-          </span>
-        </div>
+      {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         
-        {!showTokenInput ? (
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button className="action-btn" style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }} onClick={handleSyncToSheets} disabled={syncingSheets}>
-              {syncingSheets ? '⏳ Syncing...' : '📥 Sync to Sheets'}
-            </button>
-            <button className="action-btn" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
-              ⚡ Sync with Kite
-            </button>
+        {/* Summary Metrics Card */}
+        <div style={{ background: 'var(--card)', padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '2.8rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
+              {latest ? fmt(latest.total_curr) : '₹0'}
+            </div>
+            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
+                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>{latest ? fmt(latest.total_inv) : '₹0'}</div>
+              </div>
+              <div style={{ width: '1px', background: 'var(--border)' }}></div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Absolute Returns</span>
+                <div className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem', marginTop: '2px' }}>
+                  {latest && latest.total_curr - latest.total_inv >= 0 ? '+' : ''}{latest ? fmt(latest.total_curr - latest.total_inv) : '₹0'}
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', animation: 'fadeIn 0.3s ease' }}>
-            <input className="inp" placeholder="Paste 127.0.0.1 URL here..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ width: '250px', padding: '0.55rem 0.8rem', borderRadius: '8px' }} />
-            <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>{syncing ? '⏳...' : 'Submit'}</button>
-            <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }} disabled={syncing}>Cancel</button>
+          
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+             {!showTokenInput ? (
+                <>
+                  <button className="action-btn" onClick={() => setIsAddModalOpen(true)}> 
+                    ➕ Add Other Asset
+                  </button>
+                  <button className="action-btn" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
+                    ⚡ Sync MF & Stocks
+                  </button>
+                </>
+             ) : (
+                <div style={{ display: 'flex', gap: '0.5rem', width: '100%', animation: 'fadeIn 0.3s ease' }}>
+                  <input className="inp" placeholder="Paste request_token URL..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ flex: 1 }} />
+                  <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>{syncing ? '⏳' : 'Sync'}</button>
+                  <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }}>✕</button>
+                </div>
+             )}
           </div>
-        )}
+        </div>
+
+        {/* Allocation Donut Card */}
+        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          <div style={{ width: '200px', height: '200px', position: 'relative', flexShrink: 0 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={3} cornerRadius={6} stroke="none">
+                  {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
+                </Pie>
+                <Tooltip 
+                  formatter={(value) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                  contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                  itemStyle={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, letterSpacing: '0.5px' }}>ASSETS</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{pieData.length}</div>
+            </div>
+          </div>
+          
+          {/* Legend */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1, paddingLeft: '1.5rem' }}>
+            {pieData.map(d => (
+              <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.fill }}></div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text3)', fontWeight: 600 }}>{d.name}</span>
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                  {latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       
-      <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 className="section-title" style={{ margin: 0 }}>📈 Investment Analyser</h3>
-          <select className="sel" style={{ width: 'auto' }} value={selectedFund} onChange={e => setSelectedFund(e.target.value)}>
-            <option value="">Overall Portfolio</option>
-            <option value="NIFTY_50_INDEX">Sample Filter</option>
-          </select>
+      {/* 🚀 THE COMMAND CENTER: MASTER CHART */}
+      <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        
+        {/* Chart Header & Time Toggles */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📈 Investment Analyser</h3>
+          
+          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg2)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
+              <button 
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                style={{
+                  background: timeframe === tf ? 'var(--card)' : 'transparent',
+                  color: timeframe === tf ? 'var(--text)' : 'var(--text3)',
+                  border: timeframe === tf ? '1px solid var(--border2)' : '1px solid transparent',
+                  padding: '0.35rem 0.85rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{ height: '300px', width: '100%' }}>
+
+        {/* Category Toggles */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+          {[
+            { id: 'ALL', label: 'Overall Portfolio' },
+            { id: 'EQUITY', label: 'Equity' },
+            { id: 'MF', label: 'Mutual Funds' },
+            { id: 'PROVIDENT', label: 'Provident (EPF/NPS)' },
+            { id: 'FIXED_INCOME', label: 'Fixed Income (FDs)' },
+            { id: 'GOLD', label: 'Gold' }
+          ].map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setChartCategory(cat.id)}
+              style={{
+                padding: '0.5rem 1rem', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                background: chartCategory === cat.id ? 'rgba(99,102,241,0.15)' : 'transparent',
+                color: chartCategory === cat.id ? 'var(--accent)' : 'var(--text2)',
+                border: chartCategory === cat.id ? '1px solid rgba(99,102,241,0.4)' : '1px solid var(--border)'
+              }}
+            >
+              {cat.label}
+            </button>
+          ))}
+          {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
+          {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600 }}>DRILLDOWN:</span>
+              <select 
+                className="sel" 
+                style={{ width: 'auto', minWidth: '150px', padding: '0.4rem 0.75rem', fontSize: '0.8rem', borderRadius: '999px', background: 'var(--bg2)' }}
+                value={selectedAsset}
+                onChange={(e) => setSelectedAsset(e.target.value)}
+              >
+                <option value="">-- View Entire Category --</option>
+                {assetList[chartCategory].map(sym => (
+                  <option key={sym} value={sym}>{sym}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* The Recharts Graph */}
+        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={historyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="var(--text2)" fontSize={12} tickFormatter={d => formatDate(d)} />
-              <YAxis stroke="var(--text2)" fontSize={12} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-              <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }} formatter={(value) => [`₹${value.toLocaleString()}`, ""]} />
-              <Legend />
-              <Line type="monotone" name="Current Value" dataKey="value" stroke="var(--accent)" strokeWidth={3} dot={false} />
-              <Line type="monotone" name="Invested Amount" dataKey="invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+              <YAxis stroke="var(--text3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
+              <Tooltip 
+                contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
+                itemStyle={{ fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
+                formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, ""]} 
+              />
+              <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} animationDuration={800} />
+              <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={false} animationDuration={800} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 3-STATE SEGMENTED TOGGLE */}
-      <div className="filter-bar" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
-        <div style={{ background: 'var(--bg3)', borderRadius: '999px', padding: '4px', display: 'flex', gap: '4px', border: '1px solid var(--border)' }}>
-          {["ALL", "MF", "EQUITY"].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => {
-                setViewMode(mode);
-                setSortBy("date");
-                setSortDir("desc");
-              }}
-              style={{
-                padding: '0.6rem 1.5rem',
-                borderRadius: '999px', border: 'none',
-                background: viewMode === mode ? 'var(--accent)' : 'transparent',
-                color: viewMode === mode ? '#fff' : 'var(--text2)',
-                fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
-              }}
-            >
-              {mode === "ALL" ? "Combined Net Worth" : mode === "MF" ? "Mutual Funds" : "Equity (Stocks)"}
-            </button>
-          ))}
-        </div>
+      {/* 🚀 THE ASSET CLASS GRID (ACCORDIONS) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {[
+          { title: "Stocks & MFs (Brokerage)", id: "MARKET" },
+          { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'PPF', 'NPS'] },
+          { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'Cash'] },
+          { title: "Gold & Real Estate", id: "GOLD", categories: ['SGB', 'RealEstate'] }
+        ].map(section => {
+          
+          // Filter manual assets for this specific section
+          const sectionAssets = manualAssets ? manualAssets.filter(a => section.categories?.includes(a.category)) : [];
+
+          return (
+            <div key={section.id} className="analyser-card" style={{ marginBottom: 0 }}>
+              <div 
+                className={`analyser-header ${expandedSection === section.id ? 'open' : ''}`} 
+                onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
+              >
+                <div className="analyser-header-left">
+                  <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
+                  <div className="analyser-header-title">{section.title}</div>
+                </div>
+                <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
+              </div>
+
+              {expandedSection === section.id && (
+                <div className="analyser-body" style={{ padding: '1.5rem', animation: 'fadeIn 0.2s ease' }}>
+                  
+                  {section.id === "MARKET" ? (
+                    /* 🚀 OLD UNIFIED TABLE MOVED INSIDE MARKET ACCORDION */
+                    <div className="data-table">
+                      <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
+                        <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      </div>
+                      {processedData.length > 0 ? processedData.map((inv, i) => {
+                        const ret = inv.total_curr - inv.total_inv;
+                        return (
+                          <div key={i} className={`table-row inv-cols ${i%2===0?'row-even':''}`} onClick={() => handleRowClick(inv.date.split('T')[0], 'ALL')} style={{ cursor: 'pointer' }}>
+                            <span>{formatDate(inv.date)}</span>
+                            <span>{fmt(inv.total_inv)}</span>
+                            <span>{fmt(inv.total_curr)}</span>
+                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                            <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
+                            <span style={{fontSize:'1.2rem'}}>{inv.total_status || '—'}</span>
+                          </div>
+                        );
+                      }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
+                    </div>
+                  ) : (
+                    /* 🚀 NEW TABLE STRUCTURE FOR MANUAL ASSETS */
+                    <div className="data-table">
+                      <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                        <span>Asset Name</span>
+                        <span>Type</span>
+                        <span>Invested</span>
+                        <span>Current Value</span>
+                        <span>Return ₹</span>
+                        <span style={{textAlign: 'right'}}>Actions</span>
+                      </div>
+                      {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
+                        const ret = asset.current_value - asset.invested_value;
+                        return (
+                          <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                            <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
+                            <span>{fmt(asset.invested_value)}</span>
+                            <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
+                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                            <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                              <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
+                            </span>
+                          </div>
+                        );
+                      }) : <div className="empty-state">No assets added in this category yet.</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* UNIFIED DATA TABLE */}
-      <div>
-        <div className="data-table">
-          <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
-            <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-            <span onClick={() => handleSort('inv')}>
-              {viewMode === 'ALL' ? 'TOTAL INV' : viewMode === 'EQUITY' ? 'INV (EQ)' : 'INV (MF)'} 
-              {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-            </span>
-            <span onClick={() => handleSort('curr')}>
-              {viewMode === 'ALL' ? 'TOTAL CURR' : viewMode === 'EQUITY' ? 'CURR (EQ)' : 'CURR (MF)'} 
-              {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-            </span>
-            <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-            <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-            <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-          </div>
-          
-          {processedData.length > 0 ? processedData.map((inv, i) => {
-            const invVal = viewMode === 'ALL' ? parseFloat(inv.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(inv.inv_stocks || 0) : parseFloat(inv.inv_mf || 0);
-            const currVal = viewMode === 'ALL' ? parseFloat(inv.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(inv.curr_stocks || 0) : parseFloat(inv.curr_mf || 0);
-            const retPct = viewMode === 'ALL' ? parseFloat(inv.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(inv.ret_pct_stocks || 0) : parseFloat(inv.ret_pct_mf || 0);
-            const statusStr = viewMode === 'ALL' ? inv.total_status : viewMode === 'EQUITY' ? inv.status_stocks : inv.status_mf;
-            const ret = currVal - invVal;
-            
-            return (
-              <div 
-                key={i} 
-                className={`table-row inv-cols ${i%2===0?'row-even':''}`}
-                onClick={() => handleRowClick(inv.date.split('T')[0], viewMode)}
-                style={{ cursor: viewMode === 'ALL' ? 'default' : 'pointer' }}
-                title={viewMode === 'ALL' ? 'Select MF or Equity to view daily breakdown' : `Click to view detailed ${viewMode} breakdown`}
-              >
-                <span>{formatDate(inv.date)}</span>
-                <span>{fmt(invVal)}</span>
-                <span>{fmt(currVal)}</span>
-                <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                <span className={retPct >= 0 ? 'pos' : 'neg'}>{fmtPct(retPct)}</span>
-                <span style={{fontSize:'1.2rem'}}>{statusStr || '—'}</span>
-              </div>
-            );
-          }) : <div className="empty-state">No investment snapshots match your filters.</div>}
-        </div>
-      </div>
+      {/* Render the Add Modal if state is true */}
+      {isAddModalOpen && <AddManualAssetModal onClose={() => setIsAddModalOpen(false)} onAdd={onAdd} />}
 
       {/* Drill-down Modal (Shared for MF & Equity) */}
       {drillDownDate && (
@@ -3111,6 +3358,8 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
+  const [manualAssets, setManualAssets] = useState([]); // 🚀 NEW STATE
+  const [assetList, setAssetList] = useState({}); // 🚀 NEW: Dropdown options
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   
@@ -3234,12 +3483,14 @@ export default function App() {
         return r.json();
       };
 
-      // Fire ALL 4 requests in parallel
-      const [acc, phy, inv, txRes] = await Promise.all([
+      // Fire ALL 6 requests in parallel
+      const [acc, phy, inv, manAssets, txRes, listRes] = await Promise.all([
         fetchWithCheck(`${API}/accounts`),
         fetchWithCheck(`${API}/physical`),
         fetchWithCheck(`${API}/investments`),
-        fetchWithCheck(`${API}/transactions?limit=100&offset=0`)
+        fetchWithCheck(`${API}/manual_assets`), 
+        fetchWithCheck(`${API}/transactions?limit=100&offset=0`),
+        fetchWithCheck(`${API}/assets/list`) // 🚀 FETCH SYMBOLS
       ]);
       
       setAccounts(acc);
@@ -3247,6 +3498,8 @@ export default function App() {
       setAllTransactionsLoaded(false); 
       setPhysical(phy);
       setInvestments(inv);
+      setManualAssets(manAssets); 
+      setAssetList(listRes); // 🚀 SAVE SYMBOLS
       
       if (showLoading) setAppLoading(false); 
     } catch(e) {
@@ -3274,7 +3527,7 @@ export default function App() {
       case 1: return <MoneyTab accounts={accounts} transactions={transactions} onRefresh={fetchAll} />;
       case 2: return <AddTab accounts={accounts} transactions={transactions} onAdd={fetchAll} />;
       case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
-      case 4: return <InvestTab investments={investments} onAdd={fetchAll} />;
+      case 4: return <InvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
       default: return null;
     }
   };

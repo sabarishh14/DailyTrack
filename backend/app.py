@@ -16,6 +16,17 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
+import sys
+
+# 1. Get the absolute path to the backend folder
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+
+# 2. Change the working directory to the backend folder!
+# This ensures app.py can find firebase-credentials.json and .env.local perfectly
+os.chdir(backend_dir)
+
+# 3. Add to sys.path and load env
+sys.path.append(backend_dir)
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
@@ -187,30 +198,43 @@ class MutualFundHolding(db.Model):
     invested_value = db.Column(db.Float, nullable=False)
     current_value = db.Column(db.Float, nullable=False)
 
-class Investment(db.Model):
-    __tablename__ = "investments"
+class ManualAsset(db.Model):
+    __tablename__ = "manual_assets"
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    category = db.Column(db.String(50), nullable=False) # FD, EPF, PPF, NPS, SGB, RSU, RealEstate, Cash
+    name = db.Column(db.String(100), nullable=False)
+    invested_value = db.Column(db.Float, default=0.0)
+    current_value = db.Column(db.Float, default=0.0)
+    interest_rate = db.Column(db.Float, nullable=True)
+    maturity_date = db.Column(db.Date, nullable=True)
+    last_updated = db.Column(db.Date, nullable=False)
+
+class PortfolioSnapshot(db.Model):
+    __tablename__ = "portfolio_snapshots"
 
     id = db.Column(db.BigInteger, primary_key=True)
     date = db.Column(db.Date, nullable=False, index=True)
     
-    # Stocks
-    inv_stocks = db.Column(db.Float, default=0.0)
-    curr_stocks = db.Column(db.Float, default=0.0)
-    ret_pct_stocks = db.Column(db.Float, default=0.0)
-    status_stocks = db.Column(db.String(10))
+    total_equity_inv = db.Column(db.Float, default=0.0)
+    total_equity_curr = db.Column(db.Float, default=0.0)
     
-    # Mutual Funds
-    inv_mf = db.Column(db.Float, default=0.0)
-    curr_mf = db.Column(db.Float, default=0.0)
-    ret_pct_mf = db.Column(db.Float, default=0.0)
-    status_mf = db.Column(db.String(10))
+    total_mf_inv = db.Column(db.Float, default=0.0)
+    total_mf_curr = db.Column(db.Float, default=0.0)
     
-    # Totals
-    total_inv = db.Column(db.Float, default=0.0)
-    total_curr = db.Column(db.Float, default=0.0)
-    total_ret_pct = db.Column(db.Float, default=0.0)
-    total_status = db.Column(db.String(10))
-    synced = db.Column(db.Boolean, default=False) 
+    total_fixed_income_inv = db.Column(db.Float, default=0.0)
+    total_fixed_income_curr = db.Column(db.Float, default=0.0)
+    
+    total_provident_inv = db.Column(db.Float, default=0.0)
+    total_provident_curr = db.Column(db.Float, default=0.0)
+    
+    total_gold_inv = db.Column(db.Float, default=0.0)
+    total_gold_curr = db.Column(db.Float, default=0.0)
+    
+    grand_total_inv = db.Column(db.Float, default=0.0)
+    grand_total_curr = db.Column(db.Float, default=0.0)
+    
+    synced = db.Column(db.Boolean, default=False)
 
 class SyncLog(db.Model):
     __tablename__ = "sync_log"
@@ -791,32 +815,91 @@ def add_physical():
 
 # ---- INVESTMENTS ----
 @app.route('/api/investments', methods=['GET'])
-@require_api_key  # <-- Add this line to protect the route
+@require_api_key  
 def get_investments():
-    records = Investment.query.order_by(Investment.date.desc()).all()
+    records = PortfolioSnapshot.query.order_by(PortfolioSnapshot.date.desc()).all()
 
     result = [
         {
             "id": r.id,
             "date": r.date.strftime("%Y-%m-%d"),
-            "inv_stocks": r.inv_stocks,
-            "curr_stocks": r.curr_stocks,
-            "ret_pct_stocks": r.ret_pct_stocks,
-            "status_stocks": r.status_stocks,
-            "inv_mf": r.inv_mf,
-            "curr_mf": r.curr_mf,
-            "ret_pct_mf": r.ret_pct_mf,
-            "status_mf": r.status_mf,
-            "total_inv": r.total_inv,
-            "total_curr": r.total_curr,
-            "total_ret_pct": r.total_ret_pct,
-            "total_status": r.total_status
+            # Backward compatibility mapping for current frontend
+            "inv_stocks": r.total_equity_inv,
+            "curr_stocks": r.total_equity_curr,
+            "inv_mf": r.total_mf_inv,
+            "curr_mf": r.total_mf_curr,
+            "total_inv": r.grand_total_inv,
+            "total_curr": r.grand_total_curr,
+            
+            # New data ready for Phase 2 UI
+            "inv_fixed": r.total_fixed_income_inv,
+            "curr_fixed": r.total_fixed_income_curr,
+            "inv_prov": r.total_provident_inv,
+            "curr_prov": r.total_provident_curr,
+            "inv_gold": r.total_gold_inv,
+            "curr_gold": r.total_gold_curr,
+            
+            # Mocking the old percentage fields dynamically
+            "ret_pct_stocks": ((r.total_equity_curr - r.total_equity_inv) / r.total_equity_inv * 100) if r.total_equity_inv > 0 else 0,
+            "ret_pct_mf": ((r.total_mf_curr - r.total_mf_inv) / r.total_mf_inv * 100) if r.total_mf_inv > 0 else 0,
+            "total_ret_pct": ((r.grand_total_curr - r.grand_total_inv) / r.grand_total_inv * 100) if r.grand_total_inv > 0 else 0,
+            "status_stocks": "",
+            "status_mf": "",
+            "total_status": ""
         }
         for r in records
     ]
 
     return jsonify(result)
 
+@app.route('/api/manual_assets/<int:aid>', methods=['DELETE'])
+@require_api_key
+def delete_manual_asset(aid):
+    asset = ManualAsset.query.filter_by(id=aid).first()
+    if asset:
+        db.session.delete(asset)
+        db.session.commit()
+        return jsonify({"success": True})
+    return jsonify({"success": False, "message": "Asset not found"}), 404
+
+@app.route('/api/manual_assets', methods=['GET', 'POST'])
+@require_api_key
+def handle_manual_assets():
+    if request.method == 'GET':
+        assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
+        return jsonify([{
+            "id": a.id,
+            "category": a.category,
+            "name": a.name,
+            "invested_value": a.invested_value,
+            "current_value": a.current_value,
+            "interest_rate": a.interest_rate,
+            "maturity_date": a.maturity_date.strftime("%Y-%m-%d") if a.maturity_date else None,
+            "last_updated": a.last_updated.strftime("%Y-%m-%d")
+        } for a in assets])
+        
+    if request.method == 'POST':
+        data = request.json
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        
+        mat_date = None
+        if data.get('maturity_date'):
+            mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date()
+
+        new_asset = ManualAsset(
+            id=int(datetime.now().timestamp() * 1000),
+            category=data['category'],
+            name=data['name'],
+            invested_value=float(data.get('invested_value', 0)),
+            current_value=float(data.get('current_value', 0)),
+            interest_rate=float(data.get('interest_rate')) if data.get('interest_rate') else None,
+            maturity_date=mat_date,
+            last_updated=datetime.now(ist_timezone).date()
+        )
+        db.session.add(new_asset)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Asset added successfully"})
+    
 @app.route('/api/equity', methods=['GET'])
 @require_api_key
 def get_equity():
@@ -955,32 +1038,37 @@ def sync_kite_direct():
             ))
 
         # ==========================================
-        # 5. CALCULATE GRAND TOTALS & RETURNS
+        # 5. CALCULATE TOTALS (KITE + MANUAL)
         # ==========================================
-        prev = Investment.query.filter(Investment.date < today_date).order_by(Investment.date.desc()).first()
+        manual_assets = ManualAsset.query.all()
         
-        mf_ret_pct = ((mf_total_curr - mf_total_inv) / mf_total_inv * 100) if mf_total_inv > 0 else 0
-        mf_status = "⬆️💹" if not prev or mf_ret_pct >= prev.ret_pct_mf else "⬇️📉"
+        fixed_inv = sum(a.invested_value for a in manual_assets if a.category in ['FD', 'RD', 'Cash'])
+        fixed_curr = sum(a.current_value for a in manual_assets if a.category in ['FD', 'RD', 'Cash'])
+        
+        prov_inv = sum(a.invested_value for a in manual_assets if a.category in ['EPF', 'PPF', 'NPS'])
+        prov_curr = sum(a.current_value for a in manual_assets if a.category in ['EPF', 'PPF', 'NPS'])
+        
+        gold_inv = sum(a.invested_value for a in manual_assets if a.category == 'SGB')
+        gold_curr = sum(a.current_value for a in manual_assets if a.category == 'SGB')
 
-        eq_ret_pct = ((eq_total_curr - eq_total_inv) / eq_total_inv * 100) if eq_total_inv > 0 else 0
-        eq_status = "⬆️💹" if not prev or eq_ret_pct >= prev.ret_pct_stocks else "⬇️📉"
-
-        grand_inv = mf_total_inv + eq_total_inv
-        grand_curr = mf_total_curr + eq_total_curr
-        grand_ret_pct = ((grand_curr - grand_inv) / grand_inv * 100) if grand_inv > 0 else 0
-        grand_status = "⬆️💹" if not prev or grand_ret_pct >= prev.total_ret_pct else "⬇️📉"
+        grand_inv = eq_total_inv + mf_total_inv + fixed_inv + prov_inv + gold_inv
+        grand_curr = eq_total_curr + mf_total_curr + fixed_curr + prov_curr + gold_curr
 
         # ==========================================
         # 6. SAVE TO DATABASE
         # ==========================================
-        new_inv = Investment(
-            id=int(datetime.now().timestamp() * 1000), date=today_date,
-            inv_stocks=eq_total_inv, curr_stocks=eq_total_curr, ret_pct_stocks=eq_ret_pct, status_stocks=eq_status,
-            inv_mf=mf_total_inv, curr_mf=mf_total_curr, ret_pct_mf=mf_ret_pct, status_mf=mf_status,
-            total_inv=grand_inv, total_curr=grand_curr, total_ret_pct=grand_ret_pct, total_status=grand_status
+        new_snapshot = PortfolioSnapshot(
+            id=int(datetime.now().timestamp() * 1000), 
+            date=today_date,
+            total_equity_inv=eq_total_inv, total_equity_curr=eq_total_curr,
+            total_mf_inv=mf_total_inv, total_mf_curr=mf_total_curr,
+            total_fixed_income_inv=fixed_inv, total_fixed_income_curr=fixed_curr,
+            total_provident_inv=prov_inv, total_provident_curr=prov_curr,
+            total_gold_inv=gold_inv, total_gold_curr=gold_curr,
+            grand_total_inv=grand_inv, grand_total_curr=grand_curr
         )
         
-        db.session.add(new_inv)
+        db.session.add(new_snapshot)
         db.session.add_all(mf_records)
         db.session.add_all(eq_records)
         db.session.commit()
@@ -1099,19 +1187,52 @@ def get_daily_holdings(date_str):
         "ret_pct": ((h.current_value - h.invested_value) / h.invested_value * 100) if h.invested_value > 0 else 0
     } for h in holdings])
 
+@app.route('/api/assets/list', methods=['GET'])
+@require_api_key
+def get_asset_list():
+    # Dynamically pull all unique assets you currently own
+    latest_eq_date = db.session.query(db.func.max(EquityHolding.date)).scalar()
+    eq_symbols = [r[0] for r in db.session.query(EquityHolding.symbol).filter(EquityHolding.date == latest_eq_date).all()] if latest_eq_date else []
+    
+    latest_mf_date = db.session.query(db.func.max(MutualFundHolding.date)).scalar()
+    mf_symbols = [r[0] for r in db.session.query(MutualFundHolding.symbol).filter(MutualFundHolding.date == latest_mf_date).all()] if latest_mf_date else []
+    
+    manual_assets = ManualAsset.query.all()
+    
+    return jsonify({
+        "EQUITY": sorted(list(set(eq_symbols))),
+        "MF": sorted(list(set(mf_symbols))),
+        "PROVIDENT": [a.name for a in manual_assets if a.category in ['EPF', 'PPF', 'NPS']],
+        "FIXED_INCOME": [a.name for a in manual_assets if a.category in ['FD', 'RD', 'Cash']],
+        "GOLD": [a.name for a in manual_assets if a.category in ['SGB', 'RealEstate']]
+    })
+
 @app.route('/api/investments/history', methods=['GET'])
 @require_api_key
-def get_investment_history():
-    symbol = request.args.get('symbol') # Optional: specific MF
+def get_asset_history():
+    symbol = request.args.get('symbol')
+    asset_type = request.args.get('type') # EQUITY, MF, PROVIDENT, etc.
     
-    if symbol:
-        history = MutualFundHolding.query.filter_by(symbol=symbol).order_by(MutualFundHolding.date.asc()).all()
-        data = [{"date": h.date.strftime("%Y-%m-%d"), "value": h.current_value, "invested": h.invested_value} for h in history]
-    else:
-        history = Investment.query.order_by(Investment.date.asc()).all()
-        data = [{"date": h.date.strftime("%Y-%m-%d"), "value": h.total_curr, "invested": h.total_inv} for h in history]
+    if not symbol or not asset_type:
+        return jsonify([])
         
+    data = []
+    if asset_type == 'EQUITY':
+        history = EquityHolding.query.filter_by(symbol=symbol).order_by(EquityHolding.date.asc()).all()
+        data = [{"date": h.date.strftime("%Y-%m-%d"), "Current": h.current_value, "Invested": h.invested_value} for h in history]
+    elif asset_type == 'MF':
+        history = MutualFundHolding.query.filter_by(symbol=symbol).order_by(MutualFundHolding.date.asc()).all()
+        data = [{"date": h.date.strftime("%Y-%m-%d"), "Current": h.current_value, "Invested": h.invested_value} for h in history]
+    else:
+        # For manual assets, we plot a straight line from creation to today
+        asset = ManualAsset.query.filter_by(name=symbol).first()
+        if asset:
+            ist_timezone = pytz.timezone('Asia/Kolkata')
+            today_str = datetime.now(ist_timezone).strftime("%Y-%m-%d")
+            data = [
+                {"date": asset.last_updated.strftime("%Y-%m-%d"), "Current": asset.current_value, "Invested": asset.invested_value},
+                {"date": today_str, "Current": asset.current_value, "Invested": asset.invested_value}
+            ]
     return jsonify(data)
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
