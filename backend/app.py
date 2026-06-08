@@ -918,34 +918,6 @@ def get_equity():
         "current_value": r.current_value
     } for r in records])
 
-@app.route('/api/investments', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
-def add_investment():
-    data = request.json
-    date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
-
-    new_record = Investment(
-        id=int(datetime.now().timestamp() * 1000),
-        date=date_obj,
-        inv_stocks=float(data.get('inv_stocks', 0)),
-        curr_stocks=float(data.get('curr_stocks', 0)),
-        ret_pct_stocks=float(data.get('ret_pct_stocks', 0)),
-        status_stocks=data.get('status_stocks', ''),
-        inv_mf=float(data.get('inv_mf', 0)),
-        curr_mf=float(data.get('curr_mf', 0)),
-        ret_pct_mf=float(data.get('ret_pct_mf', 0)),
-        status_mf=data.get('status_mf', ''),
-        total_inv=float(data.get('total_inv', 0)),
-        total_curr=float(data.get('total_curr', 0)),
-        total_ret_pct=float(data.get('total_ret_pct', 0)),
-        total_status=data.get('total_status', '')
-    )
-
-    db.session.add(new_record)
-    db.session.commit()
-
-    return jsonify({"success": True})
-
 @app.route('/api/sync/kite', methods=['POST'])
 @require_api_key  # <-- Add this line to protect the route
 def sync_kite_direct():
@@ -964,7 +936,7 @@ def sync_kite_direct():
         today_date = datetime.now(ist_timezone).date()
         
         # 1. Check if already synced today
-        if Investment.query.filter_by(date=today_date).first():
+        if PortfolioSnapshot.query.filter_by(date=today_date).first():
             return jsonify({"success": False, "message": f"Already synced investments for {today_date.strftime('%d/%m/%Y')}!"})
 
         # 2. Auth with Kite
@@ -1098,33 +1070,33 @@ def get_daily_equity_holdings(date_str):
     } for h in holdings])
 
 @app.route('/api/sync/investments-to-sheets', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
+@require_api_key  
 def sync_investments_to_sheets():
     try:
-        # Fetch only unsynced investments
-        unsynced_invs = Investment.query.filter_by(synced=False).all()
+        # Fetch only unsynced snapshots
+        unsynced_invs = PortfolioSnapshot.query.filter_by(synced=False).all()
         
         if not unsynced_invs:
             return jsonify({"success": True, "message": "No new investments to sync to Sheets."})
 
-        # Format the payload for Apps Script
+        # Format the payload for Apps Script (mocking the old column structure to prevent Sheets from breaking)
         payload = {
             "type": "investments",
             "data": [
                 {
                     "date": inv.date.strftime("%Y-%m-%d"),
-                    "inv_stocks": float(inv.inv_stocks),
-                    "curr_stocks": float(inv.curr_stocks),
-                    "ret_pct_stocks": float(inv.ret_pct_stocks),
-                    "status_stocks": inv.status_stocks,
-                    "inv_mf": float(inv.inv_mf),
-                    "curr_mf": float(inv.curr_mf),
-                    "ret_pct_mf": float(inv.ret_pct_mf),
-                    "status_mf": inv.status_mf,
-                    "total_inv": float(inv.total_inv),
-                    "total_curr": float(inv.total_curr),
-                    "total_ret_pct": float(inv.total_ret_pct),
-                    "total_status": inv.total_status
+                    "inv_stocks": float(inv.total_equity_inv),
+                    "curr_stocks": float(inv.total_equity_curr),
+                    "ret_pct_stocks": float(((inv.total_equity_curr - inv.total_equity_inv) / inv.total_equity_inv * 100) if inv.total_equity_inv > 0 else 0),
+                    "status_stocks": "",
+                    "inv_mf": float(inv.total_mf_inv),
+                    "curr_mf": float(inv.total_mf_curr),
+                    "ret_pct_mf": float(((inv.total_mf_curr - inv.total_mf_inv) / inv.total_mf_inv * 100) if inv.total_mf_inv > 0 else 0),
+                    "status_mf": "",
+                    "total_inv": float(inv.grand_total_inv),
+                    "total_curr": float(inv.grand_total_curr),
+                    "total_ret_pct": float(((inv.grand_total_curr - inv.grand_total_inv) / inv.grand_total_inv * 100) if inv.grand_total_inv > 0 else 0),
+                    "total_status": ""
                 } for inv in unsynced_invs
             ]
         }
@@ -1133,7 +1105,6 @@ def sync_investments_to_sheets():
         response = requests.post(SHEETS_URL, json=payload, timeout=60)
         
         if response.status_code == 200:
-            # Mark as synced in the database
             for inv in unsynced_invs:
                 inv.synced = True
             db.session.commit()

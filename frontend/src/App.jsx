@@ -2799,9 +2799,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
   // Clear the drilldown if the user changes the main category
   useEffect(() => { setSelectedAsset(""); }, [chartCategory]);
 
-  // 🚀 NEW ACCORDION & MODAL STATES
+  // 🚀 NEW ACCORDION, MODAL & PRIVACY STATES
   const [expandedSection, setExpandedSection] = useState('MARKET');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showBalances, setShowBalances] = useState(false); // Eye Icon state
+  const [invCurrentPage, setInvCurrentPage] = useState(0); // Pagination state
+  const [invRowsPerPage, setInvRowsPerPage] = useState(10);
 
   // 🚀 HANDLER TO DELETE MANUAL ASSETS
   const handleDeleteManualAsset = async (id) => {
@@ -2864,13 +2867,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     });
   }, [investments, chartCategory, timeframe, selectedAsset, assetHistory]);
 
-  // Fetch drill-down data when a date is clicked
-  const handleRowClick = async (dateStr, type) => {
-    if (type === "ALL") {
-      alert("Please select the 'Mutual Funds' or 'Equity' tab above to view the detailed breakdown.");
-      return;
-    }
-    
+  // 🚀 UPDATED DRILL-DOWN FETCHER (Supports Toggling inside Modal)
+  const fetchDrillDownData = async (dateStr, type) => {
     const endpoint = type === "EQUITY" ? "equity_holdings" : "holdings";
     const res = await fetch(`${API}/investments/${dateStr}/${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
     const data = await res.json();
@@ -2886,6 +2884,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     setDrillDownDate(dateStr);
     setDrillSortBy("symbol"); 
     setDrillSortDir("asc");
+  };
+
+  const openDrillDown = (dateStr) => {
+    fetchDrillDownData(dateStr, 'EQUITY'); // Default to Stocks when opened
   };
 
   const handleDrillSort = (col) => {
@@ -3032,6 +3034,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     }
   };
 
+  // 🚀 PAGINATION CALCULATIONS
+  const invTotalPages = Math.ceil(processedData.length / invRowsPerPage);
+  const invPaginatedRows = processedData.slice(invCurrentPage * invRowsPerPage, (invCurrentPage + 1) * invRowsPerPage);
+  useEffect(() => { setInvCurrentPage(0); }, [filterMonth, sortBy, sortDir, viewMode]);
+
   // 🚀 CALCULATE DATA FOR NEW HERO SECTION
   const latest = investments.length > 0 ? investments[0] : null;
   const pieData = latest ? [
@@ -3051,20 +3058,34 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
         {/* Summary Metrics Card */}
         <div style={{ background: 'var(--card)', padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '2.8rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
-              {latest ? fmt(latest.total_curr) : '₹0'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '2.8rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
+                  {showBalances ? (latest ? fmt(latest.total_curr) : '₹0') : '₹ ••••••'}
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowBalances(!showBalances)}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', fontSize: '1.2rem' }}
+                title={showBalances ? "Hide Balances" : "Show Balances"}
+              >
+                {showBalances ? '🙈' : '👁️'}
+              </button>
             </div>
+
             <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>{latest ? fmt(latest.total_inv) : '₹0'}</div>
+                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>
+                  {showBalances ? (latest ? fmt(latest.total_inv) : '₹0') : '₹ ••••••'}
+                </div>
               </div>
               <div style={{ width: '1px', background: 'var(--border)' }}></div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Absolute Returns</span>
                 <div className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem', marginTop: '2px' }}>
-                  {latest && latest.total_curr - latest.total_inv >= 0 ? '+' : ''}{latest ? fmt(latest.total_curr - latest.total_inv) : '₹0'}
+                  {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '') + (latest ? fmt(latest.total_curr - latest.total_inv) : '₹0') : '₹ ••••••'}
                 </div>
               </div>
             </div>
@@ -3074,7 +3095,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
              {!showTokenInput ? (
                 <>
-                  <button className="action-btn" onClick={() => setIsAddModalOpen(true)}> 
+                  <button className="action-btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }} onClick={() => setIsAddModalOpen(true)}>
                     ➕ Add Other Asset
                   </button>
                   <button className="action-btn" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
@@ -3114,17 +3135,25 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           
           {/* Legend */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1, paddingLeft: '1.5rem' }}>
-            {pieData.map(d => (
-              <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.fill }}></div>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text3)', fontWeight: 600 }}>{d.name}</span>
+            {pieData.map(d => {
+              const pct = latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0;
+              return (
+                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.fill }}></div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text3)', fontWeight: 600 }}>{d.name}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                      {showBalances ? fmt(d.value) : '₹ ••••••'}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text2)', fontWeight: 600, marginTop: '2px' }}>
+                      {pct}%
+                    </div>
+                  </div>
                 </div>
-                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
-                  {latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0}%
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -3202,15 +3231,15 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-              <YAxis stroke="var(--text3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
+              <YAxis stroke="var(--text3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
               <Tooltip 
                 contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
                 itemStyle={{ fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
                 formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, ""]} 
               />
               <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
-              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} animationDuration={800} />
-              <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={false} animationDuration={800} />
+              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0 }} animationDuration={800} />
+              <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -3246,40 +3275,73 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                   
                   {section.id === "MARKET" ? (
                     /* 🚀 OLD UNIFIED TABLE MOVED INSIDE MARKET ACCORDION */
-                    <div className="data-table">
-                      <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
-                        <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                    <div>
+                      <div className="data-table">
+                        <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 0.7fr' }}>
+                          <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleSort('status')}>Status {sortBy === 'status' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        </div>
+                        {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
+                          const ret = inv.total_curr - inv.total_inv;
+                          return (
+                            <div key={i} className={`table-row inv-cols ${i%2===0?'row-even':''}`} onClick={() => openDrillDown(inv.date.split('T')[0])} style={{ cursor: 'pointer' }}>
+                              <span>{formatDate(inv.date)}</span>
+                              <span>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
+                              <span>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
+                              <span className={ret >= 0 ? 'pos' : 'neg'}>{showBalances ? fmt(ret) : '₹ ••••••'}</span>
+                              <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
+                              <span style={{fontSize:'1.2rem'}}>{inv.total_status || '—'}</span>
+                            </div>
+                          );
+                        }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
                       </div>
-                      {processedData.length > 0 ? processedData.map((inv, i) => {
-                        const ret = inv.total_curr - inv.total_inv;
-                        return (
-                          <div key={i} className={`table-row inv-cols ${i%2===0?'row-even':''}`} onClick={() => handleRowClick(inv.date.split('T')[0], 'ALL')} style={{ cursor: 'pointer' }}>
-                            <span>{formatDate(inv.date)}</span>
-                            <span>{fmt(inv.total_inv)}</span>
-                            <span>{fmt(inv.total_curr)}</span>
-                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                            <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
-                            <span style={{fontSize:'1.2rem'}}>{inv.total_status || '—'}</span>
+
+                      {/* 🚀 PAGINATION CONTROLS */}
+                      {invTotalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.5rem 1rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+                            Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>← Prev</button>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600 }}>Page {invCurrentPage + 1} / {invTotalPages}</span>
+                            <button onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} disabled={invCurrentPage === invTotalPages - 1} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>Next →</button>
                           </div>
-                        );
-                      }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* 🚀 NEW TABLE STRUCTURE FOR MANUAL ASSETS */
                     <div className="data-table">
-                      <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                      <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
                         <span>Asset Name</span>
                         <span>Type</span>
                         <span>Invested</span>
                         <span>Current Value</span>
                         <span>Return ₹</span>
+                        <span>Updated</span>
                         <span style={{textAlign: 'right'}}>Actions</span>
                       </div>
+                      {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
+                        const ret = asset.current_value - asset.invested_value;
+                        return (
+                          <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                            <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
+                            <span>{fmt(asset.invested_value)}</span>
+                            <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
+                            <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
+                            <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                              <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
+                            </span>
+                          </div>
+                        );
+                      }) : <div className="empty-state">No assets added in this category yet.</div>}
                       {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
                         const ret = asset.current_value - asset.invested_value;
                         return (
