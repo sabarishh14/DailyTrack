@@ -2777,7 +2777,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
   
   // 🚀 NEW MASTER CHART STATES
   const [chartCategory, setChartCategory] = useState('ALL');
-  const [timeframe, setTimeframe] = useState('ALL');
+  const [timeframe, setTimeframe] = useState('3M');
   
   // 🚀 DRILLDOWN STATES
   const [selectedAsset, setSelectedAsset] = useState("");
@@ -2863,9 +2863,43 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
        else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
        else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
        
-       return { date: formatDate(d.date), Current: curr || 0, Invested: inv || 0 };
+       const pct = inv > 0 ? ((curr - inv) / inv) * 100 : 0;
+       return { date: formatDate(d.date), Current: curr || 0, Invested: inv || 0, ReturnPct: pct };
     });
   }, [investments, chartCategory, timeframe, selectedAsset, assetHistory]);
+
+  // 🚀 CUSTOM TOOLTIP FOR LINE CHART
+  const CustomInvestTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const curr = payload.find(p => p.dataKey === 'Current')?.value || 0;
+      const inv = payload.find(p => p.dataKey === 'Invested')?.value || 0;
+      const pct = payload[0].payload.ReturnPct || 0;
+      const isPos = pct >= 0;
+
+      return (
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '8px', fontWeight: 600 }}>{label}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.85rem' }}>Current</span>
+              <span style={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{showBalances ? `₹${curr.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+              <span style={{ color: 'var(--text3)', fontWeight: 600, fontSize: '0.85rem' }}>Invested</span>
+              <span style={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{showBalances ? `₹${inv.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
+            </div>
+            <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text2)', fontWeight: 600, fontSize: '0.8rem' }}>Returns</span>
+              <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '0.9rem' }}>
+                {isPos ? '+' : ''}{pct.toFixed(2)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // 🚀 UPDATED DRILL-DOWN FETCHER (Supports Toggling inside Modal)
   const fetchDrillDownData = async (dateStr, type) => {
@@ -3083,9 +3117,14 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
               </div>
               <div style={{ width: '1px', background: 'var(--border)' }}></div>
               <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Absolute Returns</span>
-                <div className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem', marginTop: '2px' }}>
-                  {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '') + (latest ? fmt(latest.total_curr - latest.total_inv) : '₹0') : '₹ ••••••'}
+                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px' }}>
+                  <span className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
+                    {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '') + (latest ? fmt(latest.total_curr - latest.total_inv) : '₹0') : '₹ ••••••'}
+                  </span>
+                  <span className={(latest && latest.total_ret_pct >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
+                    {latest ? `(${latest.total_ret_pct >= 0 ? '+' : ''}${latest.total_ret_pct.toFixed(2)}%)` : ''}
+                  </span>
                 </div>
               </div>
             </div>
@@ -3134,22 +3173,22 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
           
           {/* Legend */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1, paddingLeft: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.6rem', flex: 1, paddingLeft: '1.5rem' }}>
             {pieData.map(d => {
               const pct = latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0;
               return (
-                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.fill }}></div>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text3)', fontWeight: 600 }}>{d.name}</span>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill }}></div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d.name}</span>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
                       {showBalances ? fmt(d.value) : '₹ ••••••'}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text2)', fontWeight: 600, marginTop: '2px' }}>
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>
                       {pct}%
-                    </div>
+                    </span>
                   </div>
                 </div>
               );
@@ -3165,7 +3204,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📈 Investment Analyser</h3>
           
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg2)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
             {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
               <button 
                 key={tf}
@@ -3174,7 +3213,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                   background: timeframe === tf ? 'var(--card)' : 'transparent',
                   color: timeframe === tf ? 'var(--text)' : 'var(--text3)',
                   border: timeframe === tf ? '1px solid var(--border2)' : '1px solid transparent',
-                  padding: '0.35rem 0.85rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                  padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: timeframe === tf ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
                 }}
               >
                 {tf}
@@ -3184,23 +3223,24 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
         </div>
 
         {/* Category Toggles */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
           {[
             { id: 'ALL', label: 'Overall Portfolio' },
             { id: 'EQUITY', label: 'Equity' },
             { id: 'MF', label: 'Mutual Funds' },
-            { id: 'PROVIDENT', label: 'Provident (EPF/NPS)' },
-            { id: 'FIXED_INCOME', label: 'Fixed Income (FDs)' },
+            { id: 'PROVIDENT', label: 'Provident' },
+            { id: 'FIXED_INCOME', label: 'Fixed Income' },
             { id: 'GOLD', label: 'Gold' }
           ].map(cat => (
             <button
               key={cat.id}
               onClick={() => setChartCategory(cat.id)}
               style={{
-                padding: '0.5rem 1rem', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                background: chartCategory === cat.id ? 'rgba(99,102,241,0.15)' : 'transparent',
+                padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                background: chartCategory === cat.id ? 'var(--card)' : 'transparent',
                 color: chartCategory === cat.id ? 'var(--accent)' : 'var(--text2)',
-                border: chartCategory === cat.id ? '1px solid rgba(99,102,241,0.4)' : '1px solid var(--border)'
+                border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid transparent',
+                boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.15)' : 'none'
               }}
             >
               {cat.label}
@@ -3209,14 +3249,14 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600 }}>DRILLDOWN:</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
               <select 
                 className="sel" 
-                style={{ width: 'auto', minWidth: '150px', padding: '0.4rem 0.75rem', fontSize: '0.8rem', borderRadius: '999px', background: 'var(--bg2)' }}
+                style={{ width: 'auto', minWidth: '160px', padding: '0.4rem 0.75rem', fontSize: '0.85rem', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
                 value={selectedAsset}
                 onChange={(e) => setSelectedAsset(e.target.value)}
               >
-                <option value="">-- View Entire Category --</option>
+                <option value="">-- Entire Category --</option>
                 {assetList[chartCategory].map(sym => (
                   <option key={sym} value={sym}>{sym}</option>
                 ))}
@@ -3232,13 +3272,9 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
               <YAxis stroke="var(--text3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-              <Tooltip 
-                contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-                itemStyle={{ fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
-                formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, ""]} 
-              />
+              <Tooltip content={<CustomInvestTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }} />
               <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
-              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0 }} animationDuration={800} />
+              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
               <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
             </LineChart>
           </ResponsiveContainer>
