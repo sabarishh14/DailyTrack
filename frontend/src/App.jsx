@@ -1264,7 +1264,7 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
                 options={["Active", "Excluded"]}
                 filterState={filterVisibility}
                 setFilterState={setFilterVisibility}
-                dropdownKey="tableVisibility"
+                dropdownKey="analyzerVisibility"
               />
               <MultiSelectDropdown
                 label="Account"
