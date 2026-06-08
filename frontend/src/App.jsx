@@ -3346,10 +3346,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 value={selectedAsset}
                 onChange={val => setSelectedAsset(val)}
                 options={[
-                  { label: '-- Entire Category --', value: '' },
+                  { label: 'Complete Category 💸', value: '' },
                   ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
                 ]}
-                placeholder="-- Entire Category --"
+                placeholder="Complete Category 💸"
                 minWidth="200px"
               />
             </div>
