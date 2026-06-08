@@ -16,17 +16,6 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
-import sys
-
-# 1. Get the absolute path to the backend folder
-backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
-# 2. Change the working directory to the backend folder!
-# This ensures app.py can find firebase-credentials.json and .env.local perfectly
-os.chdir(backend_dir)
-
-# 3. Add to sys.path and load env
-sys.path.append(backend_dir)
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
