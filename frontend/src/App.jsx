@@ -3144,14 +3144,17 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
           
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
              {!showTokenInput ? (
                 <>
-                  <button className="action-btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }} onClick={() => setIsAddModalOpen(true)}>
-                    ➕ Add Other Asset
+                  <button className="action-btn" style={{ flex: 1, minWidth: '120px', justifyContent: 'center', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }} onClick={() => setIsAddModalOpen(true)}>
+                    ➕ Add Asset
                   </button>
-                  <button className="action-btn" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
-                    ⚡ Sync MF & Stocks
+                  <button className="action-btn" style={{ flex: 1, minWidth: '120px', justifyContent: 'center', background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)', boxShadow: '0 4px 15px rgba(20, 184, 166, 0.2)' }} onClick={handleSyncToSheets} disabled={syncingSheets}>
+                    {syncingSheets ? '⏳ Syncing...' : '📥 Sync Sheets'}
+                  </button>
+                  <button className="action-btn" style={{ flex: 1, minWidth: '120px', justifyContent: 'center', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }} onClick={handleOpenKite}>
+                    ⚡ Sync Broker
                   </button>
                 </>
              ) : (
