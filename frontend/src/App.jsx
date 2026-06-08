@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
@@ -588,19 +589,62 @@ function CustomPieTooltip({ active, payload, pieData }) {
   );
 }
 
-// ─── REUSABLE CUSTOM SELECT ─────────────────────────────────────────────
+// ─── REUSABLE CUSTOM SELECT (PORTAL VERSION) ─────────────────────────
 function CustomSelect({ value, onChange, options, icon, placeholder, width = 'auto', minWidth = '120px' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [dropdownStyle, setDropdownStyle] = useState({});
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+      // Close if clicking outside the button AND outside the portal dropdown
+      if (
+        containerRef.current && !containerRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setIsOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    
+    // Close dropdown if user scrolls the page or modal (prevents it from floating away)
+    const handleScroll = (e) => {
+       // Ignore scrolls that happen INSIDE the dropdown list itself
+       if (dropdownRef.current && dropdownRef.current.contains(e.target)) return;
+       setIsOpen(false);
+    };
+    // Use capture phase to catch all scroll events anywhere on the page
+    window.addEventListener('scroll', handleScroll, true); 
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
+
+  const toggleDropdown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      
+      // Smart Alignment: If the button is on the right side of the screen, open to the left so it doesn't spill off-screen
+      const isRightSide = rect.right > window.innerWidth * 0.6;
+      
+      setDropdownStyle({
+        position: 'fixed',
+        top: `${rect.bottom + 4}px`,
+        left: isRightSide ? 'auto' : `${rect.left}px`,
+        right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
+        minWidth: `${Math.max(rect.width, 180)}px`, // Ensures it's at least as wide as the button
+        zIndex: 999999 // Forces it above absolutely everything else
+      });
+    }
+    setIsOpen(!isOpen);
+  };
 
   const filtered = options.filter(o => {
     const label = typeof o === 'object' ? o.label : o;
@@ -614,7 +658,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
     <div style={{ position: 'relative', width }} ref={containerRef}>
       <button
         className={`filter-chip ${isOpen ? 'open' : ''} ${value !== "" && value !== undefined ? 'active' : ''}`}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(!isOpen); }}
+        onClick={toggleDropdown}
         style={{ width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem', height: '36px', borderRadius: '8px', margin: 0, border: isOpen || value ? '1px solid var(--accent)' : '1px solid var(--border)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
@@ -624,8 +668,13 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         <span className="chip-arrow">▼</span>
       </button>
       
-      {isOpen && (
-        <div className="chip-dropdown" style={{ width: 'max-content', minWidth: '100%', right: 0, left: 'auto', top: 'calc(100% + 4px)', maxHeight: '300px', overflowY: 'auto', zIndex: 1000 }}>
+      {/* 🚀 THE PORTAL: Renders completely outside the DOM hierarchy */}
+      {isOpen && createPortal(
+        <div 
+          className="chip-dropdown" 
+          ref={dropdownRef}
+          style={{ ...dropdownStyle, width: 'max-content', maxHeight: '300px', overflowY: 'auto' }}
+        >
           {options.length > 5 && (
             <div className="chip-search-container">
               <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="chip-search-input" onClick={e => e.stopPropagation()} />
@@ -647,8 +696,9 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
               </div>
             );
           })}
-          {filtered.length === 0 && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results</div>}
-        </div>
+          {filtered.length === 0 && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>}
+        </div>,
+        document.body
       )}
     </div>
   );
