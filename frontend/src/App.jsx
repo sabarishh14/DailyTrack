@@ -2782,6 +2782,19 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
   // 🚀 DRILLDOWN STATES
   const [selectedAsset, setSelectedAsset] = useState("");
   const [assetHistory, setAssetHistory] = useState([]);
+  const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
+  const drilldownRef = useRef(null);
+
+  // Close custom dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (drilldownRef.current && !drilldownRef.current.contains(e.target)) {
+        setIsDrilldownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch history specifically when a micro-asset is selected
   useEffect(() => {
@@ -3248,19 +3261,53 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           ))}
           {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }} ref={drilldownRef}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
-              <select 
-                className="sel" 
-                style={{ width: 'auto', minWidth: '160px', padding: '0.4rem 0.75rem', fontSize: '0.85rem', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
-                value={selectedAsset}
-                onChange={(e) => setSelectedAsset(e.target.value)}
-              >
-                <option value="">-- Entire Category --</option>
-                {assetList[chartCategory].map(sym => (
-                  <option key={sym} value={sym}>{sym}</option>
-                ))}
-              </select>
+              
+              <div style={{ position: 'relative' }}>
+                <button
+                  className={`filter-chip ${isDrilldownOpen ? 'open' : ''}`}
+                  onClick={() => setIsDrilldownOpen(!isDrilldownOpen)}
+                  style={{
+                    minWidth: '180px', maxWidth: '240px', justifyContent: 'space-between', padding: '0.45rem 0.85rem',
+                    borderRadius: '8px', background: 'var(--card)', border: selectedAsset ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    color: selectedAsset ? 'var(--accent)' : 'var(--text)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, margin: 0, height: '36px',
+                    boxShadow: selectedAsset ? '0 2px 8px rgba(99,102,241,0.1)' : 'none'
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedAsset || "-- Entire Category --"}
+                  </span>
+                  <span className="chip-arrow">▼</span>
+                </button>
+
+                {isDrilldownOpen && (
+                  <div className="chip-dropdown" style={{ width: '100%', right: 0, left: 'auto', top: 'calc(100% + 4px)', maxHeight: '280px', overflowY: 'auto' }}>
+                    
+                    <div
+                      className={`chip-dropdown-item ${!selectedAsset ? 'selected' : ''}`}
+                      onClick={() => { setSelectedAsset(""); setIsDrilldownOpen(false); }}
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px' }}
+                    >
+                      <div className={`chip-checkbox ${!selectedAsset ? 'checked' : ''}`} style={{ borderRadius: '50%' }} />
+                      <span style={{ fontWeight: !selectedAsset ? 700 : 500, color: !selectedAsset ? 'var(--text)' : 'var(--text2)' }}>-- Entire Category --</span>
+                    </div>
+                    
+                    {assetList[chartCategory].map(sym => (
+                      <div
+                        key={sym}
+                        className={`chip-dropdown-item ${selectedAsset === sym ? 'selected' : ''}`}
+                        onClick={() => { setSelectedAsset(sym); setIsDrilldownOpen(false); }}
+                      >
+                        <div className={`chip-checkbox ${selectedAsset === sym ? 'checked' : ''}`} style={{ borderRadius: '50%' }} />
+                        <span style={{ fontWeight: selectedAsset === sym ? 700 : 500, color: selectedAsset === sym ? 'var(--text)' : 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {sym}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
