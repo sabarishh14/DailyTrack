@@ -657,9 +657,14 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
   return (
     <div style={{ position: 'relative', width }} ref={containerRef}>
       <button
-        className={`filter-chip ${isOpen ? 'open' : ''} ${value !== "" && value !== undefined ? 'active' : ''}`}
+        className={`filter-chip ${isOpen ? 'open' : ''}`}
         onClick={toggleDropdown}
-        style={{ width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem', height: '36px', borderRadius: '8px', margin: 0, border: isOpen || value ? '1px solid var(--accent)' : '1px solid var(--border)' }}
+        style={{ 
+          width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem', 
+          height: '36px', borderRadius: '8px', margin: 0, 
+          border: isOpen ? '1px solid var(--accent)' : '1px solid var(--border)', 
+          color: isOpen ? 'var(--accent)' : 'var(--text)' 
+        }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
           {icon && <span>{icon}</span>}
@@ -691,7 +696,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
                 onClick={() => { onChange(val); setIsOpen(false); setSearchTerm(""); }} 
                 style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.4', padding: '0.6rem 0.85rem' }}
               >
-                <div className={`chip-checkbox ${isSelected ? 'checked' : ''}`} style={{ borderRadius: '50%', flexShrink: 0 }} />
+                <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ borderRadius: '50%', flexShrink: 0 }} />
                 <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>{lbl}</span>
               </div>
             );
