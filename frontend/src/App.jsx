@@ -483,12 +483,18 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 className="section-title" style={{ margin: 0 }}>💰 Money</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <select className="sel" style={{ width: 'auto', fontSize: '0.875rem' }} value={moneyMonth} onChange={e => setMoneyMonth(parseInt(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select className="sel" style={{ width: 'auto', fontSize: '0.875rem' }} value={moneyYear} onChange={e => setMoneyYear(parseInt(e.target.value))}>
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <CustomSelect 
+              value={moneyMonth} 
+              onChange={val => setMoneyMonth(parseInt(val))} 
+              options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
+              minWidth="140px" 
+            />
+            <CustomSelect 
+              value={moneyYear} 
+              onChange={val => setMoneyYear(parseInt(val))} 
+              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
+              minWidth="100px" 
+            />
           </div>
         </div>
        <div className="money-top">
@@ -2352,9 +2358,13 @@ function AddManualAssetModal({ onClose, onAdd }) {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div className="modal-title">➕ Add Asset</div></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <select className="sel" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-            {['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <CustomSelect 
+            value={form.category} 
+            onChange={val => setForm({...form, category: val})} 
+            options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
+            placeholder="Select Category"
+            width="100%"
+          />
           <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
           <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
@@ -2793,12 +2803,18 @@ function GymTab({ physical, onOpenModal }) {
            
            {/* Filters */}
            <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
-              <select className="sel" style={{ width: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.85rem', borderRadius: '8px' }} value={physMonth} onChange={e => setPhysMonth(parseInt(e.target.value))}>
-                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-              </select>
-              <select className="sel" style={{ width: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.85rem', borderRadius: '8px' }} value={physYear} onChange={e => setPhysYear(parseInt(e.target.value))}>
-                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              <CustomSelect 
+                value={physMonth} 
+                onChange={val => setPhysMonth(parseInt(val))} 
+                options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
+                minWidth="130px" 
+              />
+              <CustomSelect 
+                value={physYear} 
+                onChange={val => setPhysYear(parseInt(val))} 
+                options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
+                minWidth="100px" 
+              />
            </div>
         </div>
 
