@@ -3399,8 +3399,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Category Toggles - Mobile Horizontal Scroll */}
-        <div style={{ display: 'flex', width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem', gap: '0.6rem' }}>
+        {/* Category Toggles - Flexible Wrap */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem', gap: '0.6rem', alignItems: 'center' }}>
           {[
             { id: 'ALL', label: 'Overall Portfolio' },
             { id: 'EQUITY', label: 'Equity' },
@@ -3425,7 +3425,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           ))}
           {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexGrow: 1, justifyContent: 'flex-end', minWidth: '250px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
               <CustomSelect
                 value={selectedAsset}
@@ -3435,7 +3435,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                   ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
                 ]}
                 placeholder="-- Entire Category --"
-                minWidth="200px"
+                minWidth="180px"
               />
             </div>
           )}
@@ -3508,20 +3508,20 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                                 </span>
                               </div>
                               {/* Metrics Grid */}
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                                 <div>
                                   <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginTop: '2px' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.invested_value)}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem', marginTop: '2px' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</div>
+                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.current_value)}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
-                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '2px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                                    <span>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>({isPos ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
+                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ whiteSpace: 'nowrap' }}>{(isPos ? '+' : '-') + fmt(Math.abs(ret))}</span>
+                                    {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
                                   </div>
                                 </div>
                               </div>
@@ -3637,31 +3637,64 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 >🏦 Mutual Funds</button>
               </div>
             </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden', padding: '1rem' }}>
               {processedDrillDownData.length > 0 ? (
-                <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  <div className="data-table" style={{ minWidth: '750px' }}>
-                    <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
-                      <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                      <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    </div>
-                    {processedDrillDownData.map((h, i) => (
-                      <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
-                        <span>{h.quantity.toFixed(2)}</span>
-                        <span>₹{h.average_price.toFixed(2)}</span>
-                        <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
-                        <span>₹{h.invested_value.toFixed(0)}</span>
-                        <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>₹{h.current_value.toFixed(0)}</span>
-                        <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(h.ret_pct)}</span>
-                      </div>
-                    ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {/* Sorting Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600 }}>{processedDrillDownData.length} Assets</span>
+                    <CustomSelect 
+                      value={`${drillSortBy}-${drillSortDir}`}
+                      onChange={val => {
+                        const [col, dir] = val.split('-');
+                        setDrillSortBy(col);
+                        setDrillSortDir(dir);
+                      }}
+                      options={[
+                        { label: 'Name (A-Z)', value: 'symbol-asc' },
+                        { label: 'Invested (High-Low)', value: 'invested_value-desc' },
+                        { label: 'Current (High-Low)', value: 'current_value-desc' },
+                        { label: 'Return % (High-Low)', value: 'ret_pct-desc' }
+                      ]}
+                      minWidth="180px"
+                    />
                   </div>
+                  
+                  {/* Internal Asset Cards */}
+                  {processedDrillDownData.map((h, i) => {
+                    const isPos = h.ret_pct >= 0;
+                    return (
+                      <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.2s' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)', lineHeight: 1.3 }}>{h.symbol}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '6px' }}>
+                              {h.quantity.toFixed(2)} units • Avg: ₹{h.average_price.toFixed(2)} • {drillDownType === 'EQUITY' ? 'LTP' : 'NAV'}: ₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}
+                            </div>
+                          </div>
+                          <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', background: isPos ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                            {isPos ? '+' : ''}{h.ret_pct.toFixed(2)}%
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.invested_value.toFixed(0)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current</div>
+                            <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.current_value.toFixed(0)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Return ₹</div>
+                            <div className={h.current_value >= h.invested_value ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>
+                              {h.current_value >= h.invested_value ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-state">No individual data saved for this date.</div>
