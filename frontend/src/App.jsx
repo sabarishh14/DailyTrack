@@ -3266,20 +3266,22 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
         {/* Summary Metrics Card */}
         <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: '1rem' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', wordBreak: 'break-word' }}>
+                  {showBalances ? (latest ? fmt(latest.total_curr) : '₹0') : '₹ ••••••'}
+                </div>
+              </div>
               <button 
                 onClick={() => setShowBalances(!showBalances)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: 0, opacity: 0.7, transition: 'opacity 0.2s' }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.3rem', padding: '0.4rem', opacity: 0.7, transition: 'opacity 0.2s', flexShrink: 0, marginTop: '-4px' }}
                 onMouseEnter={e => e.currentTarget.style.opacity = 1}
                 onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
                 title={showBalances ? "Hide Balances" : "Show Balances"}
               >
                 {showBalances ? '🙈' : '👁️'}
               </button>
-            </div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
-              {showBalances ? (latest ? fmt(latest.total_curr) : '₹0') : '₹ ••••••'}
             </div>
 
             <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -3510,18 +3512,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                               {/* Metrics Grid */}
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.invested_value)}</div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.current_value)}</div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
+                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
-                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <span style={{ whiteSpace: 'nowrap' }}>{(isPos ? '+' : '-') + fmt(Math.abs(ret))}</span>
-                                    {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
+                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                    <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
                                   </div>
                                 </div>
                               </div>
@@ -3570,19 +3572,20 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                                 <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete" style={{ background: 'rgba(239,68,68,0.1)', padding: '0.4rem', borderRadius: '8px' }}>🗑️</button>
                               </div>
                               {/* Metrics Grid */}
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem', marginTop: '2px' }}>{fmt(asset.invested_value)}</div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.invested_value)}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem', marginTop: '2px' }}>{fmt(asset.current_value)}</div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
+                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.current_value)}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
-                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '2px' }}>
-                                    {(isPos ? '+' : '-') + fmt(Math.abs(ret))}
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
+                                  <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ whiteSpace: 'nowrap' }}>{(isPos ? '+' : '-') + fmt(Math.abs(ret))}</span>
+                                    {asset.invested_value > 0 && <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
                                   </div>
                                 </div>
                               </div>
@@ -3637,6 +3640,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 >🏦 Mutual Funds</button>
               </div>
             </div>
+            
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden', padding: '1rem' }}>
               {processedDrillDownData.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -3687,8 +3691,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                           </div>
                           <div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Return ₹</div>
-                            <div className={h.current_value >= h.invested_value ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>
-                              {h.current_value >= h.invested_value ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}
+                            <div className={h.current_value >= h.invested_value ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column' }}>
+                              <span>{h.current_value >= h.invested_value ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
                             </div>
                           </div>
                         </div>
