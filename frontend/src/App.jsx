@@ -3042,7 +3042,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
       const curr = payload.find(p => p.dataKey === 'Current')?.value || 0;
       const inv = payload.find(p => p.dataKey === 'Invested')?.value || 0;
       const pct = payload[0].payload.ReturnPct || 0;
-      const isPos = pct >= 0;
+      const retAmt = curr - inv;
+      const isPos = retAmt >= 0;
 
       return (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
@@ -3056,11 +3057,16 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
               <span style={{ color: 'var(--text3)', fontWeight: 600, fontSize: '0.85rem' }}>Invested</span>
               <span style={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{showBalances ? `₹${inv.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
             </div>
-            <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text2)', fontWeight: 600, fontSize: '0.8rem' }}>Returns</span>
-              <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                {isPos ? '+' : ''}{pct.toFixed(2)}%
-              </span>
+            <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--text2)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>Returns</span>
+              <div style={{ textAlign: 'right' }}>
+                <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '0.95rem', display: 'block' }}>
+                  {isPos ? '+' : ''}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}
+                </span>
+                <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem', opacity: 0.8, display: 'block' }}>
+                  {isPos ? '+' : ''}{pct.toFixed(2)}%
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -3255,38 +3261,38 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     <div className="invest-layout" style={{ display: 'block' }}>
       
       {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Summary Metrics Card */}
-        <div style={{ background: 'var(--card)', padding: '1.75rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '2.8rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem' }}>
                   {showBalances ? (latest ? fmt(latest.total_curr) : '₹0') : '₹ ••••••'}
                 </div>
               </div>
               <button 
                 onClick={() => setShowBalances(!showBalances)}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', fontSize: '1.2rem' }}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', fontSize: '1.2rem', flexShrink: 0 }}
                 title={showBalances ? "Hide Balances" : "Show Balances"}
               >
                 {showBalances ? '🙈' : '👁️'}
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div>
+            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '100px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
                 <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>
                   {showBalances ? (latest ? fmt(latest.total_inv) : '₹0') : '₹ ••••••'}
                 </div>
               </div>
               <div style={{ width: '1px', background: 'var(--border)' }}></div>
-              <div>
+              <div style={{ flex: 1, minWidth: '100px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px', flexWrap: 'wrap' }}>
                   <span className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
                     {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '') + (latest ? fmt(latest.total_curr - latest.total_inv) : '₹0') : '₹ ••••••'}
                   </span>
@@ -3313,8 +3319,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                   </button>
                 </>
              ) : (
-                <div style={{ display: 'flex', gap: '0.5rem', width: '100%', animation: 'fadeIn 0.3s ease' }}>
-                  <input className="inp" placeholder="Paste request_token URL..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ flex: 1 }} />
+                <div style={{ display: 'flex', gap: '0.5rem', width: '100%', animation: 'fadeIn 0.3s ease', flexWrap: 'wrap' }}>
+                  <input className="inp" placeholder="Paste request_token URL..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ flex: '1 1 200px' }} />
                   <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>{syncing ? '⏳' : 'Sync'}</button>
                   <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }}>✕</button>
                 </div>
@@ -3322,8 +3328,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Allocation Donut Card */}
-        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        {/* Allocation Donut Card - Mobile Wrapped */}
+        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div style={{ width: '200px', height: '200px', position: 'relative', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -3343,15 +3349,15 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             </div>
           </div>
           
-          {/* Legend */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.6rem', flex: 1, paddingLeft: '1.5rem' }}>
+          {/* Legend - Responsive Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem', width: '100%', flex: 1 }}>
             {pieData.map(d => {
               const pct = latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0;
               return (
                 <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill }}></div>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d.name}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap' }}>{d.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
@@ -3480,61 +3486,58 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 <div className="analyser-body" style={{ padding: '1.5rem', animation: 'fadeIn 0.2s ease' }}>
                   
                   {section.id === "MARKET" ? (
-                    /* 🚀 UPGRADED MARKET TABLE (Pagination + Click Cues) */
+                    /* 🚀 UPGRADED MARKET TABLE (Pagination + Swipe Scrolling) */
                     <div>
-                      <div className="data-table">
-                        <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr' }}>
-                          <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span>Action</span>
+                      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
+                        <div className="data-table" style={{ minWidth: '850px' }}>
+                          <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr' }}>
+                            <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span>Action</span>
+                          </div>
+                          {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
+                            const ret = inv.total_curr - inv.total_inv;
+                            return (
+                              <div 
+                                key={i} 
+                                className={`table-row inv-cols ${i%2===0?'row-even':''}`} 
+                                onClick={() => openDrillDown(inv.date.split('T')[0])} 
+                                style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr', transition: 'background 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <span style={{ fontWeight: 600 }}>{formatDate(inv.date)}</span>
+                                <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
+                                <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
+                                <span className={ret >= 0 ? 'pos' : 'neg'}>{showBalances ? fmt(ret) : '₹ ••••••'}</span>
+                                <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>🔍 View Split</span>
+                              </div>
+                            );
+                          }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
                         </div>
-                        {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
-                          const ret = inv.total_curr - inv.total_inv;
-                          return (
-                            <div 
-                              key={i} 
-                              className={`table-row inv-cols ${i%2===0?'row-even':''}`} 
-                              onClick={() => openDrillDown(inv.date.split('T')[0])} 
-                              style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr', transition: 'background 0.2s' }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              <span style={{ fontWeight: 600 }}>{formatDate(inv.date)}</span>
-                              <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
-                              <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
-                              <span className={ret >= 0 ? 'pos' : 'neg'}>{showBalances ? fmt(ret) : '₹ ••••••'}</span>
-                              <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
-                              <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>🔍 View Split</span>
-                            </div>
-                          );
-                        }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
                       </div>
 
                       {/* 🚀 PAGINATION CONTROLS */}
                       {invTotalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.75rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                             <CustomSelect 
                               value={invRowsPerPage} 
                               onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
                               options={[10, 25, 50, 100].map(r => ({ label: `${r} rows`, value: r }))}
                               minWidth="110px"
                             />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                               Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
                             </span>
                           </div>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>
-                              Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', width: '100%', '@media (min-width: 600px)': { width: 'auto' } }}>
                             <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>← Prev</button>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600 }}>Page {invCurrentPage + 1} / {invTotalPages}</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem' }}>Page {invCurrentPage + 1} / {invTotalPages}</span>
                             <button onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} disabled={invCurrentPage === invTotalPages - 1} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>Next →</button>
                           </div>
                         </div>
@@ -3542,38 +3545,40 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                     </div>
                   ) : (
                     /* 🚀 FIXED TABLE STRUCTURE FOR MANUAL ASSETS */
-                    <div className="data-table">
-                      {sectionAssets.length > 0 ? (
-                        <>
-                          <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
-                            <span>Asset Name</span>
-                            <span>Type</span>
-                            <span>Invested</span>
-                            <span>Current Value</span>
-                            <span>Return ₹</span>
-                            <span>Updated</span>
-                            <span style={{textAlign: 'right'}}>Actions</span>
-                          </div>
-                          {sectionAssets.map((asset, i) => {
-                            const ret = asset.current_value - asset.invested_value;
-                            return (
-                              <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 600 }}>{asset.name}</span>
-                                <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
-                                <span>{fmt(asset.invested_value)}</span>
-                                <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                                <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
-                                <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                  <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </>
-                      ) : (
-                        <div className="empty-state">No assets added in this category yet.</div>
-                      )}
+                    <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
+                      <div className="data-table" style={{ minWidth: '800px' }}>
+                        {sectionAssets.length > 0 ? (
+                          <>
+                            <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                              <span>Asset Name</span>
+                              <span>Type</span>
+                              <span>Invested</span>
+                              <span>Current Value</span>
+                              <span>Return ₹</span>
+                              <span>Updated</span>
+                              <span style={{textAlign: 'right'}}>Actions</span>
+                            </div>
+                            {sectionAssets.map((asset, i) => {
+                              const ret = asset.current_value - asset.invested_value;
+                              return (
+                                <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                                  <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
+                                  <span>{fmt(asset.invested_value)}</span>
+                                  <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
+                                  <span className={ret >= 0 ? 'pos' : 'neg'}>{fmt(ret)}</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
+                                  <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                    <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </>
+                        ) : (
+                          <div className="empty-state">No assets added in this category yet.</div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3618,29 +3623,31 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 >🏦 Mutual Funds</button>
               </div>
             </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
               {processedDrillDownData.length > 0 ? (
-                <div className="data-table">
-                  <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
-                    <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                    <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                  </div>
-                  {processedDrillDownData.map((h, i) => (
-                    <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
-                      <span>{h.quantity.toFixed(2)}</span>
-                      <span>₹{h.average_price.toFixed(2)}</span>
-                      <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
-                      <span>₹{h.invested_value.toFixed(0)}</span>
-                      <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>₹{h.current_value.toFixed(0)}</span>
-                      <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(h.ret_pct)}</span>
+                <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <div className="data-table" style={{ minWidth: '750px' }}>
+                    <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
+                      <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                      <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                     </div>
-                  ))}
+                    {processedDrillDownData.map((h, i) => (
+                      <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
+                        <span>{h.quantity.toFixed(2)}</span>
+                        <span>₹{h.average_price.toFixed(2)}</span>
+                        <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
+                        <span>₹{h.invested_value.toFixed(0)}</span>
+                        <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>₹{h.current_value.toFixed(0)}</span>
+                        <span className={h.ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(h.ret_pct)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="empty-state">No individual data saved for this date.</div>
