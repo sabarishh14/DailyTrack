@@ -609,18 +609,11 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
     };
     document.addEventListener('mousedown', handleClickOutside);
     
-    // Close dropdown if user scrolls the page or modal (prevents it from floating away)
-    const handleScroll = (e) => {
-       // Ignore scrolls that happen INSIDE the dropdown list itself
-       if (dropdownRef.current && dropdownRef.current.contains(e.target)) return;
-       setIsOpen(false);
-    };
-    // Use capture phase to catch all scroll events anywhere on the page
-    window.addEventListener('scroll', handleScroll, true); 
+    // 🚨 REMOVED the window.addEventListener('scroll') because it instantly 
+    // closes the dropdown on mobile when trying to swipe through the options!
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
     };
   }, []);
 
@@ -631,7 +624,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       
-      // Smart Alignment: If the button is on the right side of the screen, open to the left so it doesn't spill off-screen
+      // Smart Alignment: If the button is on the right side of the screen, open to the left
       const isRightSide = rect.right > window.innerWidth * 0.6;
       
       setDropdownStyle({
@@ -639,8 +632,8 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         top: `${rect.bottom + 4}px`,
         left: isRightSide ? 'auto' : `${rect.left}px`,
         right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
-        minWidth: `${Math.max(rect.width, 180)}px`, // Ensures it's at least as wide as the button
-        zIndex: 999999 // Forces it above absolutely everything else
+        minWidth: `${Math.max(rect.width, 180)}px`,
+        zIndex: 999999 
       });
     }
     setIsOpen(!isOpen);
@@ -673,12 +666,12 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         <span className="chip-arrow">▼</span>
       </button>
       
-      {/* 🚀 THE PORTAL: Renders completely outside the DOM hierarchy */}
       {isOpen && createPortal(
         <div 
           className="chip-dropdown" 
           ref={dropdownRef}
-          style={{ ...dropdownStyle, width: '100%', maxWidth: 'calc(100vw - 32px)', maxHeight: '300px', overflowY: 'auto' }}
+          // ⬇️ FIXED: Removed the hardcoded maxHeight: '300px'
+          style={{ ...dropdownStyle, width: '100%', maxWidth: 'calc(100vw - 32px)' }} 
         >
           {options.length > 5 && (
             <div className="chip-search-container">
@@ -694,14 +687,15 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
                 key={i} 
                 className={`chip-dropdown-item ${isSelected ? 'selected' : ''}`} 
                 onClick={() => { onChange(val); setIsOpen(false); setSearchTerm(""); }} 
-                style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.4', padding: '0.75rem 0.85rem' }}
+                // ⬇️ FIXED: Removed the massive inline padding so CSS can correctly shrink the rows
+                style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}
               >
-                <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ borderRadius: '50%', flexShrink: 0, marginTop: '2px' }} />
+                <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ borderRadius: '50%', flexShrink: 0, marginTop: '1px' }} />
                 <span style={{ flex: 1, fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>{lbl}</span>
               </div>
             );
           })}
-          {filtered.length === 0 && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>}
+          {filtered.length === 0 && <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>}
         </div>,
         document.body
       )}
