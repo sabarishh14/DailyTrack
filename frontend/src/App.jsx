@@ -3409,44 +3409,51 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Category Toggles - Flexible Wrap */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem', gap: '0.6rem', alignItems: 'center' }}>
-          {[
-            { id: 'ALL', label: 'Overall Portfolio' },
-            { id: 'EQUITY', label: 'Equity' },
-            { id: 'MF', label: 'Mutual Funds' },
-            { id: 'PROVIDENT', label: 'Provident' },
-            { id: 'FIXED_INCOME', label: 'Fixed Income' },
-            { id: 'GOLD', label: 'Gold' }
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setChartCategory(cat.id)}
-              style={{
-                flexShrink: 0, padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                background: chartCategory === cat.id ? 'var(--card)' : 'transparent',
-                color: chartCategory === cat.id ? 'var(--accent)' : 'var(--text2)',
-                border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid transparent',
-                boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.15)' : 'none'
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
+        {/* Category Toggles - Segmented Control & Drilldown */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
+          
+          {/* Scrollable segmented track */}
+          <div className="hide-scroll" style={{ display: 'flex', overflowX: 'auto', gap: '0.4rem', background: 'var(--bg2)', padding: '0.35rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            {[
+              { id: 'ALL', label: 'Overall' },
+              { id: 'EQUITY', label: 'Equity' },
+              { id: 'MF', label: 'Mutual Funds' },
+              { id: 'PROVIDENT', label: 'Provident' },
+              { id: 'FIXED_INCOME', label: 'Fixed Income' },
+              { id: 'GOLD', label: 'Gold' }
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setChartCategory(cat.id)}
+                style={{
+                  flexShrink: 0, padding: '0.45rem 1.1rem', borderRadius: '7px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                  background: chartCategory === cat.id ? 'var(--card)' : 'transparent',
+                  color: chartCategory === cat.id ? 'var(--text)' : 'var(--text2)',
+                  border: chartCategory === cat.id ? '1px solid var(--border2)' : '1px solid transparent',
+                  boxShadow: chartCategory === cat.id ? '0 2px 8px rgba(0,0,0,0.12)' : 'none'
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
           {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexGrow: 1, justifyContent: 'flex-end', minWidth: '250px' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
-              <CustomSelect
-                value={selectedAsset}
-                onChange={val => setSelectedAsset(val)}
-                options={[
-                  { label: '-- Entire Category --', value: '' },
-                  ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
-                ]}
-                placeholder="-- Entire Category --"
-                minWidth="180px"
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', justifyContent: 'space-between', background: 'rgba(99,102,241,0.05)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
+              <div style={{ flexGrow: 1, maxWidth: '300px' }}>
+                <CustomSelect
+                  value={selectedAsset}
+                  onChange={val => setSelectedAsset(val)}
+                  options={[
+                    { label: '-- Entire Category --', value: '' },
+                    ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
+                  ]}
+                  placeholder="-- Entire Category --"
+                  minWidth="100%"
+                />
+              </div>
             </div>
           )}
         </div>

@@ -608,6 +608,9 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; transition: background 0.2s; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+/* Hide scrollbar for segmented controls */
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ── TABLE ACTION BUTTONS (Bulletproof against mobile overrides) ─── */
 .table-action-btn {
@@ -1242,18 +1245,19 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 }
 
 .custom-dropdown-item {
-  padding: 0.65rem 1rem !important;
-  font-size: 0.85rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.8rem !important;
   color: var(--text) !important;
   border-bottom: 1px solid rgba(255,255,255,0.03) !important;
   transition: all 0.15s ease !important;
+  cursor: pointer !important;
 }
 
 .custom-dropdown-item:hover, 
 .custom-dropdown-item.active-item {
   background: rgba(99, 102, 241, 0.15) !important;
   color: #a5b4fc !important;
-  padding-left: 1.25rem !important; /* Slight indent animation on hover */
+  padding-left: 0.95rem !important; /* Smooth, shorter indent animation on hover */
 }
 
 
