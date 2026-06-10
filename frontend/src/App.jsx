@@ -632,7 +632,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         top: `${rect.bottom + 4}px`,
         left: isRightSide ? 'auto' : `${rect.left}px`,
         right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
-        minWidth: `${Math.max(rect.width, 180)}px`,
+        minWidth: `${rect.width}px`, // Matches the button exactly instead of forcing 180px
         zIndex: 999999 
       });
     }
@@ -670,8 +670,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         <div 
           className="chip-dropdown" 
           ref={dropdownRef}
-          // ⬇️ FIXED: Removed the hardcoded maxHeight: '300px'
-          style={{ ...dropdownStyle, width: '100%', maxWidth: 'calc(100vw - 32px)' }} 
+          style={{ ...dropdownStyle }} 
         >
           {options.length > 5 && (
             <div className="chip-search-container">

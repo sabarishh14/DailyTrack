@@ -235,8 +235,10 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 200px;
-  max-height: 240px !important; /* Overrides the 300px React inline style */
+  min-width: 100%; /* Perfectly matches the width of the button */
+  width: max-content; /* Safely wraps around the text */
+  max-width: calc(100vw - 32px); /* Prevents it from bleeding off mobile screens */
+  max-height: 240px !important;
   overflow-y: auto;
   background: #1a2235;
   border: 1px solid rgba(255,255,255,0.12);
