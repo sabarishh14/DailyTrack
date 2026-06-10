@@ -236,7 +236,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   top: calc(100% + 8px);
   left: 0;
   min-width: 200px;
-  max-height: 280px;
+  max-height: 240px !important; /* Overrides the 300px React inline style */
   overflow-y: auto;
   background: #1a2235;
   border: 1px solid rgba(255,255,255,0.12);
@@ -818,12 +818,15 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   }
   .mobile-nav-icon { font-size: 1.25rem; }
 
-  /* Modals */
+  /* Modals & Dropdowns */
   .modal-backdrop { align-items: center; padding: 1rem; cursor: pointer; }
   .modal-content { width: 100%; max-height: 90vh; border-radius: var(--radius-lg); animation: slideUp 0.3s ease; cursor: default; }
   .modal-body { padding: 1rem; max-height: 75vh; overflow-y: auto; }
   .inp { width: 100%; }
   .bulk-modal { margin-bottom: env(safe-area-inset-bottom); }
+  
+  /* NEW: Shrink dropdowns on mobile so you can see the keyboard */
+  .chip-dropdown, .custom-dropdown { max-height: 180px !important; }
 
   /* Tables (Gym/Invest) */
   .data-table { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
@@ -1001,15 +1004,13 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   position: absolute; 
   top: calc(100% + 4px); 
   left: 0; 
-  width: 100%; /* Ensures it perfectly matches the input width */
-  max-height: 160px; 
-  overflow-y: auto;
+  width: 100%; 
+  max-height: 200px !important; 
+  overflow-y: auto !important;
   background: var(--card); 
   border: 1px solid var(--border);
   border-radius: 6px; 
   z-index: 9999; 
-  max-height: 200px;
-  overflow-y: auto;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
@@ -1235,7 +1236,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   border: 1px solid var(--border2) !important;
   border-radius: 8px !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-  overflow: hidden !important; 
+  overflow-y: auto !important; /* Fixed! Was 'hidden', which broke scrolling */
   margin-top: 6px !important;
   padding: 0 !important;
 }
