@@ -3823,8 +3823,21 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
                       {/* 🚀 PAGINATION CONTROLS */}
                       {invTotalPages > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '0.85rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: isMobile ? 'column' : 'row', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          marginTop: '1.5rem', 
+                          padding: '0.85rem 1.25rem', 
+                          background: 'var(--bg2)', 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--border)', 
+                          gap: '1rem' 
+                        }}>
+                          
+                          {/* Left Side: Row Selector & Count */}
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                             <CustomSelect 
                               value={invRowsPerPage} 
                               onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
@@ -3835,11 +3848,38 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                               Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
                             </span>
                           </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>← Prev</button>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem' }}>Page {invCurrentPage + 1} of {invTotalPages}</span>
-                            <button onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} disabled={invCurrentPage === invTotalPages - 1} className="action-btn secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>Next →</button>
+
+                          {/* Right Side: Navigation Buttons */}
+                          <div style={{ 
+                            display: 'flex', 
+                            gap: '0.5rem', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            width: isMobile ? '100%' : 'auto' 
+                          }}>
+                            <button 
+                              onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} 
+                              disabled={invCurrentPage === 0} 
+                              className="action-btn secondary" 
+                              style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                            >
+                              ← Prev
+                            </button>
+                            
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem', whiteSpace: 'nowrap' }}>
+                              Page {invCurrentPage + 1} of {invTotalPages}
+                            </span>
+                            
+                            <button 
+                              onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} 
+                              disabled={invCurrentPage === invTotalPages - 1} 
+                              className="action-btn secondary" 
+                              style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                            >
+                              Next →
+                            </button>
                           </div>
+
                         </div>
                       )}
                     </div>
