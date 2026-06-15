@@ -6,3 +6,7 @@ git reset --hard HEAD~1
 git push origin main --force
 
 python -c "from app import app, db; app.app_context().push(); db.create_all()"
+
+git checkout main
+git reset --hard 1de3773
+git push origin main --force
