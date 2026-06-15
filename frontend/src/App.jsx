@@ -3521,6 +3521,9 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                         <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {payload.map((p, i) => {
+                             // 🚀 NEW: Ignore the dotted "Invested" line so we don't get duplicate tooltip blocks
+                             if (p.dataKey && p.dataKey.endsWith('_Inv')) return null;
+
                              let sym = p.name;
                              let curr = 0, inv = 0, pct = 0, retAmt = 0;
                              
@@ -3569,19 +3572,36 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
               
               {/* 🚀 DYNAMIC LINES BASED ON MODE */}
               {selectedAssets.size > 0 ? (
-                Array.from(selectedAssets).map((sym, i) => (
-                  <Line 
-                    key={sym} 
-                    type="monotone" 
-                    name={sym} 
-                    dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym} 
-                    stroke={PIE_COLORS[i % PIE_COLORS.length]} 
-                    strokeWidth={3} 
-                    dot={chartData.length <= 1} 
-                    activeDot={{ r: 6, strokeWidth: 0 }} 
-                    animationDuration={800} 
-                  />
-                ))
+                <>
+                  {Array.from(selectedAssets).map((sym, i) => (
+                    <Line 
+                      key={sym} 
+                      type="monotone" 
+                      name={sym} 
+                      dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym} 
+                      stroke={PIE_COLORS[i % PIE_COLORS.length]} 
+                      strokeWidth={3} 
+                      dot={chartData.length <= 1} 
+                      activeDot={{ r: 6, strokeWidth: 0 }} 
+                      animationDuration={800} 
+                    />
+                  ))}
+                  {/* 🚀 NEW: If exactly ONE asset is selected and we are in ₹ Value mode, show the dotted Invested line! */}
+                  {selectedAssets.size === 1 && chartMode !== 'PERCENTAGE' && (
+                    <Line 
+                      key={`${Array.from(selectedAssets)[0]}_Inv`} 
+                      type="monotone" 
+                      name="Invested Amount" 
+                      dataKey={`${Array.from(selectedAssets)[0]}_Inv`} 
+                      stroke="var(--text3)" 
+                      strokeWidth={2} 
+                      strokeDasharray="5 5" 
+                      dot={chartData.length <= 1} 
+                      activeDot={false} 
+                      animationDuration={800} 
+                    />
+                  )}
+                </>
               ) : (
                 chartMode === 'PERCENTAGE' ? (
                   <Line type="monotone" name="Return %" dataKey="ReturnPct" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
