@@ -2968,7 +2968,35 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
 }
 
 // ─── INVEST TAB ───────────────────────────────────────────────────────────
-function InvestTab({ investments, manualAssets, assetList, onAdd }) {
+function InvestTab({ investments, manualAssets, assetList, onAdd }) {  
+  // 🚀 PIN LOCK STATES
+  const [savedPin, setSavedPin] = useState(localStorage.getItem('dt_inv_pin'));
+  const [isUnlocked, setIsUnlocked] = useState(sessionStorage.getItem('dt_inv_unlocked') === 'true');
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  const handlePinSubmit = () => {
+    if (!savedPin) {
+      if (pinInput.length === 4) {
+        localStorage.setItem('dt_inv_pin', pinInput);
+        sessionStorage.setItem('dt_inv_unlocked', 'true');
+        setSavedPin(pinInput);
+        setIsUnlocked(true);
+      } else {
+        setPinError(true);
+      }
+    } else {
+      if (pinInput === savedPin) {
+        sessionStorage.setItem('dt_inv_unlocked', 'true');
+        setIsUnlocked(true);
+        setPinError(false);
+      } else {
+        setPinError(true);
+        setPinInput('');
+      }
+    }
+  };
+
   const [syncing, setSyncing] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
   const [sortBy, setSortBy] = useState("date");
@@ -3291,10 +3319,68 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   ].filter(d => d.value > 0) : [];
 
   return (
-    <div className="invest-layout" style={{ display: 'block' }}>
+    <div style={{ position: 'relative', minHeight: '80vh' }}>
       
-      {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
+      {/* 🚀 THE PIN LOCK OVERLAY */}
+      {!isUnlocked && (
+        <div style={{
+          position: 'absolute', top: -20, left: -20, right: -20, bottom: -20, zIndex: 50,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '10vh',
+          background: 'rgba(8, 11, 18, 0.2)' // Light dark tint
+        }}>
+          <div style={{ background: 'var(--card)', padding: '2.5rem 2rem', borderRadius: '20px', border: '1px solid var(--border)', textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,0.6)', width: '90%', maxWidth: '360px', animation: 'slideUp 0.3s ease' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', lineHeight: 1 }}>🔒</div>
+            <h3 style={{ fontFamily: "'Syne', sans-serif", margin: '0 0 0.5rem 0', color: 'var(--text)', fontSize: '1.4rem' }}>
+              {savedPin ? 'Enter PIN' : 'Set up a PIN'}
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '2rem' }}>
+              {savedPin ? 'Unlock your investment portfolio.' : 'Protect your assets with a 4-digit PIN.'}
+            </p>
+            
+            <input
+              type="password"
+              maxLength={4}
+              value={pinInput}
+              onChange={e => { setPinInput(e.target.value.replace(/\D/g, '')); setPinError(false); }}
+              onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
+              style={{ background: 'var(--bg3)', border: `2px solid ${pinError ? 'var(--neg)' : 'var(--border)'}`, color: 'var(--text)', fontSize: '1.8rem', padding: '0.75rem', borderRadius: '12px', width: '140px', textAlign: 'center', letterSpacing: '0.75rem', outline: 'none', transition: 'border-color 0.2s', fontFamily: 'monospace' }}
+              autoFocus
+            />
+            {pinError && <div style={{ color: 'var(--neg)', fontSize: '0.8rem', marginTop: '0.75rem', fontWeight: 600 }}>{savedPin ? 'Incorrect PIN' : 'PIN must be exactly 4 digits'}</div>}
+            
+            <button
+              onClick={handlePinSubmit}
+              style={{ width: '100%', marginTop: '2rem', background: 'linear-gradient(135deg, var(--accent), var(--accent3))', color: '#fff', border: 'none', padding: '1rem', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(99,102,241,0.3)' }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+            >
+              {savedPin ? 'Unlock Portfolio' : 'Save & Lock'}
+            </button>
+            
+            {savedPin && (
+              <div 
+                onClick={() => { if(window.confirm('Are you sure you want to reset your PIN?')) { localStorage.removeItem('dt_inv_pin'); setSavedPin(null); setPinInput(''); setPinError(false); } }}
+                style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '1.25rem', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Reset PIN
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 BLUR WRAPPER AROUND EXISTING CONTENT */}
+      <div className="invest-layout" style={{ 
+        display: 'block', 
+        filter: !isUnlocked ? 'blur(12px) grayscale(50%)' : 'none', 
+        pointerEvents: !isUnlocked ? 'none' : 'auto', 
+        userSelect: !isUnlocked ? 'none' : 'auto', 
+        transition: 'filter 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        opacity: !isUnlocked ? 0.4 : 1
+      }}>
+        
+        {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Summary Metrics Card */}
         <div style={{ flex: '1 1 400px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
@@ -3958,6 +4044,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
       )}
     </div>
+  </div>
   );
 }
 
