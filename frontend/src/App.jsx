@@ -3321,12 +3321,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   return (
     <div style={{ position: 'relative', minHeight: '80vh' }}>
       
-      {/* 🚀 THE PIN LOCK OVERLAY */}
+      {/* 🚀 THE PIN LOCK OVERLAY (Now Perfectly Centered) */}
       {!isUnlocked && (
         <div style={{
-          position: 'absolute', top: -20, left: -20, right: -20, bottom: -20, zIndex: 50,
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '10vh',
-          background: 'rgba(8, 11, 18, 0.2)' // Light dark tint
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(8, 11, 18, 0.3)' // Dark tint over the whole screen
         }}>
           <div style={{ background: 'var(--card)', padding: '2.5rem 2rem', borderRadius: '20px', border: '1px solid var(--border)', textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,0.6)', width: '90%', maxWidth: '360px', animation: 'slideUp 0.3s ease' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem', lineHeight: 1 }}>🔒</div>
