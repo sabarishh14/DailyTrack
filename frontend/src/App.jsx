@@ -53,49 +53,6 @@ const getBankEmoji = (accountName) => {
   return "🏦";
 };
 
-const CATEGORIES = [
-  "Aasai",
-  "Card Fees",
-  "Charges",
-  "Cinema",
-  "Clothing",
-  "CBE Trip",
-  "Daily Need",
-  "Donation",
-  "Education",
-  "Electricity",
-  "Entertainment",
-  "FD",
-  "Flowers",
-  "Food",
-  "Fruits",
-  "God",
-  "Grocery",
-  "Haircut",
-  "Income",
-  "Interest",
-  "Internet",
-  "Investment",
-  "Kudremukh Trip",
-  "Laundry",
-  "Loan",
-  "Locker",
-  "Medical",
-  "Msc",
-  "Parking",
-  "Petrol",
-  "Popcorn",
-  "Savings",
-  "Snacks",
-  "Spotify",
-  "Sports",
-  "Tally",
-  "Test",
-  "Tips",
-  "Transport",
-  "Veggies",
-  "YT Premium"
-];
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -703,7 +660,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 }
 
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
-function MoneyTab({ accounts, transactions, onRefresh }) {
+function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
   
   const [expanded, setExpanded] = useState(false);
@@ -1867,21 +1824,13 @@ function MoneyTab({ accounts, transactions, onRefresh }) {
 
           {/* Bulk Edit Modal */}
           {isBulkEditOpen && (
-            <BulkEditTransactionModal 
-              transactions={transactions.filter(t => selectedIds.has(t.id))} 
-              onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} 
-              onRefresh={onRefresh} 
-            />
+            <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
           )}
         </div>
       </section>
 
       {editingTx && (
-        <EditTransactionModal 
-          tx={editingTx} 
-          onClose={() => setEditingTx(null)}  
-          onRefresh={onRefresh} 
-        />
+        <EditTransactionModal tx={editingTx} categories={categories} onClose={() => setEditingTx(null)} onRefresh={onRefresh} />
       )}
 
       {/* CATEGORY MANAGER MODAL */}
@@ -2056,7 +2005,7 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
   );
 }
 
-function AddTab({ accounts, transactions, onAdd }) {
+function AddTab({ accounts, transactions, categories, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
  
   const recentDescriptions = [...new Set(
@@ -2225,12 +2174,7 @@ function AddTab({ accounts, transactions, onAdd }) {
                 minWidth="130px" 
               />
 
-              <AutocompleteInput 
-                value={row.heading} 
-                onChange={val => updateRow(row.id, 'heading', val)} 
-                options={CATEGORIES} 
-                placeholder="Category" 
-              />
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
               
               <input 
                 type="number" className="bulk-inp" placeholder="0.00" 
@@ -2255,7 +2199,7 @@ function AddTab({ accounts, transactions, onAdd }) {
           ))}
 
           <datalist id="category-options">
-            {CATEGORIES.map(cat => <option key={cat} value={cat} />)}
+            {categories.map(cat => <option key={cat} value={cat} />)}
           </datalist>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -2273,8 +2217,7 @@ function AddTab({ accounts, transactions, onAdd }) {
   );
 }
 
-function EditTransactionModal({ tx, onClose, onRefresh }) {
-
+function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
   const [form, setForm] = useState({
     date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
     account: tx.account,
@@ -2361,7 +2304,7 @@ function EditTransactionModal({ tx, onClose, onRefresh }) {
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Category</label>
-            <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={CATEGORIES} placeholder="Category" />
+            <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={categories} placeholder="Category" />
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -2527,8 +2470,7 @@ function ReconciliationModal({ accounts, onClose, onRefresh }) {
 }
 
       
-function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
-
+function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh }) {
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(
     transactions.map(tx => ({
@@ -2605,8 +2547,7 @@ function BulkEditTransactionModal({ transactions, onClose, onRefresh }) {
                 ]} 
                 minWidth="130px" 
               />
-              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={CATEGORIES} placeholder="Category" />
-              <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
               
               <button 
@@ -3402,11 +3343,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Category Toggles - Segmented Control & Drilldown */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
+        {/* Category Toggles - Modern Pill Design & Integrated Drilldown */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
           
-          {/* Scrollable segmented track */}
-          <div className="hide-scroll" style={{ display: 'flex', overflowX: 'auto', gap: '0.4rem', background: 'var(--bg2)', padding: '0.35rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          {/* Sleek Pills */}
+          <div className="hide-scroll" style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', flex: '1 1 auto' }}>
             {[
               { id: 'ALL', label: 'Overall' },
               { id: 'EQUITY', label: 'Equity' },
@@ -3419,11 +3360,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                 key={cat.id}
                 onClick={() => setChartCategory(cat.id)}
                 style={{
-                  flexShrink: 0, padding: '0.45rem 1.1rem', borderRadius: '7px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
-                  background: chartCategory === cat.id ? 'var(--card)' : 'transparent',
-                  color: chartCategory === cat.id ? 'var(--text)' : 'var(--text2)',
-                  border: chartCategory === cat.id ? '1px solid var(--border2)' : '1px solid transparent',
-                  boxShadow: chartCategory === cat.id ? '0 2px 8px rgba(0,0,0,0.12)' : 'none'
+                  flexShrink: 0, padding: '0.45rem 1.25rem', borderRadius: '999px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                  background: chartCategory === cat.id ? 'var(--accent)' : 'transparent',
+                  color: chartCategory === cat.id ? '#fff' : 'var(--text2)',
+                  border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
                 }}
               >
                 {cat.label}
@@ -3431,19 +3372,19 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             ))}
           </div>
 
-          {/* 🚀 THE MICRO-ASSET DRILLDOWN DROPDOWN */}
+          {/* 🚀 MODERN MICRO-ASSET DRILLDOWN */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', justifyContent: 'space-between', background: 'rgba(99,102,241,0.05)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>DRILLDOWN:</span>
-              <div style={{ flexGrow: 1, maxWidth: '300px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg2)', padding: '0.25rem 0.25rem 0.25rem 1rem', borderRadius: '999px', border: '1px solid var(--border)', flex: '0 1 auto' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Drilldown</span>
+              <div style={{ minWidth: '180px' }}>
                 <CustomSelect
                   value={selectedAsset}
                   onChange={val => setSelectedAsset(val)}
                   options={[
-                    { label: '-- Entire Category --', value: '' },
+                    { label: 'All Assets', value: '' },
                     ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
                   ]}
-                  placeholder="-- Entire Category --"
+                  placeholder="All Assets"
                   minWidth="100%"
                 />
               </div>
@@ -3579,8 +3520,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
 
                       {/* 🚀 PAGINATION CONTROLS */}
                       {invTotalPages > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.75rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '0.85rem 1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
                             <CustomSelect 
                               value={invRowsPerPage} 
                               onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
@@ -3591,10 +3532,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                               Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
                             </span>
                           </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', width: '100%', '@media (min-width: 600px)': { width: 'auto' } }}>
-                            <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>← Prev</button>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem' }}>Page {invCurrentPage + 1} / {invTotalPages}</span>
-                            <button onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} disabled={invCurrentPage === invTotalPages - 1} className="action-btn secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>Next →</button>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} disabled={invCurrentPage === 0} className="action-btn secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>← Prev</button>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem' }}>Page {invCurrentPage + 1} of {invTotalPages}</span>
+                            <button onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} disabled={invCurrentPage === invTotalPages - 1} className="action-btn secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}>Next →</button>
                           </div>
                         </div>
                       )}
@@ -3700,7 +3641,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
       {drillDownDate && (
         <div className="modal-backdrop" onClick={() => setDrillDownDate(null)}>
           <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
+            <div className="modal-header" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                 <div className="modal-title">Portfolio on {formatDate(drillDownDate)}</div>
                 <button className="modal-close" onClick={() => setDrillDownDate(null)}>×</button>
@@ -3729,9 +3670,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
               </div>
             </div>
             
-            {!isMobile ? (
-                    /* 🖥️ DESKTOP: Classic Data Table */
-                    <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '65vh' }}>
+              {!isMobile ? (
+                      /* 🖥️ DESKTOP: Classic Data Table */
+                      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       <div className="data-table" style={{ minWidth: '750px' }}>
                         <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
                           <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
@@ -3797,6 +3739,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
                       })}
                     </div>
                   )}
+              </div>
           </div>
         </div>
       )}
@@ -3810,6 +3753,7 @@ export default function App() {
   const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token'));  const [tab, setTab] = useState(0);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [manualAssets, setManualAssets] = useState([]); // 🚀 NEW STATE
@@ -3944,7 +3888,8 @@ export default function App() {
         fetchWithCheck(`${API}/investments`),
         fetchWithCheck(`${API}/manual_assets`), 
         fetchWithCheck(`${API}/transactions?limit=100&offset=0`),
-        fetchWithCheck(`${API}/assets/list`) // 🚀 FETCH SYMBOLS
+        fetchWithCheck(`${API}/assets/list`), // 🚀 FETCH SYMBOLS
+        fetchWithCheck(`${API}/transactions/categories`)
       ]);
       
       setAccounts(acc);
@@ -3954,6 +3899,7 @@ export default function App() {
       setInvestments(inv);
       setManualAssets(manAssets); 
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
+      if (catRes && catRes.success) setCategories(catRes.categories);
       
       if (showLoading) setAppLoading(false); 
     } catch(e) {
@@ -3978,8 +3924,8 @@ export default function App() {
   const renderTab = () => {
     switch(tab) {
       case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
-      case 1: return <MoneyTab accounts={accounts} transactions={transactions} onRefresh={fetchAll} />;
-      case 2: return <AddTab accounts={accounts} transactions={transactions} onAdd={fetchAll} />;
+      case 1: return <MoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />;
+      case 2: return <AddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />;
       case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
       case 4: return <InvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
       default: return null;

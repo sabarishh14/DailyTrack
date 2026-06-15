@@ -368,6 +368,16 @@ def update_account():
 
     return jsonify({'success': True})
 
+@app.route('/api/transactions/categories', methods=['GET'])
+@require_api_key
+def get_categories():
+    try:
+        # SQL DISTINCT is O(1) payload size and extremely fast on the DB level
+        cats = db.session.query(Transaction.heading).distinct().all()
+        return jsonify({"success": True, "categories": sorted([c[0] for c in cats if c[0]])})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
 # ---- TRANSACTIONS ----
 @app.route('/api/transactions', methods=['GET'])
 @require_api_key  # <-- Add this line to protect the route
