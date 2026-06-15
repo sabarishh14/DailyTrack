@@ -3008,9 +3008,6 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     }
   }, [selectedAssets, chartCategory]);
   
-  // Clear the multi-select if the user changes the main category
-  useEffect(() => { setSelectedAssets(new Set()); setIsAssetDropdownOpen(false); }, [chartCategory]);
-
   const [expandedSection, setExpandedSection] = useState('MARKET');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [showBalances, setShowBalances] = useState(false); 
