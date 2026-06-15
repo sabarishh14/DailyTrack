@@ -2982,7 +2982,6 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [timeframe, setTimeframe] = useState('3M');
   const [chartMode, setChartMode] = useState('PERCENTAGE'); // 🚀 NEW: 'ABSOLUTE' or 'PERCENTAGE'
   const [selectedAssets, setSelectedAssets] = useState(new Set());
-  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
   
   // 🚀 OPTIMIZATION: IN-MEMORY CACHE
   const assetHistoryCache = useRef({});
