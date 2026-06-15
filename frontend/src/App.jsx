@@ -3464,6 +3464,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           )}
         </div>
 
+
         {/* The Recharts Graph */}
         <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
           <ResponsiveContainer width="100%" height="100%">
