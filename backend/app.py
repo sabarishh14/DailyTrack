@@ -82,6 +82,25 @@ def require_api_key(f):
         return jsonify({"success": False, "message": "Unauthorized"}), 401
     return decorated_function
 
+# ADD THIS NEW DECORATOR BELOW:
+def require_admin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'OPTIONS':
+            return '', 200
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                if payload.get("email") != "sbsabarish14@gmail.com":
+                    return jsonify({"success": False, "message": "Admin access required"}), 403
+                return f(*args, **kwargs)
+            except Exception:
+                pass
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    return decorated_function
+
 app = Flask(__name__)
 
 @app.errorhandler(500)
@@ -229,6 +248,12 @@ class SyncLog(db.Model):
     __tablename__ = "sync_log"
     id = db.Column(db.BigInteger, primary_key=True)
     last_sync = db.Column(db.DateTime, nullable=False)
+
+# ADD THIS NEW MODEL BELOW:
+class AllowedEmail(db.Model):
+    __tablename__ = "allowed_emails"
+    email = db.Column(db.String(120), primary_key=True)
+    added_on = db.Column(db.DateTime, default=datetime.utcnow)
 
 def get_transactions_for_sync():
     # Fetch only transactions where synced=False
@@ -1125,19 +1150,26 @@ def firebase_login():
         # Verify the Firebase token
         decoded = firebase_auth.verify_id_token(id_token)
         email = decoded.get('email')
+        
+        # 🚀 DEV MODE: Check if this is the master admin
+        is_admin = (email == "sbsabarish14@gmail.com")
 
-        # Check if email is in your allowed list
-        if email not in ALLOWED_EMAILS:
+        # Check against database AND the fallback .env array
+        db_email = AllowedEmail.query.filter_by(email=email).first()
+        is_allowed = is_admin or (db_email is not None) or (email in ALLOWED_EMAILS)
+
+        if not is_allowed:
             return jsonify({"success": False, "message": f"Access denied for {email}"}), 403
 
-        # Issue our own JWT
+        # Issue our own JWT (Now including the email in the payload)
         token = jwt.encode({
             "sub": email,
+            "email": email, 
             "iat": datetime.now(timezone.utc),
             "exp": datetime.now(timezone.utc) + timedelta(days=30)
         }, JWT_SECRET, algorithm="HS256")
 
-        return jsonify({"success": True, "token": token})
+        return jsonify({"success": True, "token": token, "isAdmin": is_admin})
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 401
@@ -1204,5 +1236,36 @@ def get_asset_history():
                 {"date": today_str, "Current": asset.current_value, "Invested": asset.invested_value}
             ]
     return jsonify(data)
+
+# ==========================================
+# 🚀 SECRET DEVELOPER MENU ENDPOINTS
+# ==========================================
+@app.route('/api/admin/emails', methods=['GET'])
+@require_admin
+def get_allowed_emails():
+    emails = AllowedEmail.query.all()
+    return jsonify({"success": True, "emails": [e.email for e in emails]})
+
+@app.route('/api/admin/emails', methods=['POST'])
+@require_admin
+def add_allowed_email():
+    new_email = request.json.get('email', '').strip()
+    if not new_email:
+        return jsonify({"success": False, "message": "Email is required"}), 400
+    
+    if not AllowedEmail.query.filter_by(email=new_email).first():
+        db.session.add(AllowedEmail(email=new_email))
+        db.session.commit()
+    return jsonify({"success": True, "message": f"Added {new_email}"})
+
+@app.route('/api/admin/emails/<path:email>', methods=['DELETE'])
+@require_admin
+def remove_allowed_email(email):
+    record = AllowedEmail.query.filter_by(email=email).first()
+    if record:
+        db.session.delete(record)
+        db.session.commit()
+    return jsonify({"success": True})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

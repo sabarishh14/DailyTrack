@@ -133,6 +133,7 @@ function LoginPage({ onLogin }) {
       
       if (data.success) {
         localStorage.setItem('dt_token', data.token);
+        if (data.isAdmin) localStorage.setItem('dt_is_admin', 'true');
         onLogin();
       } else {
         setError(data.message || 'Login failed.');
@@ -4056,6 +4057,90 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   );
 }
 
+// ─── SECRET DEVELOPER MENU ───────────────────────────────────────────
+function SecretAdminModal({ onClose }) {
+  const [emails, setEmails] = useState([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const fetchEmails = async () => {
+    try {
+      const res = await fetch(`${API}/admin/emails`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const data = await res.json();
+      if (data.success) setEmails(data.emails);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchEmails(); }, []);
+
+  const handleAdd = async () => {
+    if (!newEmail.includes('@')) return;
+    await fetch(`${API}/admin/emails`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      body: JSON.stringify({ email: newEmail })
+    });
+    setNewEmail('');
+    fetchEmails();
+  };
+
+  const handleRemove = async (email) => {
+    if (!window.confirm(`Revoke access for ${email}?`)) return;
+    await fetch(`${API}/admin/emails/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    fetchEmails();
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', border: '1px solid var(--accent)' }}>
+        <div className="modal-header" style={{ background: 'rgba(99, 102, 241, 0.1)', borderBottom: '1px solid rgba(99, 102, 241, 0.2)' }}>
+          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🧑‍💻</span> Developer Access Control
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <input 
+              className="inp" 
+              placeholder="friend@gmail.com" 
+              value={newEmail} 
+              onChange={e => setNewEmail(e.target.value.toLowerCase())} 
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+            <button className="action-btn" onClick={handleAdd}>Add</button>
+          </div>
+
+          <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '0.75rem' }}>Approved Accounts</div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <span style={{ fontWeight: 600, color: 'var(--accent)' }}>sbsabarish14@gmail.com</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, padding: '0.1rem 0.4rem', background: 'var(--bg3)', borderRadius: '4px' }}>MASTER</span>
+            </div>
+            
+            {loading ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text3)' }}>Loading...</div> : emails.map(email => (
+              <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <span style={{ fontWeight: 500, color: 'var(--text)' }}>{email}</span>
+                <button 
+                  onClick={() => handleRemove(email)}
+                  style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--neg)', border: 'none', width: '28px', height: '28px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {emails.length === 0 && !loading && <div style={{ fontSize: '0.85rem', color: 'var(--text3)', textAlign: 'center', padding: '1rem' }}>No guest accounts added.</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
@@ -4070,6 +4155,25 @@ export default function App() {
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   
+  // 🚀 SECRET DEV MENU STATES
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
+  const isAdmin = localStorage.getItem('dt_is_admin') === 'true';
+
+  // The hidden trigger function
+  const handleLogoClick = () => {
+    setTab(0); // Maintain normal home navigation
+    if (!isAdmin) return; 
+    
+    setLogoClicks(prev => {
+      if (prev + 1 >= 7) {
+        setIsSecretMenuOpen(true);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
   // --- Sidebar Resizing Logic ---
   const [sidebarWidth, setSidebarWidth] = useState(70); 
   const [isResizing, setIsResizing] = useState(false);
@@ -4080,6 +4184,7 @@ export default function App() {
   const logout = () => {
   signOut(auth);
   localStorage.removeItem('dt_token');
+  localStorage.removeItem('dt_is_admin'); // <-- ADD THIS LINE
   setIsLoggedIn(false);
   setAllTransactionsLoaded(false);
   setTransactions([]);
@@ -4285,7 +4390,7 @@ export default function App() {
           onMouseLeave={(e) => { if (!isResizing) e.target.style.background = 'transparent'; }}
         />
 
-        <div className="sidebar-logo" onClick={() => setTab(0)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}>
+        <div className="sidebar-logo" onClick={handleLogoClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}>
           <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto', width: '100%', padding: '0 10px' }}>
             <span className="logo-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>DailyTrack</span>
             <span className="logo-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Personal Dashboard</span>
@@ -4454,6 +4559,11 @@ export default function App() {
           onAdd={fetchAll} 
           onClose={() => setIsActivityModalOpen(false)} 
         />
+      )}
+
+      {/* 🚀 HIDDEN DEVELOPER MENU */}
+      {isSecretMenuOpen && isAdmin && (
+        <SecretAdminModal onClose={() => setIsSecretMenuOpen(false)} />
       )}
 
       {/* 📱 Mobile Bottom Navigation */}
