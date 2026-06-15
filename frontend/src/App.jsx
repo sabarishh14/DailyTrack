@@ -3294,10 +3294,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     <div className="invest-layout" style={{ display: 'block' }}>
       
       {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Summary Metrics Card */}
-        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1 1 400px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: '1rem' }}>
               <div style={{ minWidth: 0 }}>
@@ -3364,7 +3364,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
 
         {/* Allocation Donut Card - Mobile Wrapped */}
-        <div style={{ background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1.2 1 450px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div style={{ width: '200px', height: '200px', position: 'relative', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
