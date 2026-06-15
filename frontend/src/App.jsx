@@ -4572,7 +4572,8 @@ export default function App() {
           <button
             key={t.id}
             className={`mobile-nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
-            onClick={() => setTab(t.id)}
+            // 🚀 NEW: Trigger the secret menu ONLY if it's the Home tab (id: 0)
+            onClick={() => t.id === 0 ? handleLogoClick() : setTab(t.id)}
           >
             <span className="mobile-nav-icon">{t.icon}</span>
             {/* Split the label so things like "Gym & Activity" don't break the UI */}
