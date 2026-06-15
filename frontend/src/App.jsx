@@ -2866,7 +2866,109 @@ function GymTab({ physical, onOpenModal }) {
   );
 }
 
-function InvestTab({ investments, manualAssets, assetList, onAdd }) {  
+// ─── REUSABLE MULTI-ASSET SELECT (PORTAL VERSION) ────────────────────────
+function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [dropdownStyle, setDropdownStyle] = useState({});
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        containerRef.current && !containerRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleDropdown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const isRightSide = rect.right > window.innerWidth * 0.6;
+      setDropdownStyle({
+        position: 'fixed',
+        top: `${rect.bottom + 4}px`,
+        left: isRightSide ? 'auto' : `${rect.left}px`,
+        right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
+        minWidth: `${rect.width}px`,
+        zIndex: 999999 
+      });
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const filtered = options.filter(o => o.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }} ref={containerRef}>
+      <button
+        className={`filter-chip ${isOpen ? 'open' : ''} ${selectedAssets.size > 0 ? 'active' : ''}`}
+        onClick={toggleDropdown}
+        style={{ width: '100%', minWidth: '180px', justifyContent: 'space-between', padding: '0.45rem 0.85rem', height: '36px', borderRadius: '8px', margin: 0 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+          <span>🎯</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
+            {selectedAssets.size === 0 ? placeholder : `${selectedAssets.size} Selected`}
+          </span>
+        </div>
+        <span className="chip-arrow">▼</span>
+      </button>
+      
+      {isOpen && createPortal(
+        <div className="chip-dropdown" ref={dropdownRef} style={{ ...dropdownStyle, maxHeight: '300px' }}>
+          {options.length > 5 && (
+            <div className="chip-search-container">
+              <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="chip-search-input" onClick={e => e.stopPropagation()} />
+            </div>
+          )}
+          {selectedAssets.size > 0 && (
+            <div 
+              className="chip-dropdown-item" 
+              onClick={(e) => { e.stopPropagation(); setSelectedAssets(new Set()); setIsOpen(false); setSearchTerm(""); }} 
+              style={{ fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '4px', color: 'var(--neg)', justifyContent: 'center' }}
+            >
+              ✕ Clear Selection
+            </div>
+          )}
+          {filtered.map(sym => {
+            const isSelected = selectedAssets.has(sym);
+            return (
+              <div 
+                key={sym} 
+                className="chip-dropdown-item" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  const next = new Set(selectedAssets); 
+                  if (next.has(sym)) next.delete(sym); else next.add(sym); 
+                  setSelectedAssets(next); 
+                }} 
+                style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}
+              >
+                {/* 4px border radius for square multi-select checkboxes */}
+                <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ borderRadius: '4px', flexShrink: 0, marginTop: '1px' }} />
+                <span style={{ flex: 1, fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>{sym}</span>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── INVEST TAB ───────────────────────────────────────────────────────────
+function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [syncing, setSyncing] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
   const [sortBy, setSortBy] = useState("date");
@@ -2879,7 +2981,6 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [chartCategory, setChartCategory] = useState('ALL');
   const [timeframe, setTimeframe] = useState('3M');
   const [selectedAssets, setSelectedAssets] = useState(new Set());
-  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
   
   // 🚀 OPTIMIZATION: IN-MEMORY CACHE
   const assetHistoryCache = useRef({});
@@ -3350,72 +3451,21 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             ))}
           </div>
 
-          {/* 🚀 MULTI-ASSET CUSTOM SELECTOR */}
+         {/* 🚀 MULTI-ASSET CUSTOM SELECTOR (Native Portal Styling) */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px', position: 'relative' }}>
-              <button
-                onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '0.45rem 1rem', background: 'var(--bg2)', border: '1px solid var(--border)',
-                  borderRadius: '999px', color: selectedAssets.size > 0 ? 'var(--accent)' : 'var(--text)',
-                  fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer',
-                  boxShadow: isAssetDropdownOpen ? '0 0 0 2px rgba(99,102,241,0.2)' : 'none'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                  <span>🎯</span>
-                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {selectedAssets.size === 0 ? "All Assets" : `${selectedAssets.size} Assets Selected`}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isAssetDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
-              </button>
-              
-              {isAssetDropdownOpen && (
-                <div className="custom-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '100%', minWidth: '250px', zIndex: 100, maxHeight: '350px', background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: '12px', padding: '0.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.6)' }}>
-                  {selectedAssets.size > 0 && (
-                    <div 
-                      onClick={() => setSelectedAssets(new Set())}
-                      style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: 'var(--neg)', fontWeight: 600, cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <span style={{ fontSize: '1rem' }}>✕</span> Clear Selection
-                    </div>
-                  )}
-                  <div style={{ overflowY: 'auto', maxHeight: '250px' }} className="hide-scroll">
-                    {assetList[chartCategory].map(sym => {
-                      const isSelected = selectedAssets.has(sym);
-                      return (
-                        <div
-                          key={sym}
-                          onClick={() => {
-                            const next = new Set(selectedAssets);
-                            if (next.has(sym)) next.delete(sym); else next.add(sym);
-                            setSelectedAssets(next);
-                          }}
-                          style={{
-                            padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: isSelected ? 'var(--text)' : 'var(--text2)',
-                            background: isSelected ? 'rgba(99,102,241,0.15)' : 'transparent',
-                            cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px',
-                            transition: 'all 0.15s', marginBottom: '2px'
-                          }}
-                          onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-                          onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background = 'transparent' }}
-                        >
-                          <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ flexShrink: 0 }} />
-                          <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sym}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
+              <MultiAssetSelect
+                selectedAssets={selectedAssets}
+                setSelectedAssets={setSelectedAssets}
+                options={assetList[chartCategory]}
+                placeholder="All Assets"
+              />
             </div>
           )}
         </div>
 
         {/* The Recharts Graph */}
-        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }} onClick={() => setIsAssetDropdownOpen(false)}>
+        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
