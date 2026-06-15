@@ -3359,10 +3359,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             
             {savedPin && (
               <div 
-                onClick={() => { if(window.confirm('Are you sure you want to reset your PIN?')) { localStorage.removeItem('dt_inv_pin'); setSavedPin(null); setPinInput(''); setPinError(false); } }}
-                style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '1.25rem', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => { 
+                  if(window.confirm('Forgot your PIN? This will sign you out to verify your identity.')) { 
+                    localStorage.removeItem('dt_inv_pin'); 
+                    localStorage.removeItem('dt_token'); // Kills the session
+                    window.location.reload(); // Forces back to Google Login page
+                  } 
+                }}
+                style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '1.25rem', cursor: 'pointer', textDecoration: 'underline', transition: 'color 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
               >
-                Reset PIN
+                Forgot PIN?
               </div>
             )}
           </div>
