@@ -1324,3 +1324,24 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
     background: rgba(220, 38, 38, 0.1) !important;
   }
 }
+
+/* ========================================================
+   APP OPTIMIZATION & MOBILE TWEAKS
+   ======================================================== */
+/* Hide the text of the Manage button on tiny screens */
+@media (max-width: 480px) {
+  .manage-btn-text { display: none; }
+}
+
+/* Spinner for the new instant-cache loading states */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loader-spinner {
+  display: inline-block;
+  width: 24px; height: 24px;
+  border: 3px solid rgba(99,102,241,0.2);
+  border-top-color: var(--accent);
+  borderRadius: 50%;
+  animation: spin 1s linear infinite;
+}

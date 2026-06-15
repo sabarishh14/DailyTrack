@@ -1186,19 +1186,18 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             <div className="analyser-header-icon">📊</div>
             <div>
               <div className="analyser-header-title">Spending Analyser</div>
-              <div className="analyser-header-sub" style={{ display: 'none' }}>
-                {analyzerFiltered.length > 0 ? `${analyzerFiltered.length} transactions · ${fmt(analyzerFiltered.reduce((s, t) => s + Math.abs(parseFloat(t.amount)), 0))}` : 'Filter by account, month, or category'}
-              </div>
+              <div className="analyser-header-sub" style={{ display: 'none' }}></div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button 
               onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
               className="action-btn secondary" 
-              style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)' }}
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
               title="Manage Categories"
             >
-              ⚙️ Manage 
+              <span>⚙️</span>
+              <span className="manage-btn-text">Manage</span> 
             </button>
             <span className={`analyser-chevron ${expanded ? 'open' : ''}`}>▼</span>
           </div>
@@ -2867,8 +2866,8 @@ function GymTab({ physical, onOpenModal }) {
   );
 }
 
-// ─── INVEST TAB ───────────────────────────────────────────────────────────
-function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [syncing, setSyncing] = useState(false);
+function InvestTab({ investments, manualAssets, assetList, onAdd }) {  
+  const [syncing, setSyncing] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
   const [sortBy, setSortBy] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
@@ -2876,75 +2875,108 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
   const [tokenStr, setTokenStr] = useState("");
   const [syncingSheets, setSyncingSheets] = useState(false);
   
-  // 🚀 NEW MASTER CHART STATES
+  // 🚀 MASTER CHART & MULTI-SELECT STATES
   const [chartCategory, setChartCategory] = useState('ALL');
   const [timeframe, setTimeframe] = useState('3M');
+  const [selectedAssets, setSelectedAssets] = useState(new Set());
+  const [isAssetDropdownOpen, setIsAssetDropdownOpen] = useState(false);
   
-  // 🚀 DRILLDOWN STATES
-  const [selectedAsset, setSelectedAsset] = useState("");
-  const [assetHistory, setAssetHistory] = useState([]);
-  
+  // 🚀 OPTIMIZATION: IN-MEMORY CACHE
+  const assetHistoryCache = useRef({});
+  const drilldownCache = useRef({});
+  const [isDrillDownLoading, setIsDrillDownLoading] = useState(false);
+  const [triggerRender, setTriggerRender] = useState(0); 
 
-  // Fetch history specifically when a micro-asset is selected
+  // Fetch history specifically when multiple micro-assets are selected
   useEffect(() => {
-    if (!selectedAsset) { setAssetHistory([]); return; }
+    if (chartCategory === 'ALL') { setSelectedAssets(new Set()); return; }
     
-    const fetchAssetHistory = async () => {
-      const res = await fetch(`${API}/investments/history?symbol=${encodeURIComponent(selectedAsset)}&type=${chartCategory}`, { 
-        headers: { 'Authorization': `Bearer ${getToken()}` } 
-      });
-      if (res.ok) setAssetHistory(await res.json());
-    };
-    fetchAssetHistory();
-  }, [selectedAsset, chartCategory]);
+    if (selectedAssets.size > 0) {
+      // Find which assets we don't have cached yet
+      const missing = Array.from(selectedAssets).filter(sym => !assetHistoryCache.current[sym]);
+      if (missing.length > 0) {
+        Promise.all(missing.map(sym =>
+          fetch(`${API}/investments/history?symbol=${encodeURIComponent(sym)}&type=${chartCategory}`, { 
+            headers: { 'Authorization': `Bearer ${getToken()}` } 
+          }).then(r => r.json())
+        )).then(results => {
+          missing.forEach((sym, i) => { assetHistoryCache.current[sym] = results[i]; });
+          setTriggerRender(prev => prev + 1); // Force chart to redraw with new cache
+        });
+      }
+    }
+  }, [selectedAssets, chartCategory]);
   
-  // Clear the drilldown if the user changes the main category
-  useEffect(() => { setSelectedAsset(""); }, [chartCategory]);
+  // Clear the multi-select if the user changes the main category
+  useEffect(() => { setSelectedAssets(new Set()); setIsAssetDropdownOpen(false); }, [chartCategory]);
 
-  // 🚀 NEW ACCORDION, MODAL & PRIVACY STATES
   const [expandedSection, setExpandedSection] = useState('MARKET');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [showBalances, setShowBalances] = useState(false); // Eye Icon state
-  const [invCurrentPage, setInvCurrentPage] = useState(0); // Pagination state
+  const [showBalances, setShowBalances] = useState(false); 
+  const [invCurrentPage, setInvCurrentPage] = useState(0); 
   const [invRowsPerPage, setInvRowsPerPage] = useState(5);
-
-  // 🚀 RESPONSIVE DESIGN STATE (Auto-switches between Tables & Cards)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🚀 HANDLER TO DELETE MANUAL ASSETS
   const handleDeleteManualAsset = async (id) => {
     if (!window.confirm("Are you sure you want to delete this asset?")) return;
     try {
-      const res = await fetch(`${API}/manual_assets/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      if (res.ok) onAdd(); // Refreshes all data
+      const res = await fetch(`${API}/manual_assets/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } });
+      if (res.ok) onAdd();
     } catch(e) { alert("Error deleting asset: " + e.message); }
   };
   
-  // Drill-down states
   const [drillDownDate, setDrillDownDate] = useState(null);
   const [drillDownData, setDrillDownData] = useState([]);
-  const [drillDownType, setDrillDownType] = useState(null); // "MF" or "EQUITY"
+  const [drillDownType, setDrillDownType] = useState(null);
   const [drillSortBy, setDrillSortBy] = useState("symbol");
   const [drillSortDir, setDrillSortDir] = useState("asc");
-
-  // 3-State Toggle
-  const [viewMode, setViewMode] = useState("ALL"); // "ALL", "MF", "EQUITY"
+  const [viewMode, setViewMode] = useState("ALL");
   
-  // 🚀 DYNAMIC CHART DATA PROCESSOR (Handles both Totals AND Single Assets)
+  // 🚀 DYNAMIC CHART DATA PROCESSOR (Handles Multi-Line Overlaps)
   const chartData = useMemo(() => {
-    // 1. CHOOSE SOURCE: If a specific asset is selected, use its API history. Otherwise, use global totals.
-    let data = selectedAsset ? [...assetHistory] : [...investments].reverse();
-    if (!data || data.length === 0) return [];
+    let data = [];
     
-    // 2. APPLY TIMEFRAME
+    if (selectedAssets.size > 0) {
+      // 1. MULTI-LINE MODE: Merge cached timelines
+      let dates = new Set();
+      const assetsData = {};
+      
+      selectedAssets.forEach(sym => {
+         const history = assetHistoryCache.current[sym] || [];
+         history.forEach(d => {
+            dates.add(d.date);
+            if (!assetsData[d.date]) assetsData[d.date] = { date: formatDate(d.date), rawDate: new Date(d.date) };
+            assetsData[d.date][sym] = d.Current; 
+            assetsData[d.date][`${sym}_Inv`] = d.Invested; // Hidden field for tooltip math
+         });
+      });
+      data = Array.from(dates).sort((a,b) => new Date(a) - new Date(b)).map(d => assetsData[d]);
+      
+    } else {
+      // 2. CATEGORY TOTALS MODE
+      let baseData = [...investments].reverse();
+      if (!baseData || baseData.length === 0) return [];
+      data = baseData.map(d => {
+         let curr = 0; let inv = 0;
+         if (chartCategory === 'ALL') { curr = d.total_curr; inv = d.total_inv; }
+         else if (chartCategory === 'EQUITY') { curr = d.curr_stocks; inv = d.inv_stocks; }
+         else if (chartCategory === 'MF') { curr = d.curr_mf; inv = d.inv_mf; }
+         else if (chartCategory === 'PROVIDENT') { curr = d.curr_prov; inv = d.inv_prov; }
+         else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
+         else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
+         
+         const pct = inv > 0 ? ((curr - inv) / inv) * 100 : 0;
+         return { date: formatDate(d.date), rawDate: new Date(d.date), Current: curr || 0, Invested: inv || 0, ReturnPct: pct };
+      });
+    }
+    
+    // 3. APPLY TIMEFRAME
     if (timeframe !== 'ALL') {
       const now = new Date();
       let cutoffDate = new Date();
@@ -2953,63 +2985,50 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
       else if (timeframe === '6M') cutoffDate.setMonth(now.getMonth() - 6);
       else if (timeframe === '1Y') cutoffDate.setFullYear(now.getFullYear() - 1);
       else if (timeframe === 'YTD') cutoffDate = new Date(now.getFullYear(), 0, 1);
-      
-      data = data.filter(d => new Date(d.date) >= cutoffDate);
+      data = data.filter(d => d.rawDate >= cutoffDate);
     }
-    
-    // 3. MAP VALUES
-    return data.map(d => {
-       if (selectedAsset) {
-         // Drilldown data is already formatted by the backend
-         return { date: formatDate(d.date), Current: d.Current || 0, Invested: d.Invested || 0 };
-       }
-       
-       // Otherwise, we map the global totals
-       let curr = 0; let inv = 0;
-       if (chartCategory === 'ALL') { curr = d.total_curr; inv = d.total_inv; }
-       else if (chartCategory === 'EQUITY') { curr = d.curr_stocks; inv = d.inv_stocks; }
-       else if (chartCategory === 'MF') { curr = d.curr_mf; inv = d.inv_mf; }
-       else if (chartCategory === 'PROVIDENT') { curr = d.curr_prov; inv = d.inv_prov; }
-       else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
-       else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
-       
-       const pct = inv > 0 ? ((curr - inv) / inv) * 100 : 0;
-       return { date: formatDate(d.date), Current: curr || 0, Invested: inv || 0, ReturnPct: pct };
-    });
-  }, [investments, chartCategory, timeframe, selectedAsset, assetHistory]);
+    return data;
+  }, [investments, chartCategory, timeframe, selectedAssets, triggerRender]);
 
-  // 🚀 CUSTOM TOOLTIP FOR LINE CHART
+  const PIE_COLORS = ["#6366f1","#8b5cf6","#d946ef","#ec4899","#f43f5e","#f97316","#eab308","#84cc16","#22c55e","#10b981"];
+
+  // 🚀 UPGRADED TOOLTIP (Supports 10+ Multi-lines)
   const CustomInvestTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const curr = payload.find(p => p.dataKey === 'Current')?.value || 0;
-      const inv = payload.find(p => p.dataKey === 'Invested')?.value || 0;
-      const pct = payload[0].payload.ReturnPct || 0;
-      const retAmt = curr - inv;
-      const isPos = retAmt >= 0;
-
       return (
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '8px', fontWeight: 600 }}>{label}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
-              <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.85rem' }}>Current</span>
-              <span style={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{showBalances ? `₹${curr.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
-              <span style={{ color: 'var(--text3)', fontWeight: 600, fontSize: '0.85rem' }}>Invested</span>
-              <span style={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{showBalances ? `₹${inv.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
-            </div>
-            <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ color: 'var(--text2)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>Returns</span>
-              <div style={{ textAlign: 'right' }}>
-                <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '0.95rem', display: 'block' }}>
-                  {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}
-                </span>
-                <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem', opacity: 0.8, display: 'block' }}>
-                  {isPos ? '+' : '-'}{Math.abs(pct).toFixed(2)}%
-                </span>
-              </div>
-            </div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', minWidth: '220px' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {payload.map((p, i) => {
+               const sym = p.name;
+               const curr = p.value || 0;
+               const inv = selectedAssets.size > 0 ? (p.payload[`${sym}_Inv`] || 0) : (payload.find(x => x.dataKey === 'Invested')?.value || 0);
+               const retAmt = curr - inv;
+               const isPos = retAmt >= 0;
+               const pct = selectedAssets.size > 0 ? (inv > 0 ? (retAmt / inv) * 100 : 0) : (payload[0].payload.ReturnPct || 0);
+               
+               // If in single mode, skip drawing the "Invested Amount" block as its own entity since we merge it above
+               if (selectedAssets.size === 0 && sym === 'Invested Amount') return null;
+
+               return (
+                  <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{sym === 'Current Value' ? 'Total Portfolio' : sym}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
+                      <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                      <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
+                      <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
+                        {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+               )
+            })}
           </div>
         </div>
       );
@@ -3017,79 +3036,77 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     return null;
   };
 
-  // 🚀 UPDATED DRILL-DOWN FETCHER (Supports Toggling inside Modal)
+  // 🚀 OPTIMIZED DRILL-DOWN FETCHER (Instant Caching)
   const fetchDrillDownData = async (dateStr, type) => {
-    const endpoint = type === "EQUITY" ? "equity_holdings" : "holdings";
-    const res = await fetch(`${API}/investments/${dateStr}/${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
-    const data = await res.json();
+    const cacheKey = `${dateStr}_${type}`;
+    if (drilldownCache.current[cacheKey]) {
+      setDrillDownData(drilldownCache.current[cacheKey]);
+      setDrillDownType(type);
+      setDrillDownDate(dateStr);
+      setDrillSortBy("symbol"); setDrillSortDir("asc");
+      return;
+    }
     
-    // Ensure ret_pct is dynamically calculated if missing
-    const dataWithRet = data.map(d => ({
-      ...d,
-      ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0)
-    }));
-    
-    setDrillDownData(dataWithRet);
+    setIsDrillDownLoading(true);
     setDrillDownType(type);
     setDrillDownDate(dateStr);
-    setDrillSortBy("symbol"); 
-    setDrillSortDir("asc");
-  };
-
-  const openDrillDown = (dateStr) => {
-    fetchDrillDownData(dateStr, 'EQUITY'); // Default to Stocks when opened
-  };
-
-  const handleDrillSort = (col) => {
-    if (drillSortBy === col) {
-      setDrillSortDir(drillSortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setDrillSortBy(col);
-      setDrillSortDir('desc');
+    
+    try {
+      const endpoint = type === "EQUITY" ? "equity_holdings" : "holdings";
+      const res = await fetch(`${API}/investments/${dateStr}/${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const data = await res.json();
+      
+      const dataWithRet = data.map(d => ({
+        ...d,
+        ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0)
+      }));
+      
+      drilldownCache.current[cacheKey] = dataWithRet;
+      setDrillDownData(dataWithRet);
+      setDrillSortBy("symbol"); setDrillSortDir("asc");
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setIsDrillDownLoading(false);
     }
   };
 
-  // Sorted data for the modal table
+  const openDrillDown = (dateStr) => fetchDrillDownData(dateStr, 'EQUITY');
+
+  const handleDrillSort = (col) => {
+    if (drillSortBy === col) setDrillSortDir(drillSortDir === 'asc' ? 'desc' : 'asc');
+    else { setDrillSortBy(col); setDrillSortDir('desc'); }
+  };
+
   const processedDrillDownData = useMemo(() => {
     let data = [...drillDownData];
     data.sort((a, b) => {
-      let aVal = a[drillSortBy];
-      let bVal = b[drillSortBy];
-      
-      // Handle the LTP vs NAV naming dynamically
+      let aVal = a[drillSortBy]; let bVal = b[drillSortBy];
       if (drillSortBy === 'price') {
          aVal = drillDownType === "EQUITY" ? a.ltp : a.nav;
          bVal = drillDownType === "EQUITY" ? b.ltp : b.nav;
       }
-      
-      if (typeof aVal === 'string') {
-        return drillSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
+      if (typeof aVal === 'string') return drillSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       return drillSortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
     return data;
   }, [drillDownData, drillSortBy, drillSortDir, drillDownType]);
 
-  // Unique months for the dropdown
   const allMonths = useMemo(() => {
     return [...new Set(investments.map(inv => {
       if (!inv.date) return null;
       const d = new Date(inv.date);
       if (isNaN(d.getTime())) return null;
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    }))]
-    .filter(Boolean).sort().reverse()
-    .map(ym => {
+    }))].filter(Boolean).sort().reverse().map(ym => {
       const [y, m] = ym.split('-');
       const d = new Date(y, m - 1, 1);
       return { val: ym, label: `${d.toLocaleString('default', { month: 'long' })} ${y}` };
     });
   }, [investments]);
 
-  // Unified Sorting & Filtering for ALL views
   const processedData = useMemo(() => {
     let data = [...investments];
-    
     if (filterMonth) {
       data = data.filter(inv => {
         if (!inv.date) return false;
@@ -3097,34 +3114,22 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === filterMonth;
       });
     }
-
     data.sort((a, b) => {
-      // Dynamic value extractor based on current ViewMode
       const getVal = (item, key) => {
          if (key === 'date') return new Date(item.date).getTime();
-         
          const invVal = viewMode === 'ALL' ? parseFloat(item.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(item.inv_stocks || 0) : parseFloat(item.inv_mf || 0);
          const currVal = viewMode === 'ALL' ? parseFloat(item.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(item.curr_stocks || 0) : parseFloat(item.curr_mf || 0);
          const retPct = viewMode === 'ALL' ? parseFloat(item.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(item.ret_pct_stocks || 0) : parseFloat(item.ret_pct_mf || 0);
          const statusStr = viewMode === 'ALL' ? item.total_status : viewMode === 'EQUITY' ? item.status_stocks : item.status_mf;
          
-         if (key === 'inv') return invVal;
-         if (key === 'curr') return currVal;
-         if (key === 'ret_amount') return currVal - invVal;
-         if (key === 'ret_pct') return retPct;
-         if (key === 'status') return statusStr;
-         return 0;
+         if (key === 'inv') return invVal; if (key === 'curr') return currVal;
+         if (key === 'ret_amount') return currVal - invVal; if (key === 'ret_pct') return retPct;
+         if (key === 'status') return statusStr; return 0;
       };
-
-      const aVal = getVal(a, sortBy);
-      const bVal = getVal(b, sortBy);
-
-      if (typeof aVal === 'string') {
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      }
+      const aVal = getVal(a, sortBy); const bVal = getVal(b, sortBy);
+      if (typeof aVal === 'string') return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
-
     return data;
   }, [investments, filterMonth, sortBy, sortDir, viewMode]);
 
@@ -3133,42 +3138,23 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
     else { setSortBy(col); setSortDir('desc'); }
   };
 
-  const handleOpenKite = () => {
-    window.open("https://kite.zerodha.com/connect/LOGIN?api_key=6gcxnf0qycaphw5k", "_blank", "width=500,height=600");
-    setShowTokenInput(true);
-  };
-
+  const handleOpenKite = () => { window.open("https://kite.zerodha.com/connect/LOGIN?api_key=6gcxnf0qycaphw5k", "_blank", "width=500,height=600"); setShowTokenInput(true); };
+  
   const handleSubmitToken = async () => {
     let token = tokenStr.trim();
     if (token.includes("request_token=")) {
       const match = token.match(/request_token=([^&]+)/);
       if (match) token = match[1];
     }
-    if (!token) {
-      alert("❌ Please paste the full URL containing the request_token.");
-      return;
-    }
+    if (!token) return alert("❌ Please paste the full URL containing the request_token.");
     setSyncing(true);
     try {
-      const res = await fetch(`${API}/sync/kite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify({ request_token: token })
-      });
+      const res = await fetch(`${API}/sync/kite`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify({ request_token: token }) });
       const data = await res.json();
-      if (data.success) {
-        alert("✅ " + data.message);
-        onAdd(); 
-        setShowTokenInput(false);
-        setTokenStr("");
-      } else {
-        alert("❌ Sync Failed: " + data.message);
-      }
-    } catch (e) {
-      alert("❌ Network Error: " + e.message);
-    } finally {
-      setSyncing(false);
-    }
+      if (data.success) { alert("✅ " + data.message); onAdd(); setShowTokenInput(false); setTokenStr(""); } 
+      else alert("❌ Sync Failed: " + data.message);
+    } catch (e) { alert("❌ Network Error: " + e.message); } 
+    finally { setSyncing(false); }
   };
 
   const handleSyncToSheets = async () => {
@@ -3177,25 +3163,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
       const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
       alert(data.success ? (data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message) : "❌ Sync Failed: " + data.message);
-    } catch (e) {
-      alert("❌ Network Error: " + e.message);
-    } finally {
-      setSyncingSheets(false);
-    }
+    } catch (e) { alert("❌ Network Error: " + e.message); } 
+    finally { setSyncingSheets(false); }
   };
 
-  // 🚀 PAGINATION CALCULATIONS
   const invTotalPages = Math.ceil(processedData.length / invRowsPerPage);
   const invPaginatedRows = processedData.slice(invCurrentPage * invRowsPerPage, (invCurrentPage + 1) * invRowsPerPage);
   useEffect(() => { setInvCurrentPage(0); }, [filterMonth, sortBy, sortDir, viewMode]);
 
-  // 🚀 CALCULATE DATA FOR NEW HERO SECTION
   const latest = investments.length > 0 ? investments[0] : null;
   const pieData = latest ? [
-    { name: "Equity", value: latest.curr_stocks || 0, fill: "#6366f1" },
-    { name: "Mutual Funds", value: latest.curr_mf || 0, fill: "#8b5cf6" },
-    { name: "Fixed Income", value: latest.curr_fixed || 0, fill: "#10b981" },
-    { name: "Provident", value: latest.curr_prov || 0, fill: "#f59e0b" },
+    { name: "Equity", value: latest.curr_stocks || 0, fill: "#6366f1" }, { name: "Mutual Funds", value: latest.curr_mf || 0, fill: "#8b5cf6" },
+    { name: "Fixed Income", value: latest.curr_fixed || 0, fill: "#10b981" }, { name: "Provident", value: latest.curr_prov || 0, fill: "#f59e0b" },
     { name: "Gold", value: latest.curr_gold || 0, fill: "#eab308" }
   ].filter(d => d.value > 0) : [];
 
@@ -3343,10 +3322,9 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Category Toggles - Auto-wrapping for Mobile & Integrated Asset Filter */}
+        {/* Category Toggles & Multi-Asset Filter */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
           
-          {/* Sleek Pills (Now wrapping cleanly on phones instead of scrolling) */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
             {[
               { id: 'ALL', label: 'Overall' },
@@ -3372,26 +3350,72 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             ))}
           </div>
 
-          {/* 🚀 ASSET FILTER (Cleaned up from the old 'Drilldown') */}
+          {/* 🚀 MULTI-ASSET CUSTOM SELECTOR */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
-              <CustomSelect
-                icon="🎯"
-                value={selectedAsset}
-                onChange={val => setSelectedAsset(val)}
-                options={[
-                  { label: 'All Assets', value: '' },
-                  ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
-                ]}
-                placeholder="Select Asset..."
-                width="100%"
-              />
+            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px', position: 'relative' }}>
+              <button
+                onClick={() => setIsAssetDropdownOpen(!isAssetDropdownOpen)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.45rem 1rem', background: 'var(--bg2)', border: '1px solid var(--border)',
+                  borderRadius: '999px', color: selectedAssets.size > 0 ? 'var(--accent)' : 'var(--text)',
+                  fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer',
+                  boxShadow: isAssetDropdownOpen ? '0 0 0 2px rgba(99,102,241,0.2)' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <span>🎯</span>
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedAssets.size === 0 ? "All Assets" : `${selectedAssets.size} Assets Selected`}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.7rem', opacity: 0.7, transform: isAssetDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+              </button>
+              
+              {isAssetDropdownOpen && (
+                <div className="custom-dropdown" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '100%', minWidth: '250px', zIndex: 100, maxHeight: '350px', background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: '12px', padding: '0.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.6)' }}>
+                  {selectedAssets.size > 0 && (
+                    <div 
+                      onClick={() => setSelectedAssets(new Set())}
+                      style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: 'var(--neg)', fontWeight: 600, cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      <span style={{ fontSize: '1rem' }}>✕</span> Clear Selection
+                    </div>
+                  )}
+                  <div style={{ overflowY: 'auto', maxHeight: '250px' }} className="hide-scroll">
+                    {assetList[chartCategory].map(sym => {
+                      const isSelected = selectedAssets.has(sym);
+                      return (
+                        <div
+                          key={sym}
+                          onClick={() => {
+                            const next = new Set(selectedAssets);
+                            if (next.has(sym)) next.delete(sym); else next.add(sym);
+                            setSelectedAssets(next);
+                          }}
+                          style={{
+                            padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: isSelected ? 'var(--text)' : 'var(--text2)',
+                            background: isSelected ? 'rgba(99,102,241,0.15)' : 'transparent',
+                            cursor: 'pointer', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px',
+                            transition: 'all 0.15s', marginBottom: '2px'
+                          }}
+                          onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                          onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <div className={`chip-checkbox ${isSelected ? 'included' : ''}`} style={{ flexShrink: 0 }} />
+                          <span style={{ fontWeight: isSelected ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sym}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* The Recharts Graph */}
-        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
+        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }} onClick={() => setIsAssetDropdownOpen(false)}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -3399,8 +3423,17 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
               <YAxis stroke="var(--text3)" fontSize={11} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
               <Tooltip content={<CustomInvestTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }} />
               <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
-              <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
-              <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
+              
+              {selectedAssets.size > 0 ? (
+                Array.from(selectedAssets).map((sym, i) => (
+                  <Line key={sym} type="monotone" name={sym} dataKey={sym} stroke={PIE_COLORS[i % PIE_COLORS.length]} strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0 }} animationDuration={800} />
+                ))
+              ) : (
+                <>
+                  <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
+                  <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
+                </>
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -3669,7 +3702,13 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             </div>
             
             <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '65vh' }}>
-              {!isMobile ? (
+              {isDrillDownLoading ? (
+                <div style={{ padding: '4rem 1rem', textAlign: 'center', color: 'var(--text2)' }}>
+                  <div className="loader-spinner" style={{ marginBottom: '1rem' }} />
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Fetching live split...</div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '4px' }}>This will be instant next time.</div>
+                </div>
+              ) : !isMobile ? (
                       /* 🖥️ DESKTOP: Classic Data Table */
                       <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       <div className="data-table" style={{ minWidth: '750px' }}>
