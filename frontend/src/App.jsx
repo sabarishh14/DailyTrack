@@ -3343,11 +3343,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
           </div>
         </div>
 
-        {/* Category Toggles - Modern Pill Design & Integrated Drilldown */}
+        {/* Category Toggles - Auto-wrapping for Mobile & Integrated Asset Filter */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
           
-          {/* Sleek Pills */}
-          <div className="hide-scroll" style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', flex: '1 1 auto' }}>
+          {/* Sleek Pills (Now wrapping cleanly on phones instead of scrolling) */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
             {[
               { id: 'ALL', label: 'Overall' },
               { id: 'EQUITY', label: 'Equity' },
@@ -3372,22 +3372,20 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {  const [sy
             ))}
           </div>
 
-          {/* 🚀 MODERN MICRO-ASSET DRILLDOWN */}
+          {/* 🚀 ASSET FILTER (Cleaned up from the old 'Drilldown') */}
           {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg2)', padding: '0.25rem 0.25rem 0.25rem 1rem', borderRadius: '999px', border: '1px solid var(--border)', flex: '0 1 auto' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Drilldown</span>
-              <div style={{ minWidth: '180px' }}>
-                <CustomSelect
-                  value={selectedAsset}
-                  onChange={val => setSelectedAsset(val)}
-                  options={[
-                    { label: 'All Assets', value: '' },
-                    ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
-                  ]}
-                  placeholder="All Assets"
-                  minWidth="100%"
-                />
-              </div>
+            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
+              <CustomSelect
+                icon="🎯"
+                value={selectedAsset}
+                onChange={val => setSelectedAsset(val)}
+                options={[
+                  { label: 'All Assets', value: '' },
+                  ...assetList[chartCategory].map(sym => ({ label: sym, value: sym }))
+                ]}
+                placeholder="Select Asset..."
+                width="100%"
+              />
             </div>
           )}
         </div>
