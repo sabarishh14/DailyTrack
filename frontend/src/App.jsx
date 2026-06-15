@@ -3882,7 +3882,7 @@ export default function App() {
       };
 
       // Fire ALL 6 requests in parallel
-      const [acc, phy, inv, manAssets, txRes, listRes] = await Promise.all([
+      const [acc, phy, inv, manAssets, txRes, listRes, catRes] = await Promise.all([
         fetchWithCheck(`${API}/accounts`),
         fetchWithCheck(`${API}/physical`),
         fetchWithCheck(`${API}/investments`),
