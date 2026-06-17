@@ -3782,12 +3782,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                         /* 🖥️ DESKTOP: Classic Data Table */
                         <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
                           <div className="data-table" style={{ minWidth: '850px' }}>
-                            <div className="table-header inv-cols" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr' }}>
+                            <div className="table-header" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1.2fr' }}>
                               <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span onClick={() => handleSort('ret_amount')}>RET ₹ {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span onClick={() => handleSort('ret_pct')}>RET % {sortBy === 'ret_pct' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                              <span onClick={() => handleSort('ret_amount')}>RETURNS {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span>Action</span>
                             </div>
                             {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
@@ -3795,17 +3794,22 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                               return (
                                 <div 
                                   key={i} 
-                                  className={`table-row inv-cols ${i%2===0?'row-even':''}`} 
+                                  className={`table-row ${i%2===0?'row-even':''}`} 
                                   onClick={() => openDrillDown(inv.date.split('T')[0])} 
-                                  style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1fr 1.2fr', transition: 'background 0.2s' }}
+                                  style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1.2fr', transition: 'background 0.2s' }}
                                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
                                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                   <span style={{ fontWeight: 600 }}>{formatDate(inv.date)}</span>
                                   <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
                                   <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
-                                  <span className={ret >= 0 ? 'pos' : 'neg'}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                  <span className={inv.total_ret_pct >= 0 ? 'pos' : 'neg'}>{fmtPct(inv.total_ret_pct)}</span>
+                                  
+                                  {/* Stacked Returns Column */}
+                                  <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                    <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({inv.total_ret_pct >= 0 ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
+                                  </span>
+
                                   <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>🔍 View Split</span>
                                 </div>
                               );
@@ -3929,12 +3933,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                           <div className="data-table" style={{ minWidth: '800px' }}>
                             {sectionAssets.length > 0 ? (
                               <>
-                                <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                                <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
                                   <span>Asset Name</span>
                                   <span>Type</span>
                                   <span>Invested</span>
                                   <span>Current Value</span>
-                                  <span>Return ₹</span>
+                                  <span>Returns</span>
                                   <span>Updated</span>
                                   <span style={{textAlign: 'right'}}>Actions</span>
                                 </div>
@@ -3942,12 +3946,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   const ret = asset.current_value - asset.invested_value;
                                   const isPos = ret >= 0;
                                   return (
-                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
                                       <span style={{ fontWeight: 600 }}>{asset.name}</span>
                                       <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
                                       <span>{fmt(asset.invested_value)}</span>
                                       <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                                      <span className={isPos ? 'pos' : 'neg'}>{isPos ? '+' : '-'}{fmt(Math.abs(ret))}</span>
+                                      
+                                      {/* Stacked Returns Column */}
+                                      <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                        <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}{fmt(Math.abs(ret))}</span>
+                                        {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
+                                      </span>
+
                                       <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
                                       <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                                         <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
@@ -4060,26 +4070,31 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                       /* 🖥️ DESKTOP: Classic Data Table */
                       <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       <div className="data-table" style={{ minWidth: '750px' }}>
-                        <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr', cursor: 'pointer', userSelect: 'none' }}>
+                        <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr', cursor: 'pointer', userSelect: 'none' }}>
                           <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          <span onClick={() => handleDrillSort('ret_pct')}>Ret % {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('ret_pct')}>Returns {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                         </div>
                         {processedDrillDownData.map((h, i) => {
                           const isPos = h.ret_pct >= 0;
                           return (
-                            <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1fr' }}>
+                            <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr' }}>
                               <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
                               <span>{h.quantity.toFixed(2)}</span>
                               <span>₹{h.average_price.toFixed(2)}</span>
                               <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
                               <span>₹{h.invested_value.toFixed(0)}</span>
-                              <span className={h.current_value >= h.invested_value ? 'pos' : 'neg'}>₹{h.current_value.toFixed(0)}</span>
-                              <span className={isPos ? 'pos' : 'neg'}>{isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%</span>
+                              <span style={{ fontWeight: 600, color: 'var(--text)' }}>₹{h.current_value.toFixed(0)}</span>
+                              
+                              {/* Stacked Returns Column */}
+                              <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
+                                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%)</span>
+                              </span>
                             </div>
                           )
                         })}
