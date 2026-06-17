@@ -2372,9 +2372,17 @@ function AddManualAssetModal({ onClose, onAdd }) {
             placeholder="Select Category"
             width="100%"
           />
-          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-          <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
-          <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
+          <input className="inp" placeholder="Asset Name (e.g., HDFC FD)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+            <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <input className="inp" type="number" placeholder="Interest Rate % (e.g., 7.1)" value={form.interest_rate || ''} onChange={e => setForm({...form, interest_rate: e.target.value})} />
+            <div style={{ position: 'relative' }}>
+               <input className="inp" type="date" title="Maturity Date" value={form.maturity_date || ''} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+            </div>
+          </div>
           <button className="submit-btn" onClick={submit}>{loading ? 'Saving...' : 'Save Asset'}</button>
         </div>
       </div>
@@ -4379,6 +4387,11 @@ export default function App() {
   const fetchAll = useCallback(async (showLoading = false) => {
     if (showLoading) setAppLoading(true);
     try {
+      // Trigger Lazy Cron before fetching data so UI gets the updated values
+      if (getToken()) {
+         await fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(()=>console.log("Cron passed"));
+      }
+      
       // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
       const fetchWithCheck = async (url) => {
         const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });

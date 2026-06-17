@@ -171,6 +171,15 @@ class Transaction(db.Model):
     synced = db.Column(db.Boolean, default=False)
     exclude_analytics = db.Column(db.Boolean, default=False)
 
+class RecurringTask(db.Model):
+    __tablename__ = "recurring_tasks"
+    id = db.Column(db.BigInteger, primary_key=True)
+    asset_name = db.Column(db.String(100)) # e.g., 'EPF'
+    amount_to_add = db.Column(db.Float)    # e.g., 2210
+    interval_months = db.Column(db.Integer, default=1)
+    next_run_date = db.Column(db.Date)
+    is_active = db.Column(db.Boolean, default=True)
+
 class EquityHolding(db.Model):
     __tablename__ = "equity_holdings"
 
@@ -574,6 +583,48 @@ def delete_transaction(tid):
 
     return jsonify({"success": True})
 
+from dateutil.relativedelta import relativedelta
+
+@app.route('/api/cron/process-recurring', methods=['POST'])
+@require_api_key
+def process_recurring():
+    """Lazy Cron: Called when frontend boots to process overdue EPF/RD additions"""
+    today = datetime.now(pytz.timezone('Asia/Kolkata')).date()
+    due_tasks = RecurringTask.query.filter(RecurringTask.is_active == True, RecurringTask.next_run_date <= today).all()
+    
+    processed = 0
+    for task in due_tasks:
+        # 1. Update the Manual Asset
+        asset = ManualAsset.query.filter_by(name=task.asset_name).first()
+        if asset:
+            asset.invested_value += task.amount_to_add
+            asset.current_value += task.amount_to_add
+            asset.last_updated = today
+            
+            # 2. Add a record to the Transactions table so it shows in the Money Tab
+            new_tx = Transaction(
+                id=int(datetime.now().timestamp() * 1000) + processed,
+                account="Salary/Default", # Update to your preferred default
+                date=task.next_run_date,
+                month=task.next_run_date.replace(day=1),
+                type="Investment",
+                heading=task.asset_name,
+                description="Auto-added via Recurring Task",
+                amount=task.amount_to_add,
+                exclude_analytics=False
+            )
+            db.session.add(new_tx)
+            
+            # 3. Push the date forward
+            task.next_run_date = task.next_run_date + relativedelta(months=task.interval_months)
+            processed += 1
+
+    if processed > 0:
+        update_latest_portfolio_snapshot()
+        db.session.commit()
+        
+    return jsonify({"success": True, "processed": processed})
+
 @app.route('/api/transactions/<int:tid>', methods=['PUT'])
 @require_api_key
 def edit_transaction(tid):
@@ -913,6 +964,34 @@ def get_investments():
 
     return jsonify(result)
 
+def update_latest_portfolio_snapshot():
+    """Recalculates manual asset totals for the most recent snapshot so charts update instantly."""
+    latest_snap = PortfolioSnapshot.query.order_by(PortfolioSnapshot.date.desc()).first()
+    if not latest_snap: return
+        
+    manual_assets = ManualAsset.query.all()
+    
+    fixed_inv = sum(a.invested_value for a in manual_assets if a.category in ['FD', 'RD', 'Cash'])
+    fixed_curr = sum(a.current_value for a in manual_assets if a.category in ['FD', 'RD', 'Cash'])
+    prov_inv = sum(a.invested_value for a in manual_assets if a.category in ['EPF', 'PPF', 'NPS'])
+    prov_curr = sum(a.current_value for a in manual_assets if a.category in ['EPF', 'PPF', 'NPS'])
+    gold_inv = sum(a.invested_value for a in manual_assets if a.category in ['SGB', 'RealEstate'])
+    gold_curr = sum(a.current_value for a in manual_assets if a.category in ['SGB', 'RealEstate'])
+
+    latest_snap.total_fixed_income_inv = fixed_inv
+    latest_snap.total_fixed_income_curr = fixed_curr
+    latest_snap.total_provident_inv = prov_inv
+    latest_snap.total_provident_curr = prov_curr
+    latest_snap.total_gold_inv = gold_inv
+    latest_snap.total_gold_curr = gold_curr
+    
+    latest_snap.grand_total_inv = latest_snap.total_equity_inv + latest_snap.total_mf_inv + fixed_inv + prov_inv + gold_inv
+    latest_snap.grand_total_curr = latest_snap.total_equity_curr + latest_snap.total_mf_curr + fixed_curr + prov_curr + gold_curr
+    
+    latest_snap.synced = False
+    db.session.commit()
+
+
 @app.route('/api/manual_assets/<int:aid>', methods=['DELETE'])
 @require_api_key
 def delete_manual_asset(aid):
@@ -920,12 +999,49 @@ def delete_manual_asset(aid):
     if asset:
         db.session.delete(asset)
         db.session.commit()
+        update_latest_portfolio_snapshot() # <-- Updates Pie Chart instantly
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Asset not found"}), 404
 
 @app.route('/api/manual_assets', methods=['GET', 'POST'])
 @require_api_key
 def handle_manual_assets():
+    if request.method == 'GET':
+        assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
+        return jsonify([{
+            "id": a.id, "category": a.category, "name": a.name,
+            "invested_value": a.invested_value, "current_value": a.current_value,
+            "interest_rate": a.interest_rate,
+            "maturity_date": a.maturity_date.strftime("%Y-%m-%d") if a.maturity_date else None,
+            "last_updated": a.last_updated.strftime("%Y-%m-%d")
+        } for a in assets])
+        
+    if request.method == 'POST':
+        data = request.json
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        
+        mat_date = None
+        if data.get('maturity_date'):
+            mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date()
+
+        # Safely default current value to invested value if left blank
+        curr_val_raw = data.get('current_value')
+        curr_val = float(curr_val_raw) if curr_val_raw else float(data.get('invested_value', 0))
+
+        new_asset = ManualAsset(
+            id=int(datetime.now().timestamp() * 1000),
+            category=data['category'],
+            name=data['name'],
+            invested_value=float(data.get('invested_value', 0)),
+            current_value=curr_val,
+            interest_rate=float(data.get('interest_rate')) if data.get('interest_rate') else None,
+            maturity_date=mat_date,
+            last_updated=datetime.now(ist_timezone).date()
+        )
+        db.session.add(new_asset)
+        db.session.commit()
+        update_latest_portfolio_snapshot() # <-- Updates Pie Chart instantly
+        return jsonify({"success": True, "message": "Asset added successfully"})
     if request.method == 'GET':
         assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
         return jsonify([{
