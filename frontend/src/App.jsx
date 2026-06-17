@@ -2348,7 +2348,7 @@ function AddManualAssetModal({ onClose, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ 
     category: 'FD', name: '', invested_value: '', current_value: '', 
-    interest_rate: '', maturity_date: '',
+    interest_rate: '', start_date: '', maturity_date: '',
     is_recurring: false, amount_to_add: '', interval_months: 1, next_run_date: today
   });
   const [loading, setLoading] = useState(false);
@@ -2401,7 +2401,21 @@ function AddManualAssetModal({ onClose, onAdd }) {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <input className="inp" type="number" placeholder="Interest Rate % (e.g., 7.1)" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} />
-            <input className="inp" type="date" title="Maturity Date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+            {/* If interest rate is entered, lock the current value so auto-compound takes over */}
+            <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1 }} title={form.interest_rate ? "Auto-calculated based on Interest Rate" : ""} />
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
+               <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={{ color: form.start_date ? 'var(--text)' : 'var(--text3)' }} />
+               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When the initial deposit was made (needed for auto-compound).</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
+               <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When the asset fully vests and stops compounding.</span>
+            </div>
           </div>
 
           {/* 🚀 THE AUTOMATION TOGGLE */}
@@ -2436,7 +2450,10 @@ function AddManualAssetModal({ onClose, onAdd }) {
                    <input className="inp" type="number" min="1" value={form.interval_months} onChange={e => setForm({...form, interval_months: parseInt(e.target.value)})} style={{ border: 'none', width: '50px', padding: '0.65rem 0.5rem', background: 'transparent' }} />
                    <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>Months</span>
                 </div>
-                <input className="inp" type="date" title="Starting Date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                   <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+                   <span style={{ fontSize: '0.65rem', color: 'rgba(52, 211, 153, 0.8)', lineHeight: '1.2' }}>The exact date you want the first auto-addition to trigger.</span>
+                </div>
               </div>
             </div>
           )}
@@ -3583,24 +3600,29 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             </div>
           </div>
           
-          {/* Legend - Responsive Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem', width: '100%', flex: 1 }}>
+          {/* Legend - Responsive Grid - Widened minmax from 200px to 240px */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', width: '100%', flex: 1 }}>
             {pieData.map(d => {
               const pct = latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0;
               return (
-                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill }}></div>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap' }}>{d.name}</span>
+                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.7rem 0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
+                  
+                  {/* Left Side: Name - Allows shrinking and ellipses */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill, flexShrink: 0 }}></div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                  
+                  {/* Right Side: Values - Protected from shrinking */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0 }}>
+                    <span style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.05rem)', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif", whiteSpace: 'nowrap' }}>
                       {showBalances ? fmt(d.value) : '₹ ••••••'}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, minWidth: '38px', textAlign: 'right' }}>
                       {pct}%
                     </span>
                   </div>
+                  
                 </div>
               );
             })}

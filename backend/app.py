@@ -225,6 +225,7 @@ class ManualAsset(db.Model):
     invested_value = db.Column(db.Float, default=0.0)
     current_value = db.Column(db.Float, default=0.0)
     interest_rate = db.Column(db.Float, nullable=True)
+    start_date = db.Column(db.Date, nullable=True) # <-- ADD THIS LINE
     maturity_date = db.Column(db.Date, nullable=True)
     last_updated = db.Column(db.Date, nullable=False)
 
@@ -588,23 +589,45 @@ from dateutil.relativedelta import relativedelta
 @app.route('/api/cron/process-recurring', methods=['POST'])
 @require_api_key
 def process_recurring():
-    """Lazy Cron: Called when frontend boots to process overdue EPF/RD additions"""
+    """Lazy Cron: Processes auto-compounding assets and recurring additions"""
     today = datetime.now(pytz.timezone('Asia/Kolkata')).date()
+    processed = 0
+
+    # 1. AUTO-COMPOUND FDs & ASSETS (Quarterly Compounding)
+    assets_to_update = ManualAsset.query.filter(ManualAsset.interest_rate.isnot(None), ManualAsset.start_date.isnot(None)).all()
+    for asset in assets_to_update:
+        # Stop compounding if it has passed maturity
+        end_date = min(today, asset.maturity_date) if asset.maturity_date else today
+        days_passed = (end_date - asset.start_date).days
+        
+        if days_passed > 0:
+            years = days_passed / 365.25
+            rate = asset.interest_rate / 100.0
+            
+            new_value = asset.invested_value * ((1 + (rate / 4)) ** (4 * years))
+            
+            # Only flag as processed if the value actually ticked up
+            if round(new_value, 2) > asset.current_value:
+                asset.current_value = round(new_value, 2)
+                asset.last_updated = today
+                processed += 1
+
+    # 2. PROCESS RECURRING ADDITIONS (EPF, RD, etc.)
     due_tasks = RecurringTask.query.filter(RecurringTask.is_active == True, RecurringTask.next_run_date <= today).all()
     
-    processed = 0
     for task in due_tasks:
-        # 1. Update the Manual Asset
         asset = ManualAsset.query.filter_by(name=task.asset_name).first()
         if asset:
             asset.invested_value += task.amount_to_add
-            asset.current_value += task.amount_to_add
+            # Only add to current_value if it's not being auto-compounded by the block above
+            if not asset.interest_rate: 
+                asset.current_value += task.amount_to_add
+                
             asset.last_updated = today
             
-            # 2. Add a record to the Transactions table so it shows in the Money Tab
             new_tx = Transaction(
                 id=int(datetime.now().timestamp() * 1000) + processed,
-                account="Salary/Default", # Update to your preferred default
+                account="Salary", # Or your default checking account
                 date=task.next_run_date,
                 month=task.next_run_date.replace(day=1),
                 type="Investment",
@@ -615,7 +638,6 @@ def process_recurring():
             )
             db.session.add(new_tx)
             
-            # 3. Push the date forward
             task.next_run_date = task.next_run_date + relativedelta(months=task.interval_months)
             processed += 1
 
@@ -1064,11 +1086,9 @@ def handle_manual_assets():
         data = request.json
         ist_timezone = pytz.timezone('Asia/Kolkata')
         
-        mat_date = None
-        if data.get('maturity_date'):
-            mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date()
-
-        # Safely default current value to invested value if left blank
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date() if data.get('start_date') else None
+        mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date() if data.get('maturity_date') else None
+    
         curr_val_raw = data.get('current_value')
         curr_val = float(curr_val_raw) if curr_val_raw else float(data.get('invested_value', 0))
 
@@ -1079,6 +1099,7 @@ def handle_manual_assets():
             invested_value=float(data.get('invested_value', 0)),
             current_value=curr_val,
             interest_rate=float(data.get('interest_rate')) if data.get('interest_rate') else None,
+            start_date=start_date, # <-- ADDED
             maturity_date=mat_date,
             last_updated=datetime.now(ist_timezone).date()
         )
