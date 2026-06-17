@@ -2364,8 +2364,19 @@ function AddManualAssetModal({ onClose, onAdd }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(form)
       });
-      if (res.ok) { onAdd(); onClose(); }
-    } finally { setLoading(false); }
+      if (res.ok) { 
+        onAdd(); 
+        onClose(); 
+      } else {
+        // ✨ Added clear error visibility
+        const errData = await res.json().catch(() => ({}));
+        alert("Failed to save asset: " + (errData.message || "Server error"));
+      }
+    } catch (e) {
+      alert("Network error: " + e.message);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
