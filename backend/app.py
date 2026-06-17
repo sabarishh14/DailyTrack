@@ -16,6 +16,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
+from pyxirr import xirr
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
@@ -837,6 +838,42 @@ def add_physical():
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route('/api/investments/xirr', methods=['GET'])
+@require_api_key
+def get_portfolio_xirr():
+    try:
+        # 1. Get all Investment transactions (Cash Outflows)
+        inv_txs = Transaction.query.filter_by(type='Investment').order_by(Transaction.date.asc()).all()
+        
+        if not inv_txs:
+            return jsonify({"success": True, "xirr": 0.0})
+
+        dates = [tx.date for tx in inv_txs]
+        # XIRR requires outflows to be negative numbers
+        amounts = [-abs(tx.amount) for tx in inv_txs] 
+
+        # 2. Get the current total portfolio value (Cash Inflow)
+        latest_snap = PortfolioSnapshot.query.order_by(PortfolioSnapshot.date.desc()).first()
+        
+        if not latest_snap:
+            return jsonify({"success": True, "xirr": 0.0})
+
+        # Add today's value as the final positive cash flow
+        dates.append(datetime.now().date())
+        amounts.append(latest_snap.grand_total_curr)
+
+        # 3. Calculate XIRR
+        portfolio_xirr = xirr(dates, amounts)
+        
+        # Convert to a readable percentage format
+        xirr_pct = (portfolio_xirr * 100) if portfolio_xirr else 0.0
+        
+        return jsonify({"success": True, "xirr": round(xirr_pct, 2)})
+
+    except Exception as e:
+        print(f"❌ Error calculating XIRR: {str(e)}")
+        return jsonify({"success": False, "message": str(e)})
+    
 # ---- INVESTMENTS ----
 @app.route('/api/investments', methods=['GET'])
 @require_api_key  

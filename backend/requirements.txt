@@ -9,3 +9,4 @@ pandas
 PyJWT
 firebase-admin
 pytz
+pyxirr
