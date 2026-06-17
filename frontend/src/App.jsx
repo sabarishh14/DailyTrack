@@ -2345,10 +2345,18 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
 }
 
 function AddManualAssetModal({ onClose, onAdd }) {
-  const [form, setForm] = useState({ category: 'FD', name: '', invested_value: '', current_value: '' });
+  const today = new Date().toISOString().split('T')[0];
+  const [form, setForm] = useState({ 
+    category: 'FD', name: '', invested_value: '', current_value: '', 
+    interest_rate: '', maturity_date: '',
+    is_recurring: false, amount_to_add: '', interval_months: 1, next_run_date: today
+  });
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
+    if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
+      return alert("Please fill in the recurring amount and next date.");
+    }
     setLoading(true);
     try {
       const res = await fetch(`${API}/manual_assets`, {
@@ -2364,7 +2372,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div className="modal-title">➕ Add Asset</div></div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
+          
           <CustomSelect 
             value={form.category} 
             onChange={val => setForm({...form, category: val})} 
@@ -2373,17 +2382,57 @@ function AddManualAssetModal({ onClose, onAdd }) {
             width="100%"
           />
           <input className="inp" placeholder="Asset Name (e.g., HDFC FD)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
             <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
           </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <input className="inp" type="number" placeholder="Interest Rate % (e.g., 7.1)" value={form.interest_rate || ''} onChange={e => setForm({...form, interest_rate: e.target.value})} />
-            <div style={{ position: 'relative' }}>
-               <input className="inp" type="date" title="Maturity Date" value={form.maturity_date || ''} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+            <input className="inp" type="number" placeholder="Interest Rate % (e.g., 7.1)" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} />
+            <input className="inp" type="date" title="Maturity Date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+          </div>
+
+          {/* 🚀 THE AUTOMATION TOGGLE */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <div 
+              onClick={() => setForm({...form, is_recurring: !form.is_recurring})}
+              style={{
+                width: '44px', height: '24px', borderRadius: '12px',
+                background: form.is_recurring ? 'var(--pos)' : 'var(--border2)',
+                position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
+              }}
+            >
+              <div style={{
+                width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: '3px', left: form.is_recurring ? '23px' : '3px',
+                transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Automatically add a set amount to this asset (e.g. Monthly EPF/RD)</div>
             </div>
           </div>
-          <button className="submit-btn" onClick={submit}>{loading ? 'Saving...' : 'Save Asset'}</button>
+
+          {/* 🚀 CONDITIONAL AUTOMATION FIELDS */}
+          {form.is_recurring && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
+              <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem' }}>
+                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
+                   <input className="inp" type="number" min="1" value={form.interval_months} onChange={e => setForm({...form, interval_months: parseInt(e.target.value)})} style={{ border: 'none', width: '50px', padding: '0.65rem 0.5rem', background: 'transparent' }} />
+                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>Months</span>
+                </div>
+                <input className="inp" type="date" title="Starting Date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+              </div>
+            </div>
+          )}
+
+          <button className="submit-btn" onClick={submit} style={{ marginTop: '0.5rem' }}>
+            {loading ? 'Saving...' : 'Save Asset'}
+          </button>
         </div>
       </div>
     </div>

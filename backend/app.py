@@ -964,6 +964,47 @@ def get_investments():
 
     return jsonify(result)
 
+@app.route('/api/cron/tasks', methods=['GET', 'POST', 'OPTIONS'])
+@require_api_key
+def handle_recurring_tasks():
+    if request.method == 'OPTIONS': return '', 200
+    
+    if request.method == 'GET':
+        tasks = RecurringTask.query.all()
+        return jsonify([{
+            "id": t.id, 
+            "asset_name": t.asset_name, 
+            "amount_to_add": t.amount_to_add, 
+            "interval_months": t.interval_months,
+            "next_run_date": t.next_run_date.strftime("%Y-%m-%d") if t.next_run_date else None,
+            "is_active": t.is_active
+        } for t in tasks])
+        
+    if request.method == 'POST':
+        data = request.json
+        new_task = RecurringTask(
+            id=int(datetime.now().timestamp() * 1000),
+            asset_name=data['asset_name'],
+            amount_to_add=float(data['amount_to_add']),
+            interval_months=int(data.get('interval_months', 1)),
+            next_run_date=datetime.strptime(data['next_run_date'], '%Y-%m-%d').date(),
+            is_active=True
+        )
+        db.session.add(new_task)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Automation added"})
+
+@app.route('/api/cron/tasks/<int:tid>', methods=['DELETE', 'OPTIONS'])
+@require_api_key
+def delete_recurring_task(tid):
+    if request.method == 'OPTIONS': return '', 200
+    task = RecurringTask.query.filter_by(id=tid).first()
+    if task:
+        db.session.delete(task)
+        db.session.commit()
+        return jsonify({"success": True})
+    return jsonify({"success": False, "message": "Task not found"}), 404
+
 def update_latest_portfolio_snapshot():
     """Recalculates manual asset totals for the most recent snapshot so charts update instantly."""
     latest_snap = PortfolioSnapshot.query.order_by(PortfolioSnapshot.date.desc()).first()
@@ -1009,8 +1050,11 @@ def handle_manual_assets():
     if request.method == 'GET':
         assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
         return jsonify([{
-            "id": a.id, "category": a.category, "name": a.name,
-            "invested_value": a.invested_value, "current_value": a.current_value,
+            "id": a.id,
+            "category": a.category,
+            "name": a.name,
+            "invested_value": a.invested_value,
+            "current_value": a.current_value,
             "interest_rate": a.interest_rate,
             "maturity_date": a.maturity_date.strftime("%Y-%m-%d") if a.maturity_date else None,
             "last_updated": a.last_updated.strftime("%Y-%m-%d")
@@ -1039,43 +1083,22 @@ def handle_manual_assets():
             last_updated=datetime.now(ist_timezone).date()
         )
         db.session.add(new_asset)
-        db.session.commit()
-        update_latest_portfolio_snapshot() # <-- Updates Pie Chart instantly
-        return jsonify({"success": True, "message": "Asset added successfully"})
-    if request.method == 'GET':
-        assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
-        return jsonify([{
-            "id": a.id,
-            "category": a.category,
-            "name": a.name,
-            "invested_value": a.invested_value,
-            "current_value": a.current_value,
-            "interest_rate": a.interest_rate,
-            "maturity_date": a.maturity_date.strftime("%Y-%m-%d") if a.maturity_date else None,
-            "last_updated": a.last_updated.strftime("%Y-%m-%d")
-        } for a in assets])
         
-    if request.method == 'POST':
-        data = request.json
-        ist_timezone = pytz.timezone('Asia/Kolkata')
-        
-        mat_date = None
-        if data.get('maturity_date'):
-            mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date()
+        # ✨ MAGIC: If the user toggled recurring, create the cron task right now too!
+        if data.get('is_recurring'):
+            new_task = RecurringTask(
+                id=int(datetime.now().timestamp() * 1000) + 1, # +1 to avoid Primary Key collision
+                asset_name=data['name'],
+                amount_to_add=float(data['amount_to_add']),
+                interval_months=int(data.get('interval_months', 1)),
+                next_run_date=datetime.strptime(data['next_run_date'], '%Y-%m-%d').date(),
+                is_active=True
+            )
+            db.session.add(new_task)
 
-        new_asset = ManualAsset(
-            id=int(datetime.now().timestamp() * 1000),
-            category=data['category'],
-            name=data['name'],
-            invested_value=float(data.get('invested_value', 0)),
-            current_value=float(data.get('current_value', 0)),
-            interest_rate=float(data.get('interest_rate')) if data.get('interest_rate') else None,
-            maturity_date=mat_date,
-            last_updated=datetime.now(ist_timezone).date()
-        )
-        db.session.add(new_asset)
         db.session.commit()
-        return jsonify({"success": True, "message": "Asset added successfully"})
+        update_latest_portfolio_snapshot()
+        return jsonify({"success": True, "message": "Asset & Automation added successfully"})
     
 @app.route('/api/equity', methods=['GET'])
 @require_api_key
