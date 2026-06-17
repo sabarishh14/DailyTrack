@@ -2976,6 +2976,30 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
+  // ---> ADD THIS NEW BLOCK HERE <---
+  const [xirr, setXirr] = useState(null);
+  const [loadingXirr, setLoadingXirr] = useState(false);
+
+  useEffect(() => {
+    if (isUnlocked) {
+      const fetchXirr = async () => {
+        setLoadingXirr(true);
+        try {
+          const res = await fetch(`${API}/investments/xirr`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+          });
+          const data = await res.json();
+          if (data.success) setXirr(data.xirr);
+        } catch (e) {
+          console.error("Failed to fetch XIRR", e);
+        } finally {
+          setLoadingXirr(false);
+        }
+      };
+      fetchXirr();
+    }
+  }, [isUnlocked, investments]);
+
   const handlePinSubmit = () => {
     if (!savedPin) {
       if (pinInput.length === 4) {
@@ -3421,14 +3445,26 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
               </div>
               <div style={{ width: '1px', background: 'var(--border)' }}></div>
               <div style={{ flex: 1, minWidth: '100px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns & XIRR</span>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px', flexWrap: 'wrap' }}>
                   <span className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
                     {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '-') + (latest ? fmt(Math.abs(latest.total_curr - latest.total_inv)) : '₹0') : '₹ ••••••'}
                   </span>
                   <span className={(latest && latest.total_ret_pct >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
-                    {latest ? `(${latest.total_ret_pct >= 0 ? '+' : '-'}${Math.abs(latest.total_ret_pct).toFixed(2)}%)` : ''}
+                    {latest ? `(${latest.total_ret_pct >= 0 ? '+' : '-'}${Math.abs(latest.total_ret_pct).toFixed(2)}% Abs)` : ''}
                   </span>
+                  
+                  {/* ---> NEW XIRR BADGE <--- */}
+                  {xirr !== null && (
+                    <span className={xirr >= 0 ? 'pos' : 'neg'} style={{ 
+                      fontWeight: 700, fontSize: '0.75rem', 
+                      background: xirr >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)', 
+                      padding: '0.2rem 0.5rem', borderRadius: '6px', border: `1px solid ${xirr >= 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
+                      marginLeft: '4px'
+                    }}>
+                      {loadingXirr ? '⏳' : `${xirr >= 0 ? '+' : ''}${xirr}% XIRR`}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
