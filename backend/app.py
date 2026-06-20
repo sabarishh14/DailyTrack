@@ -626,25 +626,14 @@ def process_recurring():
                 
             asset.last_updated = today
             
-            new_tx = Transaction(
-                id=int(datetime.now().timestamp() * 1000) + processed,
-                account="Salary", # Or your default checking account
-                date=task.next_run_date,
-                month=task.next_run_date.replace(day=1),
-                type="Investment",
-                heading=task.asset_name,
-                description="Auto-added via Recurring Task",
-                amount=task.amount_to_add,
-                exclude_analytics=False
-            )
-            db.session.add(new_tx)
-            
+            # Move the next run date forward based on the selected unit
             if task.interval_unit == 'days':
                 task.next_run_date = task.next_run_date + relativedelta(days=task.interval_value)
             elif task.interval_unit == 'years':
                 task.next_run_date = task.next_run_date + relativedelta(years=task.interval_value)
             else:
                 task.next_run_date = task.next_run_date + relativedelta(months=task.interval_value)
+            
             processed += 1
 
     if processed > 0:
