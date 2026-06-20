@@ -2344,12 +2344,102 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
   );
 }
 
+function EditManualAssetModal({ asset, onClose, onRefresh }) {
+  const [form, setForm] = useState({ 
+    ...asset,
+    is_recurring: asset.is_recurring || false,
+    amount_to_add: asset.amount_to_add || '',
+    interval_value: asset.interval_value || 1,
+    interval_unit: asset.interval_unit || 'months',
+    next_run_date: asset.next_run_date || new Date().toISOString().split('T')[0]
+  });
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
+      return alert("Please fill in the recurring amount and next date.");
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/manual_assets/${asset.id}`, {
+        method: "PUT", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) { onRefresh(); onClose(); } 
+      else alert("Failed to update asset");
+    } catch (e) { alert("Network error: " + e.message); } 
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header"><div className="modal-title">✏️ Edit Asset</div></div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
+          
+          <CustomSelect value={form.category} onChange={val => setForm({...form, category: val})} options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} placeholder="Select Category" width="100%" />
+          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+            <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1 }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <input className="inp" type="number" placeholder="Interest Rate %" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
+               <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
+               <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <div onClick={() => setForm({...form, is_recurring: !form.is_recurring})} style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.is_recurring ? 'var(--pos)' : 'var(--border2)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: form.is_recurring ? '23px' : '3px', transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
+            </div>
+          </div>
+
+          {form.is_recurring && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
+              <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem' }}>
+                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
+                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '40px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
+                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
+                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
+                   </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                   <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+            <button className="submit-btn" onClick={submit} style={{ flex: 1 }}>{loading ? 'Saving...' : 'Update Asset'}</button>
+            <button className="submit-btn" onClick={onClose} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text)' }}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddManualAssetModal({ onClose, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ 
     category: 'FD', name: '', invested_value: '', current_value: '', 
     interest_rate: '', start_date: '', maturity_date: '',
-    is_recurring: false, amount_to_add: '', interval_months: 1, next_run_date: today
+    is_recurring: false, amount_to_add: '', interval_value: 1, interval_unit: 'months', next_run_date: today
   });
   const [loading, setLoading] = useState(false);
 
@@ -2447,8 +2537,12 @@ function AddManualAssetModal({ onClose, onAdd }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem' }}>
                    <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
-                   <input className="inp" type="number" min="1" value={form.interval_months} onChange={e => setForm({...form, interval_months: parseInt(e.target.value)})} style={{ border: 'none', width: '50px', padding: '0.65rem 0.5rem', background: 'transparent' }} />
-                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>Months</span>
+                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '40px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
+                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
+                     <option value="days">Days</option>
+                     <option value="months">Months</option>
+                     <option value="years">Years</option>
+                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                    <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
@@ -3060,6 +3154,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [isUnlocked, setIsUnlocked] = useState(sessionStorage.getItem('dt_inv_unlocked') === 'true');
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [editingAsset, setEditingAsset] = useState(null);
 
   // ---> ADD THIS NEW BLOCK HERE <---
   const [xirr, setXirr] = useState(null);
@@ -4023,34 +4118,51 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                           <div className="data-table" style={{ minWidth: '800px' }}>
                             {sectionAssets.length > 0 ? (
                               <>
-                                <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem' }}>
+                                <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr', padding: '0.75rem 1.25rem' }}>
                                   <span>Asset Name</span>
                                   <span>Type</span>
                                   <span>Invested</span>
                                   <span>Current Value</span>
                                   <span>Returns</span>
-                                  <span>Updated</span>
+                                  <span>Details</span>
+                                  <span>Automation</span>
                                   <span style={{textAlign: 'right'}}>Actions</span>
                                 </div>
                                 {sectionAssets.map((asset, i) => {
                                   const ret = asset.current_value - asset.invested_value;
                                   const isPos = ret >= 0;
                                   return (
-                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1.5fr 1fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
                                       <span style={{ fontWeight: 600 }}>{asset.name}</span>
                                       <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
                                       <span>{fmt(asset.invested_value)}</span>
                                       <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                                      
-                                      {/* Stacked Returns Column */}
                                       <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
                                         <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}{fmt(Math.abs(ret))}</span>
                                         {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
                                       </span>
 
-                                      <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{asset.last_updated}</span>
+                                      {/* New Details Column */}
+                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        {asset.interest_rate ? <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{asset.interest_rate}% Interest</span> : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>No Interest</span>}
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Start: {asset.start_date || '—'}</span>
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Ends: {asset.maturity_date || '—'}</span>
+                                      </span>
+                                      
+                                      {/* New Automation Column */}
+                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        {asset.is_recurring ? (
+                                          <>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>+ {fmt(asset.amount_to_add)}</span>
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Every {asset.interval_value} {asset.interval_unit}</span>
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Next: {asset.next_run_date}</span>
+                                          </>
+                                        ) : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>Not Automated</span>}
+                                      </span>
+                                      
                                       <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                        <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete">🗑️</button>
+                                        <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit">✏️</button>
+                                        <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete">🗑️</button>
                                       </span>
                                     </div>
                                   );
@@ -4069,13 +4181,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                             const isPos = ret >= 0;
                             return (
                               <div key={asset.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {/* Top Row: Name & Delete */}
+                                {/* Top Row: Name */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                                     <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{asset.name}</span>
                                     <span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase' }}>{asset.category}</span>
                                   </div>
-                                  <button className="action-icon-btn delete" onClick={() => handleDeleteManualAsset(asset.id)} title="Delete" style={{ background: 'rgba(239,68,68,0.1)', padding: '0.4rem', borderRadius: '8px' }}>🗑️</button>
                                 </div>
                                 {/* Metrics Grid */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
@@ -4095,7 +4206,34 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                     </div>
                                   </div>
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text3)', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', fontWeight: 500 }}>Last updated: {asset.last_updated}</div>
+                                
+                                {/* 🚀 NEW Additional Details row for Mobile */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                                  <div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Details</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text)', marginTop: '4px' }}>{asset.interest_rate ? `${asset.interest_rate}% Rate` : 'No Interest'}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.start_date ? `Start: ${asset.start_date}` : ''}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.maturity_date ? `Ends: ${asset.maturity_date}` : ''}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Automation</div>
+                                    {asset.is_recurring ? (
+                                      <>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--pos)', fontWeight: 600, marginTop: '4px' }}>+{fmt(asset.amount_to_add)}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>Every {asset.interval_value} {asset.interval_unit}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '2px' }}>Next: {asset.next_run_date}</div>
+                                      </>
+                                    ) : <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '4px' }}>Off</div>}
+                                  </div>
+                                </div>
+                                
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 500 }}>Last updated: {asset.last_updated}</div>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="action-btn secondary" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>✏️ Edit</button>
+                                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', background: 'rgba(239,68,68,0.1)', color: 'var(--neg)', border: 'none', boxShadow: 'none' }}>🗑️ Delete</button>
+                                  </div>
+                                </div>
                               </div>
                             );
                           }) : (
@@ -4115,7 +4253,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
       {/* Render the Add Modal if state is true */}
       {isAddModalOpen && <AddManualAssetModal onClose={() => setIsAddModalOpen(false)} onAdd={onAdd} />}
-
+      {editingAsset && <EditManualAssetModal asset={editingAsset} onClose={() => setEditingAsset(null)} onRefresh={onAdd} />}
+        
       {/* Drill-down Modal (Shared for MF & Equity) */}
       {drillDownDate && (
         <div className="modal-backdrop" onClick={() => setDrillDownDate(null)}>

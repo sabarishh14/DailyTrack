@@ -176,7 +176,8 @@ class RecurringTask(db.Model):
     id = db.Column(db.BigInteger, primary_key=True)
     asset_name = db.Column(db.String(100)) # e.g., 'EPF'
     amount_to_add = db.Column(db.Float)    # e.g., 2210
-    interval_months = db.Column(db.Integer, default=1)
+    interval_value = db.Column(db.Integer, default=1)
+    interval_unit = db.Column(db.String(10), default='months') # 'days', 'months', 'years'
     next_run_date = db.Column(db.Date)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -638,7 +639,12 @@ def process_recurring():
             )
             db.session.add(new_tx)
             
-            task.next_run_date = task.next_run_date + relativedelta(months=task.interval_months)
+            if task.interval_unit == 'days':
+                task.next_run_date = task.next_run_date + relativedelta(days=task.interval_value)
+            elif task.interval_unit == 'years':
+                task.next_run_date = task.next_run_date + relativedelta(years=task.interval_value)
+            else:
+                task.next_run_date = task.next_run_date + relativedelta(months=task.interval_value)
             processed += 1
 
     if processed > 0:
@@ -1069,6 +1075,118 @@ def delete_manual_asset(aid):
 @app.route('/api/manual_assets', methods=['GET', 'POST'])
 @require_api_key
 def handle_manual_assets():
+    if request.method == 'GET':
+        assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
+        tasks = RecurringTask.query.all()
+        task_map = {t.asset_name: t for t in tasks}
+        
+        return jsonify([{
+            "id": a.id,
+            "category": a.category,
+            "name": a.name,
+            "invested_value": a.invested_value,
+            "current_value": a.current_value,
+            "interest_rate": a.interest_rate,
+            "start_date": a.start_date.strftime("%Y-%m-%d") if a.start_date else None,
+            "maturity_date": a.maturity_date.strftime("%Y-%m-%d") if a.maturity_date else None,
+            "last_updated": a.last_updated.strftime("%Y-%m-%d"),
+            "is_recurring": a.name in task_map,
+            "amount_to_add": task_map[a.name].amount_to_add if a.name in task_map else None,
+            "interval_value": task_map[a.name].interval_value if a.name in task_map else None,
+            "interval_unit": task_map[a.name].interval_unit if a.name in task_map else None,
+            "next_run_date": task_map[a.name].next_run_date.strftime("%Y-%m-%d") if a.name in task_map and task_map[a.name].next_run_date else None
+        } for a in assets])
+        
+    if request.method == 'POST':
+        data = request.json
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date() if data.get('start_date') else None
+        mat_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date() if data.get('maturity_date') else None
+    
+        curr_val_raw = data.get('current_value')
+        curr_val = float(curr_val_raw) if curr_val_raw else float(data.get('invested_value', 0))
+
+        new_asset = ManualAsset(
+            id=int(datetime.now().timestamp() * 1000),
+            category=data['category'],
+            name=data['name'],
+            invested_value=float(data.get('invested_value', 0)),
+            current_value=curr_val,
+            interest_rate=float(data.get('interest_rate')) if data.get('interest_rate') else None,
+            start_date=start_date,
+            maturity_date=mat_date,
+            last_updated=datetime.now(ist_timezone).date()
+        )
+        db.session.add(new_asset)
+        
+        if data.get('is_recurring'):
+            new_task = RecurringTask(
+                id=int(datetime.now().timestamp() * 1000) + 1,
+                asset_name=data['name'],
+                amount_to_add=float(data['amount_to_add']),
+                interval_value=int(data.get('interval_value', 1)),
+                interval_unit=data.get('interval_unit', 'months'),
+                next_run_date=datetime.strptime(data['next_run_date'], '%Y-%m-%d').date(),
+                is_active=True
+            )
+            db.session.add(new_task)
+
+        db.session.commit()
+        update_latest_portfolio_snapshot()
+        return jsonify({"success": True, "message": "Asset & Automation added successfully"})
+
+@app.route('/api/manual_assets/<int:aid>', methods=['PUT', 'OPTIONS'])
+@require_api_key
+def edit_manual_asset(aid):
+    if request.method == 'OPTIONS': return '', 200
+    try:
+        data = request.json
+        asset = ManualAsset.query.filter_by(id=aid).first()
+        if not asset: return jsonify({"success": False, "message": "Asset not found"}), 404
+
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        old_name = asset.name
+        
+        asset.category = data['category']
+        asset.name = data['name']
+        asset.invested_value = float(data.get('invested_value', 0))
+        asset.current_value = float(data.get('current_value', 0))
+        asset.interest_rate = float(data.get('interest_rate')) if data.get('interest_rate') else None
+        asset.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date() if data.get('start_date') else None
+        asset.maturity_date = datetime.strptime(data['maturity_date'], '%Y-%m-%d').date() if data.get('maturity_date') else None
+        asset.last_updated = datetime.now(ist_timezone).date()
+
+        # Handle Recurring Task updates linked to this asset
+        task = RecurringTask.query.filter_by(asset_name=old_name).first()
+        
+        if data.get('is_recurring'):
+            if task:
+                task.asset_name = asset.name
+                task.amount_to_add = float(data['amount_to_add'])
+                task.interval_value = int(data.get('interval_value', 1))
+                task.interval_unit = data.get('interval_unit', 'months')
+                task.next_run_date = datetime.strptime(data['next_run_date'], '%Y-%m-%d').date()
+            else:
+                new_task = RecurringTask(
+                    id=int(datetime.now().timestamp() * 1000) + 1,
+                    asset_name=asset.name,
+                    amount_to_add=float(data['amount_to_add']),
+                    interval_value=int(data.get('interval_value', 1)),
+                    interval_unit=data.get('interval_unit', 'months'),
+                    next_run_date=datetime.strptime(data['next_run_date'], '%Y-%m-%d').date(),
+                    is_active=True
+                )
+                db.session.add(new_task)
+        else:
+            if task: db.session.delete(task)
+
+        db.session.commit()
+        update_latest_portfolio_snapshot()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
     if request.method == 'GET':
         assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
         return jsonify([{
