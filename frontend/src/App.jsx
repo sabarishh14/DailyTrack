@@ -380,7 +380,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         </div>
         <div className="accounts-grid">
           {accounts
-            .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360')
+            .filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360' && a.account !== 'CC-AXIS REWARDS')
             .sort((a, b) => {
               // Sort them strictly by the order defined in the BANKS object
               const orderA = Object.keys(BANKS).indexOf(a.account);
