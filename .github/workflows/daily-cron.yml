@@ -3,7 +3,7 @@ name: DailyTrack Cron Job
 on:
   schedule:
     # Runs at 18:30 UTC every day (which is exactly 12:00 AM Midnight IST)
-    - cron: '* * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allows you to run it manually from the GitHub UI
 
 jobs:
