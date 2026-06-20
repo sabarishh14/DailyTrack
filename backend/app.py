@@ -590,6 +590,9 @@ from dateutil.relativedelta import relativedelta
 @app.route('/api/cron/process-recurring', methods=['POST'])
 @require_api_key
 def process_recurring():
+    if request.method == 'OPTIONS': 
+        return '', 200
+    
     """Lazy Cron: Processes auto-compounding assets and recurring additions"""
     today = datetime.now(pytz.timezone('Asia/Kolkata')).date()
     processed = 0

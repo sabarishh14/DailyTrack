@@ -2230,6 +2230,7 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const submit = async () => {
@@ -2355,6 +2356,10 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
   });
   const [loading, setLoading] = useState(false);
 
+  // 🚀 Determine the Asset Bucket to lock/unlock fields
+  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD'].includes(form.category);
+
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
       return alert("Please fill in the recurring amount and next date.");
@@ -2377,15 +2382,41 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
         <div className="modal-header"><div className="modal-title">✏️ Edit Asset</div></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
           
-          <CustomSelect value={form.category} onChange={val => setForm({...form, category: val})} options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} placeholder="Select Category" width="100%" />
+          <CustomSelect 
+            value={form.category} 
+            onChange={val => {
+              const becomingMath = ['FD', 'RD'].includes(val);
+              const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+              setForm({
+                ...form, category: val,
+                interest_rate: becomingMarket ? '' : form.interest_rate,
+                is_recurring: becomingMath ? false : form.is_recurring
+              });
+            }} 
+            options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
+            placeholder="Select Category" width="100%" 
+          />
+          
           <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
             <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1 }} />
           </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <input className="inp" type="number" placeholder="Interest Rate %" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+                  {isLedgerOrMarket && (
+                    <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually when your real returns are declared." 
+                          style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                  )}
+               </div>
+               <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
+            </div>
           </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
@@ -2397,16 +2428,20 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-            <div onClick={() => setForm({...form, is_recurring: !form.is_recurring})} style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.is_recurring ? 'var(--pos)' : 'var(--border2)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', opacity: isMath ? 0.4 : 1 }}>
+            <div onClick={() => !isMath && setForm({...form, is_recurring: !form.is_recurring})} style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.is_recurring ? 'var(--pos)' : 'var(--border2)', position: 'relative', cursor: isMath ? 'not-allowed' : 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
               <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: form.is_recurring ? '23px' : '3px', transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }} />
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
+              {isMath && (
+                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets." 
+                      style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+              )}
             </div>
           </div>
 
-          {form.is_recurring && (
+          {form.is_recurring && !isMath && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
               <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -2443,6 +2478,10 @@ function AddManualAssetModal({ onClose, onAdd }) {
   });
   const [loading, setLoading] = useState(false);
 
+  // 🚀 Determine the Asset Bucket to lock/unlock fields
+  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD'].includes(form.category);
+
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
       return alert("Please fill in the recurring amount and next date.");
@@ -2454,19 +2493,13 @@ function AddManualAssetModal({ onClose, onAdd }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(form)
       });
-      if (res.ok) { 
-        onAdd(); 
-        onClose(); 
-      } else {
-        // ✨ Added clear error visibility
+      if (res.ok) { onAdd(); onClose(); } 
+      else {
         const errData = await res.json().catch(() => ({}));
         alert("Failed to save asset: " + (errData.message || "Server error"));
       }
-    } catch (e) {
-      alert("Network error: " + e.message);
-    } finally { 
-      setLoading(false); 
-    }
+    } catch (e) { alert("Network error: " + e.message); } 
+    finally { setLoading(false); }
   };
 
   return (
@@ -2477,10 +2510,17 @@ function AddManualAssetModal({ onClose, onAdd }) {
           
           <CustomSelect 
             value={form.category} 
-            onChange={val => setForm({...form, category: val})} 
+            onChange={val => {
+              const becomingMath = ['FD', 'RD'].includes(val);
+              const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+              setForm({
+                ...form, category: val,
+                interest_rate: becomingMarket ? '' : form.interest_rate,
+                is_recurring: becomingMath ? false : form.is_recurring
+              });
+            }} 
             options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
-            placeholder="Select Category"
-            width="100%"
+            placeholder="Select Category" width="100%"
           />
           <input className="inp" placeholder="Asset Name (e.g., HDFC FD)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           
@@ -2490,32 +2530,41 @@ function AddManualAssetModal({ onClose, onAdd }) {
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <input className="inp" type="number" placeholder="Interest Rate % (e.g., 7.1)" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} />
-            {/* If interest rate is entered, lock the current value so auto-compound takes over */}
-            <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1 }} title={form.interest_rate ? "Auto-calculated based on Interest Rate" : ""} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+                  {isLedgerOrMarket && (
+                    <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually when your real returns are declared." 
+                          style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                  )}
+               </div>
+               <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'flex-end' }}>
+               <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1, height: '40px' }} title={form.interest_rate ? "Auto-calculated based on Interest Rate" : ""} />
+            </div>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
                <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={{ color: form.start_date ? 'var(--text)' : 'var(--text3)' }} />
-               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When the initial deposit was made (needed for auto-compound).</span>
+               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>Needed for auto-compound.</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
                <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
-               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When the asset fully vests and stops compounding.</span>
+               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When compounding stops.</span>
             </div>
           </div>
 
-          {/* 🚀 THE AUTOMATION TOGGLE */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', opacity: isMath ? 0.4 : 1 }}>
             <div 
-              onClick={() => setForm({...form, is_recurring: !form.is_recurring})}
+              onClick={() => !isMath && setForm({...form, is_recurring: !form.is_recurring})}
               style={{
                 width: '44px', height: '24px', borderRadius: '12px',
                 background: form.is_recurring ? 'var(--pos)' : 'var(--border2)',
-                position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
+                position: 'relative', cursor: isMath ? 'not-allowed' : 'pointer', transition: 'background 0.2s', flexShrink: 0
               }}
             >
               <div style={{
@@ -2524,14 +2573,19 @@ function AddManualAssetModal({ onClose, onAdd }) {
                 transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
               }} />
             </div>
-            <div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Automatically add a set amount to this asset (e.g. Monthly EPF/RD)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Add a set amount to this asset automatically</div>
+              </div>
+              {isMath && (
+                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets." 
+                      style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+              )}
             </div>
           </div>
 
-          {/* 🚀 CONDITIONAL AUTOMATION FIELDS */}
-          {form.is_recurring && (
+          {form.is_recurring && !isMath && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
               <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -2539,14 +2593,12 @@ function AddManualAssetModal({ onClose, onAdd }) {
                    <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
                    <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '40px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
                    <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
-                     <option value="days">Days</option>
-                     <option value="months">Months</option>
-                     <option value="years">Years</option>
+                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
                    </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                    <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
-                   <span style={{ fontSize: '0.65rem', color: 'rgba(52, 211, 153, 0.8)', lineHeight: '1.2' }}>The exact date you want the first auto-addition to trigger.</span>
+                   <span style={{ fontSize: '0.65rem', color: 'rgba(52, 211, 153, 0.8)', lineHeight: '1.2' }}>Trigger date.</span>
                 </div>
               </div>
             </div>
