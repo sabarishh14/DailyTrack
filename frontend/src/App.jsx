@@ -332,7 +332,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <div className="net-worth-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div className="nw-label">Total Net Worth</div>
+              <div className="nw-label">Overall Bank Balance</div>
               <div className="nw-value">{showBalances ? fmt(netWorth) : '₹ ••••••'}</div>
               <div className="nw-sub">Across {accounts.length} accounts</div>
             </div>
@@ -3248,6 +3248,31 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [pinError, setPinError] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
 
+  const [showPin, setShowPin] = useState(false);
+  const inputRefs = useRef([]);
+
+  const handlePinChange = (index, value) => {
+    if (!/^[0-9]*$/.test(value)) return;
+    let newPin = (pinInput || '').split('');
+    while (newPin.length < 4) newPin.push('');
+    newPin[index] = value;
+    const resultingPin = newPin.slice(0, 4).join('');
+    setPinInput(resultingPin);
+    setPinError(false);
+
+    if (value !== '' && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePinKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && (!pinInput[index] || pinInput[index] === '') && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'Enter') {
+      handlePinSubmit();
+    }
+  };
+
   // ---> ADD THIS NEW BLOCK HERE <---
   const [xirr, setXirr] = useState(null);
   const [loadingXirr, setLoadingXirr] = useState(false);
@@ -3634,15 +3659,44 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
               {savedPin ? 'Unlock your investment portfolio.' : 'Protect your assets with a 4-digit PIN.'}
             </p>
             
-            <input
-              type="password"
-              maxLength={4}
-              value={pinInput}
-              onChange={e => { setPinInput(e.target.value.replace(/\D/g, '')); setPinError(false); }}
-              onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
-              style={{ background: 'var(--bg3)', border: `2px solid ${pinError ? 'var(--neg)' : 'var(--border)'}`, color: 'var(--text)', fontSize: '1.8rem', padding: '0.75rem', borderRadius: '12px', width: '140px', textAlign: 'center', letterSpacing: '0.75rem', outline: 'none', transition: 'border-color 0.2s', fontFamily: 'monospace' }}
-              autoFocus
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                {[0, 1, 2, 3].map((index) => (
+                  <input
+                    key={index}
+                    ref={(el) => (inputRefs.current[index] = el)}
+                    type={showPin ? "text" : "password"}
+                    maxLength={1}
+                    value={pinInput[index] || ''}
+                    onChange={(e) => handlePinChange(index, e.target.value)}
+                    onKeyDown={(e) => handlePinKeyDown(index, e)}
+                    style={{
+                      background: 'var(--bg3)',
+                      border: `2px solid ${pinError ? 'var(--neg)' : 'var(--border)'}`,
+                      color: 'var(--text)',
+                      fontSize: '1.8rem',
+                      padding: '0.75rem 0',
+                      borderRadius: '12px',
+                      width: '52px',
+                      textAlign: 'center',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      fontFamily: 'monospace'
+                    }}
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </div>
+              <button 
+                onClick={() => setShowPin(!showPin)}
+                style={{ 
+                  background: 'transparent', border: 'none', color: 'var(--text3)', 
+                  fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' 
+                }}
+              >
+                {showPin ? 'Hide PIN' : 'Show PIN'}
+              </button>
+            </div>
             {pinError && <div style={{ color: 'var(--neg)', fontSize: '0.8rem', marginTop: '0.75rem', fontWeight: 600 }}>{savedPin ? 'Incorrect PIN' : 'PIN must be exactly 4 digits'}</div>}
             
             <button
@@ -4571,6 +4625,7 @@ export default function App() {
   const [logoClicks, setLogoClicks] = useState(0);
   const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
   const isAdmin = localStorage.getItem('dt_is_admin') === 'true';
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // The hidden trigger function
   const handleLogoClick = () => {
@@ -4936,35 +4991,54 @@ export default function App() {
       <div className="main-area">
         <header className="topbar">
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            style={{ 
-              background: 'var(--card)', 
-              border: '1px solid var(--border)', 
-              borderRadius: '12px', 
-              padding: '0.45rem 0.85rem', 
-              color: 'var(--text)', 
-              cursor: 'pointer', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              fontSize: '0.85rem', 
-              fontWeight: 600,
-              transition: 'all 0.2s',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-          >
-            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
-          </button>
-  
-        <button onClick={logout} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.4rem 0.8rem', color: 'var(--text)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
-          🚪 Logout
-        </button>
-      </div>
-      </header>        
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            
+            {/* 1. Theme Toggle (Icons Only) */}
+            <button 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              ) : (
+                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+              )}
+            </button>
+
+            {/* 2. Hamburger Menu */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
+              >
+                <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </button>
+
+              {isMenuOpen && (
+                <div style={{
+                  position: 'absolute', right: 0, top: '100%', marginTop: '0.5rem',
+                  background: 'var(--card)', border: '1px solid var(--border)', 
+                  borderRadius: '12px', padding: '0.5rem', zIndex: 100,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)', minWidth: '150px'
+                }}>
+                  <button 
+                    onClick={() => { setIsMenuOpen(false); logout(); }} 
+                    style={{ 
+                      width: '100%', background: 'rgba(239, 68, 68, 0.1)', 
+                      border: 'none', borderRadius: '8px', padding: '0.6rem 1rem', 
+                      color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem', 
+                      fontWeight: 600, textAlign: 'left', display: 'flex', gap: '8px'
+                    }}
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </header>      
       <main className="page-body" key={tab}>
           {renderTab()}
         </main>
