@@ -2397,24 +2397,41 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
             placeholder="Select Category" width="100%" 
           />
           
-          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+         <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {/* 1. Invested Amount */}
             <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
-            <input className="inp" type="number" placeholder="Current Value" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1 }} />
+            
+            {/* 2. Current Value (Smart & Centralized) */}
+            <div style={{ position: 'relative' }}>
+              <input 
+                className="inp" type="number" placeholder="Current Value" 
+                value={form.current_value} 
+                onChange={e => setForm({...form, current_value: e.target.value})} 
+                disabled={!!form.interest_rate} 
+                style={{ 
+                  opacity: form.interest_rate ? 0.5 : 1, 
+                  cursor: form.interest_rate ? 'not-allowed' : 'text',
+                  background: form.interest_rate ? 'var(--bg3)' : 'var(--card)'
+                }}
+              />
+              {!!form.interest_rate && (
+                <div style={{ position: 'absolute', right: '10px', top: '10px', fontSize: '0.65rem', color: 'var(--text3)' }}>Auto</div>
+              )}
+            </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
-                  {isLedgerOrMarket && (
-                    <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually when your real returns are declared." 
-                          style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
-                  )}
-               </div>
-               <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
-            </div>
+          {/* 3. Interest Rate Row */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+                {isLedgerOrMarket && (
+                  <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually." 
+                        style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                )}
+             </div>
+             <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -2522,27 +2539,41 @@ function AddManualAssetModal({ onClose, onAdd }) {
             options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
             placeholder="Select Category" width="100%"
           />
-          <input className="inp" placeholder="Asset Name (e.g., HDFC FD)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {/* 1. Invested Amount */}
             <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
-            <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} />
+            
+            {/* 2. Current Value (Smart & Centralized) */}
+            <div style={{ position: 'relative' }}>
+              <input 
+                className="inp" type="number" placeholder="Current Value" 
+                value={form.current_value} 
+                onChange={e => setForm({...form, current_value: e.target.value})} 
+                disabled={!!form.interest_rate} 
+                style={{ 
+                  opacity: form.interest_rate ? 0.5 : 1, 
+                  cursor: form.interest_rate ? 'not-allowed' : 'text',
+                  background: form.interest_rate ? 'var(--bg3)' : 'var(--card)'
+                }}
+              />
+              {!!form.interest_rate && (
+                <div style={{ position: 'absolute', right: '10px', top: '10px', fontSize: '0.65rem', color: 'var(--text3)' }}>Auto</div>
+              )}
+            </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
-                  {isLedgerOrMarket && (
-                    <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually when your real returns are declared." 
-                          style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
-                  )}
-               </div>
-               <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'flex-end' }}>
-               <input className="inp" type="number" placeholder="Current Value (Optional)" value={form.current_value} onChange={e => setForm({...form, current_value: e.target.value})} disabled={!!form.interest_rate} style={{ opacity: form.interest_rate ? 0.5 : 1, height: '40px' }} title={form.interest_rate ? "Auto-calculated based on Interest Rate" : ""} />
-            </div>
+          {/* 3. Interest Rate Row */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+                {isLedgerOrMarket && (
+                  <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually." 
+                        style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                )}
+             </div>
+             <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -2589,12 +2620,21 @@ function AddManualAssetModal({ onClose, onAdd }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
               <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem' }}>
-                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
-                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '40px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
-                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
-                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
-                   </select>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', flex: 1 }}>
+                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
+                     <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', padding: '0.65rem 0.25rem', background: 'transparent' }} />
+                  </div>
+                  <CustomSelect 
+                    value={form.interval_unit} 
+                    onChange={val => setForm({...form, interval_unit: val})} 
+                    options={[
+                      { label: 'Days', value: 'days' },
+                      { label: 'Months', value: 'months' },
+                      { label: 'Years', value: 'years' }
+                    ]} 
+                    minWidth="105px" 
+                  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                    <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
