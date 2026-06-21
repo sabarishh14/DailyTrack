@@ -2458,21 +2458,38 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
             </div>
           </div>
 
+          {/* New Flexbox Recurring Section */}
           {form.is_recurring && !isMath && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
-              <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem' }}>
-                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
-                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '40px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
-                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
-                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
-                   </select>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                   <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 100%' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Amount to Add (₹)</label>
+                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 220px' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Frequency</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
+                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
+                     <input type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
+                   </div>
+                   <div style={{ flex: '1 1 140px' }}>
+                     <CustomSelect 
+                       value={form.interval_unit} 
+                       onChange={val => setForm({...form, interval_unit: val})} 
+                       options={[{label: 'Days', value: 'days'}, {label: 'Months', value: 'months'}, {label: 'Years', value: 'years'}]} 
+                       placeholder="Unit"
+                     />
+                   </div>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
+                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
+                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
+              </div>
+
             </div>
           )}
 
@@ -2637,20 +2654,27 @@ function AddManualAssetModal({ onClose, onAdd }) {
                 <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 220px' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Frequency</label>
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '40px' }}>
-                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
-                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '50px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
-                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
-                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
-                   </select>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
+                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
+                     <input type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
+                   </div>
+                   <div style={{ flex: '1 1 140px' }}>
+                     <CustomSelect 
+                       value={form.interval_unit} 
+                       onChange={val => setForm({...form, interval_unit: val})} 
+                       options={[{label: 'Days', value: 'days'}, {label: 'Months', value: 'months'}, {label: 'Years', value: 'years'}]} 
+                       placeholder="Unit"
+                     />
+                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
                  <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
-                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '40px' }} />
+                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
               </div>
 
             </div>

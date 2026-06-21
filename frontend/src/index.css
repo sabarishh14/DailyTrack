@@ -288,9 +288,11 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 
 /* Dropdown Sticky Search */
 .chip-search-container {
-  padding: 0.4rem 0.5rem; position: sticky; top: 0; 
-  background: #1a2235; z-index: 2; 
-  border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.2rem;
+  padding: 0.4rem 0.5rem; position: sticky; top: -0.375rem; 
+  background: #1a2235; z-index: 10; 
+  border-bottom: 1px solid rgba(255,255,255,0.05); 
+  margin: -0.375rem -0.375rem 0.2rem -0.375rem;
+  border-radius: 12px 12px 0 0;
 }
 [data-theme="light"] .chip-search-container {
   background: var(--card); border-bottom-color: var(--border2);
@@ -1222,7 +1224,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .fab-actions { display: flex; gap: 0.5rem; }
 
 /* Make checkboxes visible in Light Mode */
-[data-theme="light"] .chip-checkbox { border-color: var(--border2); background: white; }
+[data-theme="light"] .chip-checkbox:not(.included) { border-color: var(--border2); background: white; }
+[data-theme="light"] .chip-checkbox.included { background: var(--accent); border-color: var(--accent); }
 
 @media (max-width: 768px) {
   .floating-action-bar {
