@@ -205,6 +205,15 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
   const [showBalances, setShowBalances] = useState(false); // <-- Default to hidden for privacy
   const [showInvestments, setShowInvestments] = useState(false);
 
+  // 🚀 GLOBAL ESCAPE: Closes Home-level Modals
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setIsReconcileOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   // Trigger the background fetch when looking at the money section
   useEffect(() => {
     if (fetchAllTransactions) {
@@ -708,6 +717,20 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   /// Change actions: 90 to actions: 130
   const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
 
+  // 🚀 GLOBAL ESCAPE: Closes Money-level Modals
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setEditingTx(null);
+        setIsBulkEditOpen(false);
+        setIsCategoryModalOpen(false);
+        setActionMenuTx(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   // Reset to page 0 when filters change
   useEffect(() => {
     setCurrentPage(0);
@@ -1058,34 +1081,36 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         {openDropdown === dropdownKey && (
           <div className="chip-dropdown">
             
-            <div className="chip-helper-text">
-              Tap once to include • Tap again to exclude
-            </div>
-
-            {options.length > 5 && (
-              <div className="chip-search-container">
-                <input 
-                  type="text" 
-                  placeholder={`Search ${label}...`}
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="chip-search-input"
-                  onClick={e => e.stopPropagation()}
-                />
+            {/* 🚀 STICKY HEADER GROUP */}
+            <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+              <div className="chip-helper-text" style={{ margin: '0.4rem 0.5rem 0' }}>
+                Tap once to include • Tap again to exclude
               </div>
-            )}
-            {options.length > 0 && (
-              <>
+
+              {options.length > 5 && (
+                <div style={{ padding: '0.4rem 0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder={`Search ${label}...`}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="chip-search-input"
+                    onClick={e => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              {options.length > 0 && (
                 <div
                   className="chip-dropdown-item chip-select-all"
                   onClick={toggleSelectAll}
-                  style={{ fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '4px' }}
+                  style={{ fontWeight: 600, borderRadius: 0, padding: '0.6rem 0.65rem', borderTop: options.length > 5 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
                 >
                   <div className={`chip-checkbox ${allSelected ? 'included' : ''}`} />
                   <span>{allSelected ? 'Clear All' : 'Select All'}</span>
                 </div>
-              </>
-            )}
+              )}
+            </div>
+
             {filteredOptions.map(opt => (
               <div
                 key={opt}
@@ -3233,20 +3258,25 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
       
       {isOpen && createPortal(
         <div className="chip-dropdown" ref={dropdownRef} style={{ ...dropdownStyle, maxHeight: '300px' }}>
-          {options.length > 5 && (
-            <div className="chip-search-container">
-              <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="chip-search-input" onClick={e => e.stopPropagation()} />
-            </div>
-          )}
-          {selectedAssets.size > 0 && (
-            <div 
-              className="chip-dropdown-item" 
-              onClick={(e) => { e.stopPropagation(); setSelectedAssets(new Set()); setIsOpen(false); setSearchTerm(""); }} 
-              style={{ fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '4px', color: 'var(--neg)', justifyContent: 'center' }}
-            >
-              ✕ Clear Selection
-            </div>
-          )}
+          
+          {/* 🚀 STICKY HEADER GROUP */}
+          <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+            {options.length > 5 && (
+              <div style={{ padding: '0.4rem 0.5rem' }}>
+                <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="chip-search-input" onClick={e => e.stopPropagation()} />
+              </div>
+            )}
+            {selectedAssets.size > 0 && (
+              <div 
+                className="chip-dropdown-item" 
+                onClick={(e) => { e.stopPropagation(); setSelectedAssets(new Set()); setIsOpen(false); setSearchTerm(""); }} 
+                style={{ fontWeight: 600, color: 'var(--neg)', justifyContent: 'center', borderRadius: 0, padding: '0.6rem 0.5rem', borderTop: options.length > 5 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+              >
+                ✕ Clear Selection
+              </div>
+            )}
+          </div>
+
           {filtered.map(sym => {
             const isSelected = selectedAssets.has(sym);
             return (
@@ -3287,6 +3317,19 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [showPin, setShowPin] = useState(false);
   const inputRefs = useRef([]);
 
+  // 🚀 GLOBAL ESCAPE: Closes Invest-level Modals
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setIsAddModalOpen(false);
+        setEditingAsset(null);
+        setDrillDownDate(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+  
   const handlePinChange = (index, value) => {
     if (!/^[0-9]*$/.test(value)) return;
     let newPin = (pinInput || '').split('');
@@ -4691,6 +4734,18 @@ export default function App() {
   const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
   const isAdmin = localStorage.getItem('dt_is_admin') === 'true';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 🚀 GLOBAL ESCAPE: Closes App-level Modals
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setIsActivityModalOpen(false);
+        setIsSecretMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   // The hidden trigger function
   const handleLogoClick = () => {
