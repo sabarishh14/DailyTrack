@@ -4246,7 +4246,33 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
                   <div className="analyser-header-title">{section.title}</div>
                 </div>
-                <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {section.id === 'MARKET' && (
+                    <button 
+                      onClick={(e) => {
+                         e.stopPropagation();
+                         if (investments && investments.length >= 2) {
+                           const latestDate = investments[0].date.split('T')[0];
+                           const previousDate = investments[1].date.split('T')[0];
+                           setDrillDownDate(latestDate);
+                           setDrillDownCompareDate(previousDate);
+                           fetchDrillDownData(latestDate, 'EQUITY');
+                           fetchCompareData(previousDate, 'EQUITY');
+                         } else if (investments && investments.length === 1) {
+                           const latestDate = investments[0].date.split('T')[0];
+                           setDrillDownDate(latestDate);
+                           fetchDrillDownData(latestDate, 'EQUITY');
+                         }
+                      }}
+                      style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text1)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text1)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                    >
+                      ⚖️ Compare
+                    </button>
+                  )}
+                  <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
+                </div>
               </div>
 
               {expandedSection === section.id && (
@@ -4575,17 +4601,24 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                 
                 {/* 🚀 THE COMPARE TOOLBAR */}
                 <div style={{ width: '1px', background: 'var(--border)', height: '24px', margin: '0 0.25rem' }}></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '200px' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text2)', fontWeight: 600 }}>Compare vs:</span>
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    <CustomSelect 
-                      value={drillDownCompareDate || ''}
-                      onChange={(val) => fetchCompareData(val, drillDownType)}
-                      options={[{ label: 'None (Standard View)', value: '' }, ...availableCompareDates]}
-                      placeholder="Select a previous date"
-                      width="100%"
-                    />
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {drillDownCompareDate ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--surface)', padding: '0.3rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>vs</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>{formatDate(drillDownCompareDate)}</span>
+                      <button onClick={() => fetchCompareData('', drillDownType)} style={{ background: 'transparent', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: '0 0.2rem', marginLeft: '0.2rem', fontSize: '1rem', lineHeight: 1 }} title="Clear comparison">×</button>
+                    </div>
+                  ) : (
+                    <div style={{ minWidth: '150px' }}>
+                      <CustomSelect 
+                        value=""
+                        onChange={(val) => fetchCompareData(val, drillDownType)}
+                        options={availableCompareDates}
+                        placeholder="⚖️ Compare Past"
+                        width="100%"
+                      />
+                    </div>
+                  )}
                   {(isDrillDownLoading || isCompareLoading) && <span className="loader-spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', flexShrink: 0 }} />}
                 </div>
               </div>
