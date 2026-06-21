@@ -2525,30 +2525,41 @@ function AddManualAssetModal({ onClose, onAdd }) {
         <div className="modal-header"><div className="modal-title">➕ Add Asset</div></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
           
-          <CustomSelect 
-            value={form.category} 
-            onChange={val => {
-              const becomingMath = ['FD', 'RD'].includes(val);
-              const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
-              setForm({
-                ...form, category: val,
-                interest_rate: becomingMarket ? '' : form.interest_rate,
-                is_recurring: becomingMath ? false : form.is_recurring
-              });
-            }} 
-            options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
-            placeholder="Select Category" width="100%"
-          />
-          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Category</label>
+            <CustomSelect 
+              value={form.category} 
+              onChange={val => {
+                const becomingMath = ['FD', 'RD'].includes(val);
+                const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+                setForm({
+                  ...form, category: val,
+                  interest_rate: becomingMarket ? '' : form.interest_rate,
+                  is_recurring: becomingMath ? false : form.is_recurring
+                });
+              }} 
+              options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
+              placeholder="Select Category" width="100%"
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Asset Name</label>
+            <input className="inp" placeholder="e.g., Gold, PPF" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+          </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
             {/* 1. Invested Amount */}
-            <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Invested Amount (₹)</label>
+              <input className="inp" type="number" placeholder="0.00" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+            </div>
             
-            {/* 2. Current Value (Smart & Centralized) */}
-            <div style={{ position: 'relative' }}>
+            {/* 2. Current Value */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Current Value (₹)</label>
               <input 
-                className="inp" type="number" placeholder="Current Value" 
+                className="inp" type="number" placeholder="0.00" 
                 value={form.current_value} 
                 onChange={e => setForm({...form, current_value: e.target.value})} 
                 disabled={!!form.interest_rate} 
@@ -2559,7 +2570,7 @@ function AddManualAssetModal({ onClose, onAdd }) {
                 }}
               />
               {!!form.interest_rate && (
-                <div style={{ position: 'absolute', right: '10px', top: '10px', fontSize: '0.65rem', color: 'var(--text3)' }}>Auto</div>
+                <div style={{ position: 'absolute', right: '10px', top: '32px', fontSize: '0.65rem', color: 'var(--text3)' }}>Auto</div>
               )}
             </div>
           </div>
@@ -2567,7 +2578,7 @@ function AddManualAssetModal({ onClose, onAdd }) {
           {/* 3. Interest Rate Row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</label>
                 {isLedgerOrMarket && (
                   <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually." 
                         style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
@@ -2576,19 +2587,20 @@ function AddManualAssetModal({ onClose, onAdd }) {
              <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
+               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</label>
                <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={{ color: form.start_date ? 'var(--text)' : 'var(--text3)' }} />
                <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>Needed for auto-compound.</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
+               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</label>
                <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
                <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When compounding stops.</span>
             </div>
           </div>
 
+          {/* Automate Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', opacity: isMath ? 0.4 : 1 }}>
             <div 
               onClick={() => !isMath && setForm({...form, is_recurring: !form.is_recurring})}
@@ -2606,8 +2618,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Add a set amount to this asset automatically</div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Additions</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Add amount automatically</div>
               </div>
               {isMath && (
                 <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets." 
@@ -2616,31 +2628,31 @@ function AddManualAssetModal({ onClose, onAdd }) {
             </div>
           </div>
 
+          {/* New Flexbox Recurring Section */}
           {form.is_recurring && !isMath && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
-              <input className="inp" type="number" placeholder="Amount to add (₹)" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', flex: 1 }}>
-                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
-                     <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', padding: '0.65rem 0.25rem', background: 'transparent' }} />
-                  </div>
-                  <CustomSelect 
-                    value={form.interval_unit} 
-                    onChange={val => setForm({...form, interval_unit: val})} 
-                    options={[
-                      { label: 'Days', value: 'days' },
-                      { label: 'Months', value: 'months' },
-                      { label: 'Years', value: 'years' }
-                    ]} 
-                    minWidth="105px" 
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                   <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
-                   <span style={{ fontSize: '0.65rem', color: 'rgba(52, 211, 153, 0.8)', lineHeight: '1.2' }}>Trigger date.</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 100%' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Amount to Add (₹)</label>
+                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Frequency</label>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '40px' }}>
+                   <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem', borderRight: '1px solid var(--border)' }}>Every</span>
+                   <input className="inp" type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '50px', padding: '0.65rem 0.25rem', background: 'transparent' }} />
+                   <select className="sel" value={form.interval_unit} onChange={e => setForm({...form, interval_unit: e.target.value})} style={{ border: 'none', background: 'transparent', padding: '0.65rem 0', color: 'var(--text2)' }}>
+                     <option value="days">Days</option><option value="months">Months</option><option value="years">Years</option>
+                   </select>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
+                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
+                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '40px' }} />
+              </div>
+
             </div>
           )}
 
@@ -4112,13 +4124,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                       {!isMobile ? (
                         /* 🖥️ DESKTOP: Classic Data Table */
                         <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
-                          <div className="data-table" style={{ minWidth: '850px' }}>
-                            <div className="table-header" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1.2fr' }}>
-                              <span onClick={() => handleSort('date')}>Date {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <div className="data-table" style={{ minWidth: '750px' }}>
+                            <div className="table-header" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr' }}>
+                              <span onClick={() => handleSort('date')}>SYNC DATE {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                               <span onClick={() => handleSort('ret_amount')}>RETURNS {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span>Action</span>
                             </div>
                             {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
                               const ret = inv.total_curr - inv.total_inv;
@@ -4127,11 +4138,14 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   key={i} 
                                   className={`table-row ${i%2===0?'row-even':''}`} 
                                   onClick={() => openDrillDown(inv.date.split('T')[0])} 
-                                  style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr 1.2fr', transition: 'background 0.2s' }}
+                                  style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr', transition: 'background 0.2s' }}
                                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
                                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                  title="Click to view split"
                                 >
-                                  <span style={{ fontWeight: 600 }}>{formatDate(inv.date)}</span>
+                                  <span style={{ fontWeight: 600, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    🔍 {formatDate(inv.date)}
+                                  </span>
                                   <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
                                   <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
                                   
@@ -4140,8 +4154,6 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                     <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
                                     <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({inv.total_ret_pct >= 0 ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
                                   </span>
-
-                                  <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>🔍 View Split</span>
                                 </div>
                               );
                             }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
@@ -4164,8 +4176,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                 {/* Top Row: Date & Action */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                   <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>📅 {formatDate(inv.date)}</span>
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, background: 'rgba(99,102,241,0.1)', padding: '0.3rem 0.8rem', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    🔍 View Split
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    Tap for Split ❯
                                   </span>
                                 </div>
                                 {/* Metrics Grid */}
@@ -4518,6 +4530,35 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           </div>
         </div>
       )}
+
+      {/* 🚀 FLOATING HIDE/SHOW TOGGLE */}
+      <button
+        onClick={() => setShowBalances(!showBalances)}
+        title={showBalances ? "Hide Balances" : "Show Balances"}
+        style={{
+          position: 'fixed',
+          bottom: isMobile ? '85px' : '30px', /* Stays above mobile bottom nav */
+          right: '20px',
+          zIndex: 999,
+          width: '50px',
+          height: '50px',
+          borderRadius: '25px',
+          background: 'var(--card)',
+          border: '1px solid var(--accent)',
+          fontSize: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+          cursor: 'pointer',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(99,102,241,0.4)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.4)'; }}
+      >
+        {showBalances ? '🙈' : '👁️'}
+      </button>
+
     </div>
   </div>
   );
