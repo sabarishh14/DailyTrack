@@ -4188,11 +4188,29 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Pie>
                 <Tooltip 
-                  offset={25}
-                  allowEscapeViewBox={{ x: true, y: true }}
-                  formatter={(value) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                  contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                  itemStyle={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
+                  position={{ x: 110, y: 110 }}
+                  wrapperStyle={{ pointerEvents: 'none', zIndex: 10 }}
+                  cursor={false}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div style={{ 
+                          transform: 'translate(-50%, -50%)', textAlign: 'center', background: 'var(--card)', borderRadius: '50%', 
+                          width: '140px', height: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.15)' 
+                        }}>
+                          <div style={{ fontSize: '0.7rem', color: data.fill, fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px', padding: '0 10px' }}>
+                            {data.name.toUpperCase()}
+                          </div>
+                          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.1rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '2px' }}>
+                            {showBalances ? fmt(data.value) : '₹ ••••••'}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
