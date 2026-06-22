@@ -18,20 +18,20 @@ const auth = getAuth(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
 
 // Use environment variable for API URL, with fallback for development
-const API = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === "localhost" 
-    ? "http://localhost:5000/api" 
+const API = import.meta.env.VITE_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000/api"
     : window.location.origin + "/api");
 
 const getToken = () => localStorage.getItem('dt_token');
 
 const BANKS = {
-  KOTAK:  { emoji: "🔴", color: "#ef4444" },
-  IDBI:   { emoji: "🟢", color: "#22c55e" },
-  FEDERAL:{ emoji: "🟠", color: "#f97316" },
-  CUB:    { emoji: "🟣", color: "#a855f7" },
+  KOTAK: { emoji: "🔴", color: "#ef4444" },
+  IDBI: { emoji: "🟢", color: "#22c55e" },
+  FEDERAL: { emoji: "🟠", color: "#f97316" },
+  CUB: { emoji: "🟣", color: "#a855f7" },
   INDIAN: { emoji: "🔵", color: "#3b82f6" },
-  ICICI:  { emoji: "🟡", color: "#eab308" },
+  ICICI: { emoji: "🟡", color: "#eab308" },
   "CC-PINNACLE 6360": { emoji: "💳", color: "#ec4899" },
   "CC-SBI 0033": { emoji: "💳", color: "#ec4899" },
   "CC-ICICI SAFFIRE": { emoji: "💳", color: "#ec4899" },
@@ -54,7 +54,7 @@ const getBankEmoji = (accountName) => {
 };
 
 
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const TABS = [
   { id: 0, icon: "🏠", label: "Home" },
@@ -79,7 +79,7 @@ function fmtPct(n) {
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
-  return `${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(2)}`;
+  return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
 }
 
 function LoadingScreen() {
@@ -105,7 +105,7 @@ function LoadingScreen() {
       </div>
       {showWakeMsg && (
         <div style={{ color: 'var(--text2)', fontSize: '0.9rem', marginTop: '1rem', animation: 'fadeIn 0.5s ease', textAlign: 'center' }}>
-          Waking up the server...<br/>
+          Waking up the server...<br />
           <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>(This can take up to 1-2 minutes on free tiers)</span>
         </div>
       )}
@@ -122,7 +122,7 @@ function LoginPage({ onLogin }) {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-      
+
       // Send Firebase token to our backend to verify + get our JWT
       const res = await fetch(`${API}/auth/firebase-login`, {
         method: 'POST',
@@ -130,7 +130,7 @@ function LoginPage({ onLogin }) {
         body: JSON.stringify({ id_token: idToken })
       });
       const data = await res.json();
-      
+
       if (data.success) {
         localStorage.setItem('dt_token', data.token);
         if (data.isAdmin) localStorage.setItem('dt_is_admin', 'true');
@@ -148,7 +148,7 @@ function LoginPage({ onLogin }) {
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '20px', padding: '2.5rem', width: '100%', maxWidth: '380px', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-        
+
         <div style={{ textAlign: 'center' }}>
           <span className="logo-name" style={{ fontSize: '2rem' }}>DailyTrack</span>
           <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '0.4rem' }}>Personal Dashboard</div>
@@ -172,10 +172,10 @@ function LoginPage({ onLogin }) {
           {loading ? '⏳ Signing in...' : (
             <>
               <svg width="18" height="18" viewBox="0 0 48 48">
-                <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/>
-                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
-                <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.5 5C9.5 39.6 16.3 44 24 44z"/>
-                <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.6 5.8l6.2 5.2C40.7 35.7 44 30.3 44 24c0-1.3-.1-2.7-.4-4z"/>
+                <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z" />
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" />
+                <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.5 5C9.5 39.6 16.3 44 24 44z" />
+                <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.6 5.8l6.2 5.2C40.7 35.7 44 30.3 44 24c0-1.3-.1-2.7-.4-4z" />
               </svg>
               Sign in with Google
             </>
@@ -266,15 +266,15 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 
       // 2. The Confirmation Prompt (Mimicking your old y/n console check!)
       const isConfirmed = window.confirm(`You have ${checkData.count} unsynced transaction(s). Ready to send them to Google Sheets?`);
-      
+
       // If you click Cancel, we stop right here.
-      if (!isConfirmed) return; 
+      if (!isConfirmed) return;
 
       // 3. If confirmed, lock the button and do the actual sync
       setSyncingSheetsTransactions(true);
       const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
-      
+
       if (data.success) {
         alert("✅ " + data.message);
       } else {
@@ -306,13 +306,13 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
       (p.gym || p.badminton || p.table_tennis || p.cricket || p.others);
   }).length;
 
-  
+
   // Money section: Income/Expenses by month
-  const moneyML = `${moneyYear}-${String(moneyMonth+1).padStart(2,'0')}`;
+  const moneyML = `${moneyYear}-${String(moneyMonth + 1).padStart(2, '0')}`;
   const moneyTransactions = transactions.filter(t => {
     if (!t.date) return false;
     const d = new Date(t.date);
-    const ml = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const ml = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     return ml === moneyML;
   });
 
@@ -345,7 +345,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
               <div className="nw-value">{showBalances ? fmt(netWorth) : '₹ ••••••'}</div>
               <div className="nw-sub">Across {accounts.length} accounts</div>
             </div>
-            <button 
+            <button
               onClick={() => setShowBalances(!showBalances)}
               style={{ position: 'relative', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', fontSize: '1.2rem' }}
               title={showBalances ? "Hide Balances" : "Show Balances"}
@@ -363,17 +363,17 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
             <div className="phys-info-sub">{MONTHS[physMonth]} {physYear}</div>
           </div>
           <div className="phys-controls">
-            <CustomSelect 
-              value={physMonth} 
-              onChange={val => setPhysMonth(parseInt(val))} 
-              options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
-              minWidth="120px" 
+            <CustomSelect
+              value={physMonth}
+              onChange={val => setPhysMonth(parseInt(val))}
+              options={MONTHS.map((m, i) => ({ label: m, value: i }))}
+              minWidth="120px"
             />
-            <CustomSelect 
-              value={physYear} 
-              onChange={val => setPhysYear(parseInt(val))} 
-              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
-              minWidth="90px" 
+            <CustomSelect
+              value={physYear}
+              onChange={val => setPhysYear(parseInt(val))}
+              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+              minWidth="90px"
             />
           </div>
         </div>
@@ -382,10 +382,10 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
       {/* Accounts */}
       <section className="section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-           <h2 className="section-title" style={{ margin: 0 }}>🏦 Account Balances</h2>
-           <button className="action-btn secondary" onClick={() => setIsReconcileOpen(true)} style={{ padding: '0.45rem 1rem' }}>
-             ⚖️ Reconcile
-           </button>
+          <h2 className="section-title" style={{ margin: 0 }}>🏦 Account Balances</h2>
+          <button className="action-btn secondary" onClick={() => setIsReconcileOpen(true)} style={{ padding: '0.45rem 1rem' }}>
+            ⚖️ Reconcile
+          </button>
         </div>
         <div className="accounts-grid">
           {accounts
@@ -394,11 +394,11 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
               // Sort them strictly by the order defined in the BANKS object
               const orderA = Object.keys(BANKS).indexOf(a.account);
               const orderB = Object.keys(BANKS).indexOf(b.account);
-              
+
               // If an account isn't in the BANKS list, push it to the very end
               const indexA = orderA === -1 ? 999 : orderA;
               const indexB = orderB === -1 ? 999 : orderB;
-              
+
               return indexA - indexB;
             })
             .map(a => (
@@ -416,7 +416,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
             ))}
         </div>
       </section>
-      
+
       {/* Investments */}
       <section className="section">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -430,10 +430,10 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
           </button>
           <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
         </div>
-      <div className="inv-summary-grid">
+        <div className="inv-summary-grid">
           {[
             { label: "Date", val: latestDate, color: "text3" },
-           { label: "Invested", val: showInvestments ? fmt(totalInvested) : '₹ ••••••', color: null },
+            { label: "Invested", val: showInvestments ? fmt(totalInvested) : '₹ ••••••', color: null },
             { label: "Current Value", val: showInvestments ? fmt(totalCurrent) : '₹ ••••••', color: null },
             { label: "Returns ₹", val: showInvestments ? fmt(totalReturn) : '₹ ••••••', color: totalReturn >= 0 ? "pos" : "neg" },
             { label: "Returns %", val: showInvestments ? fmtPct(totalRetPct) : '••••', color: totalRetPct >= 0 ? "pos" : "neg" },
@@ -451,71 +451,71 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 className="section-title" style={{ margin: 0 }}>💰 Money</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <CustomSelect 
-              value={moneyMonth} 
-              onChange={val => setMoneyMonth(parseInt(val))} 
-              options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
-              minWidth="140px" 
+            <CustomSelect
+              value={moneyMonth}
+              onChange={val => setMoneyMonth(parseInt(val))}
+              options={MONTHS.map((m, i) => ({ label: m, value: i }))}
+              minWidth="140px"
             />
-            <CustomSelect 
-              value={moneyYear} 
-              onChange={val => setMoneyYear(parseInt(val))} 
-              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
-              minWidth="100px" 
+            <CustomSelect
+              value={moneyYear}
+              onChange={val => setMoneyYear(parseInt(val))}
+              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+              minWidth="100px"
             />
           </div>
         </div>
-       <div className="money-top">
-        <div className="money-col">
-          <div className="col-title income-title">💚 Income by Account</div>
-          {accounts
-            .filter(a => a.balance_tracked) // only show balance-tracked accounts
-            .map(a => (
-              <div key={a.account} className="acc-row">
-                <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
-                <span className="pos">{fmt(income[a.account] || 0)}</span>
-              </div>
-            ))}
-          <div className="acc-row" style={{fontWeight:700}}>
-            <div>Total</div>
-            <span className="pos">
-              {fmt(
-                accounts
-                  .filter(a => a.balance_tracked)
-                  .reduce((sum, a) => sum + (income[a.account] || 0), 0)
-              )}
-            </span>
+        <div className="money-top">
+          <div className="money-col">
+            <div className="col-title income-title">💚 Income by Account</div>
+            {accounts
+              .filter(a => a.balance_tracked) // only show balance-tracked accounts
+              .map(a => (
+                <div key={a.account} className="acc-row">
+                  <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
+                  <span className="pos">{fmt(income[a.account] || 0)}</span>
+                </div>
+              ))}
+            <div className="acc-row" style={{ fontWeight: 700 }}>
+              <div>Total</div>
+              <span className="pos">
+                {fmt(
+                  accounts
+                    .filter(a => a.balance_tracked)
+                    .reduce((sum, a) => sum + (income[a.account] || 0), 0)
+                )}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div className="money-col">
-          <div className="col-title expense-title">❤️ Expenses by Account</div>
-          {accounts
-            .filter(a => a.balance_tracked) // only show balance-tracked accounts
-            .map(a => (
-              <div key={a.account} className="acc-row">
-                <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
-                <span className="neg">{fmt(expense[a.account] || 0)}</span>
-              </div>
-            ))}
-          <div className="acc-row" style={{fontWeight:700}}>
-            <div>Total</div>
-            <span className="neg">
-              {fmt(
-                accounts
-                  .filter(a => a.balance_tracked)
-                  .reduce((sum, a) => sum + (expense[a.account] || 0), 0)
-              )}
-            </span>
+          <div className="money-col">
+            <div className="col-title expense-title">❤️ Expenses by Account</div>
+            {accounts
+              .filter(a => a.balance_tracked) // only show balance-tracked accounts
+              .map(a => (
+                <div key={a.account} className="acc-row">
+                  <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
+                  <span className="neg">{fmt(expense[a.account] || 0)}</span>
+                </div>
+              ))}
+            <div className="acc-row" style={{ fontWeight: 700 }}>
+              <div>Total</div>
+              <span className="neg">
+                {fmt(
+                  accounts
+                    .filter(a => a.balance_tracked)
+                    .reduce((sum, a) => sum + (expense[a.account] || 0), 0)
+                )}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
       </section>
       {isReconcileOpen && (
-        <ReconciliationModal 
-          accounts={accounts} 
-          onClose={() => setIsReconcileOpen(false)} 
-          onRefresh={onRefresh} 
+        <ReconciliationModal
+          accounts={accounts}
+          onClose={() => setIsReconcileOpen(false)}
+          onRefresh={onRefresh}
         />
       )}
     </div> // This is the closing div of HomeTab
@@ -526,11 +526,11 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 function CustomPieTooltip({ active, payload, pieData }) {
   if (!active || !payload || !payload[0] || !pieData) return null;
   const { value, name } = payload[0];
-  
+
   // Dynamically calculate the total and percentage
   const total = pieData.reduce((sum, item) => sum + item.value, 0);
   const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-  
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, #1a2235 0%, #0d1117 100%)',
@@ -575,7 +575,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     // 🚨 REMOVED the window.addEventListener('scroll') because it instantly 
     // closes the dropdown on mobile when trying to swipe through the options!
 
@@ -587,20 +587,20 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
   const toggleDropdown = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      
+
       // Smart Alignment: If the button is on the right side of the screen, open to the left
       const isRightSide = rect.right > window.innerWidth * 0.6;
-      
+
       setDropdownStyle({
         position: 'fixed',
         top: `${rect.bottom + 4}px`,
         left: isRightSide ? 'auto' : `${rect.left}px`,
         right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
         minWidth: `${rect.width}px`, // Matches the button exactly instead of forcing 180px
-        zIndex: 999999 
+        zIndex: 999999
       });
     }
     setIsOpen(!isOpen);
@@ -619,11 +619,11 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
       <button
         className={`filter-chip ${isOpen ? 'open' : ''}`}
         onClick={toggleDropdown}
-        style={{ 
-          width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem', 
-          height: '36px', borderRadius: '8px', margin: 0, 
-          border: isOpen ? '1px solid var(--accent)' : '1px solid var(--border)', 
-          color: isOpen ? 'var(--accent)' : 'var(--text)' 
+        style={{
+          width: '100%', minWidth, justifyContent: 'space-between', padding: '0.45rem 0.85rem',
+          height: '36px', borderRadius: '8px', margin: 0,
+          border: isOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
+          color: isOpen ? 'var(--accent)' : 'var(--text)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
@@ -632,12 +632,12 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         </div>
         <span className="chip-arrow">▼</span>
       </button>
-      
+
       {isOpen && createPortal(
-        <div 
-          className="chip-dropdown" 
+        <div
+          className="chip-dropdown"
           ref={dropdownRef}
-          style={{ ...dropdownStyle }} 
+          style={{ ...dropdownStyle }}
         >
           {options.length > 5 && (
             <div className="chip-search-container">
@@ -649,10 +649,10 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
             const lbl = typeof opt === 'object' ? opt.label : opt;
             const isSelected = val === value;
             return (
-              <div 
-                key={i} 
-                className={`chip-dropdown-item ${isSelected ? 'selected' : ''}`} 
-                onClick={() => { onChange(val); setIsOpen(false); setSearchTerm(""); }} 
+              <div
+                key={i}
+                className={`chip-dropdown-item ${isSelected ? 'selected' : ''}`}
+                onClick={() => { onChange(val); setIsOpen(false); setSearchTerm(""); }}
                 // ⬇️ FIXED: Removed the massive inline padding so CSS can correctly shrink the rows
                 style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}
               >
@@ -672,7 +672,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
 function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
-  
+
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -703,17 +703,17 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   // Dropdown visibility
   const [openDropdown, setOpenDropdown] = useState(null);
-  
+
   // Table sorting
   const [sortBy, setSortBy] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  
+
   const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
-  
+
   /// Change actions: 90 to actions: 130
   const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
 
@@ -763,7 +763,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     if (!filterDateFromDebounced) return;
     const from = new Date(filterDateFromDebounced);
     const to = filterDateToDebounced ? new Date(filterDateToDebounced) : from;
-    
+
     // Collect all months between from and to
     const months = new Set();
     const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
@@ -790,13 +790,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         if (isNaN(d.getTime())) return null;
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       }))]
-      .filter(Boolean)
-      .sort().reverse()
-      .map(ym => {
-        const [y, m] = ym.split('-');
-        const d = new Date(y, m - 1, 1);
-        return `${d.toLocaleString('default', { month: 'long' })} ${y}`;
-      }),
+        .filter(Boolean)
+        .sort().reverse()
+        .map(ym => {
+          const [y, m] = ym.split('-');
+          const d = new Date(y, m - 1, 1);
+          return `${d.toLocaleString('default', { month: 'long' })} ${y}`;
+        }),
       // --- ADD THIS BLOCK FOR YEARS ---
       allYears: [...new Set(transactions.map(t => {
         if (!t.date) return null;
@@ -804,8 +804,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         if (isNaN(d.getTime())) return null;
         return d.getFullYear().toString();
       }))]
-      .filter(Boolean)
-      .sort().reverse(),
+        .filter(Boolean)
+        .sort().reverse(),
       // --------------------------------
       allHeadings: [...new Set(transactions.map(t => t.heading))].sort(),
       allAccountsList: [...new Set(transactions.map(t => t.account))].sort(),
@@ -822,7 +822,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     return true;
   };
 
- // Memoize analyzer filtered results (with Drill-Down logic)
+  // Memoize analyzer filtered results (with Drill-Down logic)
   const { analyzerFiltered, pieArr, isShowingDescriptions } = useMemo(() => {
     const filtered = transactions.filter(t => {
       if (t.exclude_analytics) return false; // Hides it from charts and stats
@@ -845,17 +845,17 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     // If exactly one heading is included, drill down into descriptions!
     const isShowingDescriptions = chartHeadings.included.size === 1;
     const pieData = {};
-    
-    filtered.forEach(t => { 
+
+    filtered.forEach(t => {
       let key = t.heading;
       if (isShowingDescriptions) {
         key = (t.description && t.description.trim() !== '') ? t.description.trim() : "No Description";
       }
-      pieData[key] = (pieData[key] || 0) + Math.abs(parseFloat(t.amount)); 
+      pieData[key] = (pieData[key] || 0) + Math.abs(parseFloat(t.amount));
     });
-    
-    const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
-    
+
+    const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
   }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
 
@@ -879,14 +879,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         return txDate >= from && txDate <= to;
       })();
       const monthMatch = checkMatch(filterMonths, ml);
-      
+
       const yearStr = d.getFullYear().toString();
       const yearMatch = checkMatch(filterYears, yearStr);
-      
+
       const typeMatch = checkMatch(filterTypes, capitalizedType);
       const headingMatch = checkMatch(filterHeadings, t.heading);
       const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-      
+
       const visibilityMatch = (() => {
         if (filterVisibility.included.size === 0 && filterVisibility.excluded.size === 0) return true;
         const statusLabel = t.exclude_analytics ? "Excluded" : "Active";
@@ -918,15 +918,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         aVal = a.description || '';
         bVal = b.description || '';
       }
-      
+
       if (typeof aVal === 'string') {
         const res = sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         // Tie-breaker: If dates/strings are identical, show the most recently added first
-        return res !== 0 ? res : b.id - a.id; 
+        return res !== 0 ? res : b.id - a.id;
       } else {
         const res = sortDir === 'asc' ? aVal - bVal : bVal - aVal;
         // Tie-breaker: If numbers are identical, show the most recently added first
-        return res !== 0 ? res : b.id - a.id; 
+        return res !== 0 ? res : b.id - a.id;
       }
     });
   }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, filterVisibility, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
@@ -944,30 +944,30 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     setCurrentPage(0);
   }, [filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced]);
 
-  const PIE_COLORS = ["#6366f1","#8b5cf6","#d946ef","#ec4899","#f43f5e","#f97316","#eab308","#84cc16","#22c55e","#10b981","#14b8a6","#06b6d4"];
+  const PIE_COLORS = ["#6366f1", "#8b5cf6", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#84cc16", "#22c55e", "#10b981", "#14b8a6", "#06b6d4"];
 
   // Handle column resize
   const handleStartResize = (col, e) => {
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = colWidths[col];
-    
+
     const handleMouseMove = (me) => {
       const diff = me.clientX - startX;
       const minWidths = { date: 80, account: 200, type: 90, month: 100, amount: 120, heading: 100, desc: 100 };
       const newWidth = Math.max(minWidths[col] || 60, startWidth + diff);
       setColWidths(w => ({ ...w, [col]: newWidth }));
     };
-    
+
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
-  
+
   const handleSortClick = (col) => {
     if (sortBy === col) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -1017,7 +1017,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const MultiSelectDropdown = ({ label, icon, options, filterState, setFilterState, dropdownKey }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const { included, excluded } = filterState;
-    
+
     // Clear search when dropdown closes
     useEffect(() => {
       if (openDropdown !== dropdownKey) setSearchTerm("");
@@ -1025,7 +1025,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
     const filteredOptions = options.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()));
     const allSelected = included.size === options.length && options.length > 0;
-    
+
     // 3-State Toggle: Neutral -> Included -> Excluded -> Neutral
     const handleItemClick = (opt) => {
       const newInc = new Set(included);
@@ -1049,7 +1049,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         setFilterState({ included: new Set(options), excluded: new Set() });
       }
     };
-    
+
     const hasSelection = included.size > 0 || excluded.size > 0;
     const isExcludeOnly = included.size === 0 && excluded.size > 0;
 
@@ -1061,14 +1061,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         >
           <span>{icon}</span>
           <span style={{ textDecoration: isExcludeOnly ? 'line-through' : 'none', opacity: isExcludeOnly ? 0.8 : 1 }}>{label}</span>
-          
+
           {/* Dual Status Counters */}
           {included.size > 0 && <span className="chip-count inc">{included.size}</span>}
           {excluded.size > 0 && <span className="chip-count exc">{excluded.size}</span>}
 
           {hasSelection && (
-            <span 
-              className="chip-clear" 
+            <span
+              className="chip-clear"
               onClick={(e) => { e.stopPropagation(); setFilterState({ included: new Set(), excluded: new Set() }); }}
               title="Clear filter"
             >
@@ -1080,7 +1080,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
         {openDropdown === dropdownKey && (
           <div className="chip-dropdown">
-            
+
             {/* 🚀 STICKY HEADER GROUP */}
             <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
               <div className="chip-helper-text" style={{ margin: '0.4rem 0.5rem 0' }}>
@@ -1089,8 +1089,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
               {options.length > 5 && (
                 <div style={{ padding: '0.4rem 0.5rem' }}>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder={`Search ${label}...`}
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
@@ -1167,11 +1167,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     try {
       // Send ONE single array of IDs to the backend
       const res = await fetch(`${API}/transactions/bulk-delete`, {
-        method: 'POST', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(Array.from(selectedIds))
       });
-      
+
       if (res.ok) {
         setSelectedIds(new Set());
         onRefresh(); // Refresh balances and list
@@ -1199,7 +1199,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       alert("Error deleting: " + e.message);
     }
   };
-  
+
   return (
     <div>
       {/* Spending Analyzer Section - Collapsible */}
@@ -1216,14 +1216,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button 
+            <button
               onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
-              className="action-btn secondary" 
+              className="action-btn secondary"
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
               title="Manage Categories"
             >
               <span>⚙️</span>
-              <span className="manage-btn-text">Manage</span> 
+              <span className="manage-btn-text">Manage</span>
             </button>
             <span className={`analyser-chevron ${expanded ? 'open' : ''}`}>▼</span>
           </div>
@@ -1233,7 +1233,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
-                <MultiSelectDropdown
+              <MultiSelectDropdown
                 label="Visibility"
                 icon="👁️"
                 options={["Active", "Excluded"]}
@@ -1281,23 +1281,23 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
-              {(chartAccounts.included.size > 0 || chartAccounts.excluded.size > 0 || 
-                chartTypes.included.size > 0 || chartTypes.excluded.size > 0 || 
-                chartMonths.included.size > 0 || chartMonths.excluded.size > 0 || 
-                chartYears.included.size > 0 || chartYears.excluded.size > 0 || 
+              {(chartAccounts.included.size > 0 || chartAccounts.excluded.size > 0 ||
+                chartTypes.included.size > 0 || chartTypes.excluded.size > 0 ||
+                chartMonths.included.size > 0 || chartMonths.excluded.size > 0 ||
+                chartYears.included.size > 0 || chartYears.excluded.size > 0 ||
                 chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0) && (
-                <button 
-                  className="filter-chip" 
-                  onClick={() => {
-                    const empty = { included: new Set(), excluded: new Set() };
-                    setChartAccounts(empty); setChartTypes(empty); setChartMonths(empty);
-                    setChartYears(empty); setChartHeadings(empty);
-                  }}
-                  style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
-                >
-                  <span>❌</span><span>Clear</span>
-                </button>
-              )}
+                  <button
+                    className="filter-chip"
+                    onClick={() => {
+                      const empty = { included: new Set(), excluded: new Set() };
+                      setChartAccounts(empty); setChartTypes(empty); setChartMonths(empty);
+                      setChartYears(empty); setChartHeadings(empty);
+                    }}
+                    style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
+                  >
+                    <span>❌</span><span>Clear</span>
+                  </button>
+                )}
             </div>
 
             {/* Pie Chart + Legend Grid */}
@@ -1309,12 +1309,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       {/* 1. The 3D "Depth" Base Layer (Shifted down and darkened) */}
-                      <Pie 
-                        data={pieArr.slice(0, 10)} 
-                        dataKey="value" 
-                        cx="50%" 
+                      <Pie
+                        data={pieArr.slice(0, 10)}
+                        dataKey="value"
+                        cx="50%"
                         cy="54%" /* Shifted down to create thickness */
-                        outerRadius={125} 
+                        outerRadius={125}
                         innerRadius={80}
                         paddingAngle={5}
                         cornerRadius={8}
@@ -1322,8 +1322,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                         isAnimationActive={false} /* Base stays static while top animates */
                       >
                         {pieArr.slice(0, 10).map((_, i) => (
-                          <Cell 
-                            key={`depth-${i}`} 
+                          <Cell
+                            key={`depth-${i}`}
                             fill={PIE_COLORS[i % PIE_COLORS.length]}
                             style={{ filter: 'brightness(0.45)' }} /* Darkens the sides for realistic shadow */
                           />
@@ -1331,12 +1331,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                       </Pie>
 
                       {/* 2. The Main "Top" Glassy Layer */}
-                     <Pie 
-                        data={pieArr.slice(0, 10)} 
-                        dataKey="value" 
-                        cx="50%" 
+                      <Pie
+                        data={pieArr.slice(0, 10)}
+                        dataKey="value"
+                        cx="50%"
                         cy="54%" /* Shifted down to create thickness */
-                        outerRadius={125} 
+                        outerRadius={125}
                         innerRadius={80}
                         paddingAngle={5}
                         cornerRadius={8}
@@ -1345,10 +1345,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                         animationEasing="ease-out"
                       >
                         {pieArr.slice(0, 10).map((_, i) => (
-                          <Cell 
-                            key={i} 
+                          <Cell
+                            key={i}
                             fill={PIE_COLORS[i % PIE_COLORS.length]}
-                            style={{ 
+                            style={{
                               filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.5))', /* Floats the top layer */
                               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                               cursor: 'pointer'
@@ -1356,14 +1356,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                           />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        content={<CustomPieTooltip pieData={pieArr} />} 
+                      <Tooltip
+                        content={<CustomPieTooltip pieData={pieArr} />}
                         wrapperStyle={{ zIndex: 100 }} /* Forces tooltip above the center text */
-                        cursor={{fill: 'transparent'}} 
-                      />                    
-                      </PieChart>
+                        cursor={{ fill: 'transparent' }}
+                      />
+                    </PieChart>
                   </ResponsiveContainer>
-                  
+
                   {/* Floating Total Label perfectly centered in the Donut hole */}
                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Total</div>
@@ -1371,12 +1371,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                       ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </div>
                   </div>
-                </div>  
+                </div>
 
                 {/* Legend - Scrollable Container */}
-                <div 
+                <div
                   className="pie-legend-container"
-                  style={{ 
+                  style={{
                     display: 'flex',
                     flexDirection: 'column',
                     height: '380px',
@@ -1402,8 +1402,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   }} />
 
                   {/* Legend Items */}
-                  <div 
-                    style={{ 
+                  <div
+                    style={{
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '0.65rem',
@@ -1417,21 +1417,21 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     {pieArr.map((d, i) => {
                       const total = pieArr.reduce((s, x) => s + x.value, 0);
                       const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-                      
+
                       // Highlight based on whether we are looking at Headings or Descriptions
-                      const isSelected = isShowingDescriptions 
-                        ? filterDesc === d.name 
+                      const isSelected = isShowingDescriptions
+                        ? filterDesc === d.name
                         : filterHeadings.included.has(d.name);
-                      
+
                       return (
-                        <div 
-                          key={d.name} 
-                          className="pie-legend-item" 
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between', 
-                            padding: '0.75rem 0.9rem', 
+                        <div
+                          key={d.name}
+                          className="pie-legend-item"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.75rem 0.9rem',
                             borderRadius: '10px',
                             background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
                             border: `1px solid ${isSelected ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)'}`,
@@ -1468,7 +1468,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                               setFilterHeadings({ included: new Set([d.name]), excluded: new Set() });
                               setFilterDesc("");
                             }
-                            
+
                             // Sync base table filters with the chart
                             setFilterAccounts({ ...chartAccounts });
                             setFilterTypes({ ...chartTypes });
@@ -1478,15 +1478,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                            <div 
-                              style={{ 
-                                background: PIE_COLORS[i % PIE_COLORS.length], 
-                                width: '12px', 
-                                height: '12px', 
-                                borderRadius: '4px', 
+                            <div
+                              style={{
+                                background: PIE_COLORS[i % PIE_COLORS.length],
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '4px',
                                 flexShrink: 0,
                                 boxShadow: `0 2px 8px ${PIE_COLORS[i % PIE_COLORS.length]}40`
-                              }} 
+                              }}
                             />
                             <span style={{ color: 'var(--text3)', fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
                           </div>
@@ -1548,12 +1548,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
         )}
       </div>
-      
-      
+
+
       {/* Transactions Table */}
       <section className="section">
         <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
-        
+
         {/* Table Filters */}
         <div className="filter-bar" ref={dropdownRef}>
           <MultiSelectDropdown
@@ -1580,7 +1580,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             setFilterState={setFilterTypes}
             dropdownKey="tableType"
           />
-         <MultiSelectDropdown
+          <MultiSelectDropdown
             label="Month"
             icon="📅"
             options={allMonths}
@@ -1605,25 +1605,25 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             dropdownKey="tableHeading"
           />
           <div className="date-filter-chip">
-          <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
-          <input
-            type="date"
-            value={filterDateFrom}
-            onChange={e => setFilterDateFrom(e.target.value)}
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateFrom ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateFrom ? '100px' : '90px', cursor: 'pointer' }}
-          />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>→</span>
-          <input
-            type="date"
-            value={filterDateTo}
-            onChange={e => setFilterDateTo(e.target.value)}
-            min={filterDateFrom}
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateTo ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateTo ? '100px' : '90px', cursor: 'pointer' }}
-          />
-          {(filterDateFrom || filterDateTo) && (
-            <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
-          )}
-        </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={e => setFilterDateFrom(e.target.value)}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateFrom ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateFrom ? '100px' : '90px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>→</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={e => setFilterDateTo(e.target.value)}
+              min={filterDateFrom}
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateTo ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateTo ? '100px' : '90px', cursor: 'pointer' }}
+            />
+            {(filterDateFrom || filterDateTo) && (
+              <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
+            )}
+          </div>
           <input
             className="inp"
             placeholder="🔍 Description"
@@ -1631,26 +1631,26 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             onChange={e => setFilterDesc(e.target.value)}
             style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
           />
-          {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 || 
-            filterTypes.included.size > 0 || filterTypes.excluded.size > 0 || 
-            filterMonths.included.size > 0 || filterMonths.excluded.size > 0 || 
-            filterYears.included.size > 0 || filterYears.excluded.size > 0 || 
-            filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 || 
+          {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 ||
+            filterTypes.included.size > 0 || filterTypes.excluded.size > 0 ||
+            filterMonths.included.size > 0 || filterMonths.excluded.size > 0 ||
+            filterYears.included.size > 0 || filterYears.excluded.size > 0 ||
+            filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 ||
             filterVisibility.included.size > 0 || filterVisibility.excluded.size > 0 ||
             filterDateFrom || filterDateTo || filterDesc) && (
-            <button 
-              className="filter-chip" 
-              onClick={() => {
-                const empty = { included: new Set(), excluded: new Set() };
-                setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
-                setFilterYears(empty); setFilterHeadings(empty); setFilterVisibility(empty);
-                setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
-              }}
-              style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
-            >
-              <span>❌</span><span>Clear All</span>
-            </button>
-          )}
+              <button
+                className="filter-chip"
+                onClick={() => {
+                  const empty = { included: new Set(), excluded: new Set() };
+                  setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
+                  setFilterYears(empty); setFilterHeadings(empty); setFilterVisibility(empty);
+                  setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
+                }}
+                style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
+              >
+                <span>❌</span><span>Clear All</span>
+              </button>
+            )}
         </div>
 
         {/* Stats Bar & Pagination - Above Table */}
@@ -1662,7 +1662,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               </span>
               <span>
                 <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
-                {' '}in &nbsp;·&nbsp; 
+                {' '}in &nbsp;·&nbsp;
                 <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
                 {' '}out
               </span>
@@ -1673,13 +1673,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               <RowsPerPageDropdown value={rowsPerPage} onChange={setRowsPerPage} />
 
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button 
+                <button
                   onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                   disabled={currentPage === 0}
-                  style={{ 
-                    padding: '0.45rem 0.85rem', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border)', 
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
                     background: currentPage === 0 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
                     color: currentPage === 0 ? 'var(--text2)' : 'var(--text)',
                     cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
@@ -1702,7 +1702,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
-                    
+
                     return (
                       <button
                         key={pageNum}
@@ -1724,13 +1724,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   })}
                 </div>
 
-                <button 
+                <button
                   onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
                   disabled={currentPage === totalPages - 1}
-                  style={{ 
-                    padding: '0.45rem 0.85rem', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border)', 
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
                     background: currentPage === totalPages - 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
                     color: currentPage === totalPages - 1 ? 'var(--text2)' : 'var(--text)',
                     cursor: currentPage === totalPages - 1 ? 'not-allowed' : 'pointer',
@@ -1794,9 +1794,9 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               const d = new Date(t.date);
               const monthLabel = d.toLocaleString('default', { month: 'short', year: '2-digit' });
               return (
-                <div 
-                  key={i} 
-                  className="tx-row" 
+                <div
+                  key={i}
+                  className="tx-row"
                   style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
                   onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
                 >
@@ -1860,7 +1860,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
       {/* CATEGORY MANAGER MODAL */}
       {isCategoryModalOpen && (
-        <CategoryExclusionModal 
+        <CategoryExclusionModal
           transactions={transactions}
           allHeadings={allHeadings}
           onClose={() => setIsCategoryModalOpen(false)}
@@ -1872,7 +1872,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       {actionMenuTx && (
         <div className="modal-backdrop" onClick={() => setActionMenuTx(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: '400px' }}>
-            
+
             {/* Header / Info Row */}
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1888,7 +1888,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 </div>
               </div>
             </div>
-            
+
             {/* Full Note / Description Box */}
             {actionMenuTx.description && (
               <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
@@ -1940,7 +1940,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem' }}>
-              <button 
+              <button
                 onClick={() => { setEditingTx(actionMenuTx); setActionMenuTx(null); }}
                 style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--text)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
@@ -1948,7 +1948,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               >
                 ✏️ Edit Transaction
               </button>
-              <button 
+              <button
                 onClick={() => { handleDelete(actionMenuTx.id); setActionMenuTx(null); }}
                 style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--neg)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
@@ -1960,7 +1960,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
         </div>
       )}
-      
+
     </div>
   );
 }
@@ -1980,7 +1980,7 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
 
   const handleKeyDown = (e) => {
     if (!show) return;
-    
+
     if (e.key === 'ArrowDown') {
       e.preventDefault(); // Prevents cursor from moving
       setActiveIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
@@ -2000,24 +2000,24 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '40px' }}>
-      <input 
-        type="text" className="bulk-inp" placeholder={placeholder} 
+      <input
+        type="text" className="bulk-inp" placeholder={placeholder}
         value={value} onChange={handleType} onKeyDown={handleKeyDown}
-        onFocus={() => { 
+        onFocus={() => {
           const lowerVal = value.toLowerCase();
           const startsWith = options.filter(o => o.toLowerCase().startsWith(lowerVal));
           const contains = options.filter(o => o.toLowerCase().includes(lowerVal) && !o.toLowerCase().startsWith(lowerVal));
-          setFiltered([...startsWith, ...contains]); 
-          setShow(true); 
+          setFiltered([...startsWith, ...contains]);
+          setShow(true);
         }}
-        onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)} 
+        onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)}
       />
       {show && filtered.length > 0 && (
         <div className="custom-dropdown">
           {filtered.map((opt, idx) => (
-            <div 
-              key={opt} 
-              className={`custom-dropdown-item ${idx === activeIndex ? 'active-item' : ''}`} 
+            <div
+              key={opt}
+              className={`custom-dropdown-item ${idx === activeIndex ? 'active-item' : ''}`}
               onClick={() => { onChange(opt); setShow(false); setActiveIndex(-1); }}
               onMouseEnter={() => setActiveIndex(idx)}
             >
@@ -2032,7 +2032,7 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
 
 function AddTab({ accounts, transactions, categories, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
- 
+
   const recentDescriptions = [...new Set(
     (transactions || [])
       .map(t => t.description)
@@ -2041,11 +2041,11 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
 
   const createEmptyRow = () => ({
     id: Date.now() + Math.random(),
-    account: 'KOTAK', 
-    date: today, 
-    type: 'Debit', 
-    heading: '', 
-    description: '', 
+    account: 'KOTAK',
+    date: today,
+    type: 'Debit',
+    heading: '',
+    description: '',
     amount: ''
   });
 
@@ -2053,10 +2053,10 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   const [rows, setRows] = useState(() => {
     const saved = localStorage.getItem('dt_draft_txs');
     if (saved) {
-      try { 
+      try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.length > 0) return parsed;
-      } catch (e) {}
+      } catch (e) { }
     }
     return [createEmptyRow()];
   });
@@ -2081,11 +2081,11 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       amount: '',
       description: ''
     }]);
-  };  
-  
+  };
+
   const removeRow = (id) => {
     if (rows.length === 1) {
-      setRows([createEmptyRow()]); 
+      setRows([createEmptyRow()]);
       return;
     }
     setRows(rows.filter(r => r.id !== id));
@@ -2100,36 +2100,36 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
 
     setLoading(true);
     try {
-              const payload = rows.map(r => {
-                const catName = r.heading.trim();
-                const catTxs = transactions.filter(t => t.heading === catName);
-                
-                // ✨ MAGIC RULE: if all previous transactions in this category are excluded, automatically exclude this new one!
-                const isAutoExclude = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
-                
-                return {
-                  account: r.account,
-                  date: r.date,
-                  type: r.type,
-                  heading: catName,
-                  description: r.description.trim() || "",
-                  amount: parseFloat(r.amount),
-                  exclude_analytics: isAutoExclude
-                };
-              });
+      const payload = rows.map(r => {
+        const catName = r.heading.trim();
+        const catTxs = transactions.filter(t => t.heading === catName);
 
-              const res = await fetch(`${API}/transactions`, {
+        // ✨ MAGIC RULE: if all previous transactions in this category are excluded, automatically exclude this new one!
+        const isAutoExclude = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
+
+        return {
+          account: r.account,
+          date: r.date,
+          type: r.type,
+          heading: catName,
+          description: r.description.trim() || "",
+          amount: parseFloat(r.amount),
+          exclude_analytics: isAutoExclude
+        };
+      });
+
+      const res = await fetch(`${API}/transactions`, {
         method: "POST", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        onAdd(); 
+        onAdd();
         setSuccess(true);
         // Wipe local storage draft only on successful save
         localStorage.removeItem('dt_draft_txs');
-        setTimeout(() => { 
-            setSuccess(false); 
-            setRows([createEmptyRow()]); 
+        setTimeout(() => {
+          setSuccess(false);
+          setRows([createEmptyRow()]);
         }, 1500);
       } else {
         const errText = await res.text();
@@ -2152,9 +2152,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             Your progress is auto-saved locally. Take your time!
           </div>
         </div>
-        
+
         <button className="action-btn secondary" onClick={() => {
-          if(window.confirm("Are you sure you want to clear all drafts?")) {
+          if (window.confirm("Are you sure you want to clear all drafts?")) {
             setRows([createEmptyRow()]);
             localStorage.removeItem('dt_draft_txs');
           }
@@ -2165,7 +2165,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
 
       <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
         <div className="add-table-inner">
-          
+
           <div className="bulk-grid bulk-header">
             <span>Account</span>
             <span>Date</span>
@@ -2173,48 +2173,48 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             <span>Category</span>
             <span>Amount (₹)</span>
             <span>Note</span>
-            <span style={{textAlign: 'center'}}>#</span>
+            <span style={{ textAlign: 'center' }}>#</span>
           </div>
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
-             <CustomSelect 
-                value={row.account} 
-                onChange={val => updateRow(row.id, 'account', val)} 
-                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
-                minWidth="140px" 
+              <CustomSelect
+                value={row.account}
+                onChange={val => updateRow(row.id, 'account', val)}
+                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))}
+                minWidth="140px"
               />
 
               <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
 
-              <CustomSelect 
-                value={row.type} 
-                onChange={val => updateRow(row.id, 'type', val)} 
+              <CustomSelect
+                value={row.type}
+                onChange={val => updateRow(row.id, 'type', val)}
                 options={[
                   { label: '🔴 Debit', value: 'Debit' },
                   { label: '🟢 Credit', value: 'Credit' },
                   { label: '💰 Savings', value: 'Savings' },
                   { label: '💸 Investment', value: 'Investment' }
-                ]} 
-                minWidth="130px" 
+                ]}
+                minWidth="130px"
               />
 
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
-              
-              <input 
-                type="number" className="bulk-inp" placeholder="0.00" 
-                value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} 
+
+              <input
+                type="number" className="bulk-inp" placeholder="0.00"
+                value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)}
               />
-              
-              <AutocompleteInput 
-                value={row.description} 
-                onChange={val => updateRow(row.id, 'description', val)} 
-                options={recentDescriptions} 
-                placeholder="Optional note..." 
+
+              <AutocompleteInput
+                value={row.description}
+                onChange={val => updateRow(row.id, 'description', val)}
+                options={recentDescriptions}
+                placeholder="Optional note..."
               />
-              
-              <button 
-                className="bulk-del-btn" 
+
+              <button
+                className="bulk-del-btn"
                 onClick={() => removeRow(row.id)}
                 title="Remove Row"
               >
@@ -2231,7 +2231,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             <button className="action-btn secondary" onClick={addRow} style={{ flex: 1, justifyContent: 'center', padding: '0.85rem' }}>
               ➕ Add Row
             </button>
-            
+
             <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 2, justifyContent: 'center', padding: '0.85rem' }}>
               {loading ? "⏳ Saving to Database..." : success ? "✅ Saved Successfully!" : `💾 Save to Database (${rows.length})`}
             </button>
@@ -2255,7 +2255,7 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  
+
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const submit = async () => {
@@ -2265,12 +2265,12 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
     setLoading(true);
     try {
       const res = await fetch(`${API}/transactions/${tx.id}`, {
-        method: "PUT", 
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, 
+        method: "PUT",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }),
       });
       if (res.ok) {
-        onRefresh(); 
+        onRefresh();
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1200);
       } else {
@@ -2291,73 +2291,73 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body" style={{ padding: '1.5rem' }}>
-          
+
           <div className="bulk-grid bulk-row" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg2)', border: 'none' }}>
-           <div className="form-group">
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Account</label>
-            <CustomSelect 
-              value={form.account} 
-              onChange={val => updateField('account', val)} 
-              options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
-              width="100%" 
-            />
-          </div>
-
-          <div className="form-group">
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Date</label>
-            <input type="date" className="bulk-inp" style={{ background: 'var(--card)', padding: '0.75rem', height: '36px' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
-          </div>
-
-          <div className="form-group">
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Type</label>
-            <CustomSelect 
-              value={form.type} 
-              onChange={val => updateField('type', val)} 
-              options={[
-                { label: '🔴 Debit', value: 'Debit' },
-                { label: '🟢 Credit', value: 'Credit' },
-                { label: '💰 Savings', value: 'Savings' },
-                { label: '💸 Investment', value: 'Investment' }
-              ]} 
-              width="100%" 
-            />
-          </div>
-
-          <div className="form-group">
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Amount (₹)</label>
-            <input type="number" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Category</label>
-            <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={categories} placeholder="Category" />
-          </div>
-
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Note</label>
-            <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
-          </div>
-
-          <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-            <div 
-              onClick={() => updateField('exclude_analytics', !form.exclude_analytics)}
-              style={{
-                width: '44px', height: '24px', borderRadius: '12px',
-                background: form.exclude_analytics ? 'var(--neg)' : 'var(--border2)',
-                position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
-              }}
-            >
-              <div style={{
-                width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-                position: 'absolute', top: '3px', left: form.exclude_analytics ? '23px' : '3px',
-                transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-              }} />
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Account</label>
+              <CustomSelect
+                value={form.account}
+                onChange={val => updateField('account', val)}
+                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))}
+                width="100%"
+              />
             </div>
-            <div>
-              <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Exclude from Analyser</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Hide this transaction from the pie chart and stats</div>
+
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Date</label>
+              <input type="date" className="bulk-inp" style={{ background: 'var(--card)', padding: '0.75rem', height: '36px' }} value={form.date} onChange={e => updateField('date', e.target.value)} />
             </div>
-          </div>
+
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Type</label>
+              <CustomSelect
+                value={form.type}
+                onChange={val => updateField('type', val)}
+                options={[
+                  { label: '🔴 Debit', value: 'Debit' },
+                  { label: '🟢 Credit', value: 'Credit' },
+                  { label: '💰 Savings', value: 'Savings' },
+                  { label: '💸 Investment', value: 'Investment' }
+                ]}
+                width="100%"
+              />
+            </div>
+
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Amount (₹)</label>
+              <input type="number" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} />
+            </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Category</label>
+              <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={categories} placeholder="Category" />
+            </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Note</label>
+              <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
+            </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <div
+                onClick={() => updateField('exclude_analytics', !form.exclude_analytics)}
+                style={{
+                  width: '44px', height: '24px', borderRadius: '12px',
+                  background: form.exclude_analytics ? 'var(--neg)' : 'var(--border2)',
+                  position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0
+                }}
+              >
+                <div style={{
+                  width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: '3px', left: form.exclude_analytics ? '23px' : '3px',
+                  transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Exclude from Analyser</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Hide this transaction from the pie chart and stats</div>
+              </div>
+            </div>
           </div>
 
           <button className={`submit-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ width: '100%', marginTop: '1.5rem' }}>
@@ -2371,7 +2371,7 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
 }
 
 function EditManualAssetModal({ asset, onClose, onRefresh }) {
-  const [form, setForm] = useState({ 
+  const [form, setForm] = useState({
     ...asset,
     is_recurring: asset.is_recurring || false,
     amount_to_add: asset.amount_to_add || '',
@@ -2395,9 +2395,9 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
         method: "PUT", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(form)
       });
-      if (res.ok) { onRefresh(); onClose(); } 
+      if (res.ok) { onRefresh(); onClose(); }
       else alert("Failed to update asset");
-    } catch (e) { alert("Network error: " + e.message); } 
+    } catch (e) { alert("Network error: " + e.message); }
     finally { setLoading(false); }
   };
 
@@ -2406,9 +2406,9 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div className="modal-title">✏️ Edit Asset</div></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
-          
-          <CustomSelect 
-            value={form.category} 
+
+          <CustomSelect
+            value={form.category}
             onChange={val => {
               const becomingMath = ['FD', 'RD'].includes(val);
               const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
@@ -2417,26 +2417,26 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
                 interest_rate: becomingMarket ? '' : form.interest_rate,
                 is_recurring: becomingMath ? false : form.is_recurring
               });
-            }} 
-            options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
-            placeholder="Select Category" width="100%" 
+            }}
+            options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))}
+            placeholder="Select Category" width="100%"
           />
-          
-         <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-          
+
+          <input className="inp" placeholder="Asset Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {/* 1. Invested Amount */}
-            <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
-            
+            <input className="inp" type="number" placeholder="Invested Amount" value={form.invested_value} onChange={e => setForm({ ...form, invested_value: e.target.value })} />
+
             {/* 2. Current Value (Smart & Centralized) */}
             <div style={{ position: 'relative' }}>
-              <input 
-                className="inp" type="number" placeholder="Current Value" 
-                value={form.current_value} 
-                onChange={e => setForm({...form, current_value: e.target.value})} 
-                disabled={!!form.interest_rate} 
-                style={{ 
-                  opacity: form.interest_rate ? 0.5 : 1, 
+              <input
+                className="inp" type="number" placeholder="Current Value"
+                value={form.current_value}
+                onChange={e => setForm({ ...form, current_value: e.target.value })}
+                disabled={!!form.interest_rate}
+                style={{
+                  opacity: form.interest_rate ? 0.5 : 1,
                   cursor: form.interest_rate ? 'not-allowed' : 'text',
                   background: form.interest_rate ? 'var(--bg3)' : 'var(--card)'
                 }}
@@ -2446,39 +2446,39 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
               )}
             </div>
           </div>
-          
+
           {/* 3. Interest Rate Row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
-                {isLedgerOrMarket && (
-                  <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually." 
-                        style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
-                )}
-             </div>
-             <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</span>
+              {isLedgerOrMarket && (
+                <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually."
+                  style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+              )}
+            </div>
+            <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({ ...form, interest_rate: e.target.value })} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
-               <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</span>
+              <input className="inp" type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
-               <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</span>
+              <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({ ...form, maturity_date: e.target.value })} />
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', opacity: isMath ? 0.4 : 1 }}>
-            <div onClick={() => !isMath && setForm({...form, is_recurring: !form.is_recurring})} style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.is_recurring ? 'var(--pos)' : 'var(--border2)', position: 'relative', cursor: isMath ? 'not-allowed' : 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div onClick={() => !isMath && setForm({ ...form, is_recurring: !form.is_recurring })} style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.is_recurring ? 'var(--pos)' : 'var(--border2)', position: 'relative', cursor: isMath ? 'not-allowed' : 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
               <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: form.is_recurring ? '23px' : '3px', transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ fontSize: '0.9rem', color: 'var(--text)', fontWeight: 600 }}>Automate Recurring Additions</div>
               {isMath && (
-                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets." 
-                      style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets."
+                  style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
               )}
             </div>
           </div>
@@ -2486,33 +2486,33 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
           {/* New Flexbox Recurring Section */}
           {form.is_recurring && !isMath && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 100%' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Amount to Add (₹)</label>
-                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({ ...form, amount_to_add: e.target.value })} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 220px' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Frequency</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
-                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
-                     <input type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
-                   </div>
-                   <div style={{ flex: '1 1 140px' }}>
-                     <CustomSelect 
-                       value={form.interval_unit} 
-                       onChange={val => setForm({...form, interval_unit: val})} 
-                       options={[{label: 'Days', value: 'days'}, {label: 'Months', value: 'months'}, {label: 'Years', value: 'years'}]} 
-                       placeholder="Unit"
-                     />
-                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
+                    <input type="number" min="1" value={form.interval_value} onChange={e => setForm({ ...form, interval_value: parseInt(e.target.value) })} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
+                  </div>
+                  <div style={{ flex: '1 1 140px' }}>
+                    <CustomSelect
+                      value={form.interval_unit}
+                      onChange={val => setForm({ ...form, interval_unit: val })}
+                      options={[{ label: 'Days', value: 'days' }, { label: 'Months', value: 'months' }, { label: 'Years', value: 'years' }]}
+                      placeholder="Unit"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
-                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
-                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
+                <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({ ...form, next_run_date: e.target.value })} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
               </div>
 
             </div>
@@ -2530,8 +2530,8 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
 
 function AddManualAssetModal({ onClose, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ 
-    category: 'FD', name: '', invested_value: '', current_value: '', 
+  const [form, setForm] = useState({
+    category: 'FD', name: '', invested_value: '', current_value: '',
     interest_rate: '', start_date: '', maturity_date: '',
     is_recurring: false, amount_to_add: '', interval_value: 1, interval_unit: 'months', next_run_date: today
   });
@@ -2552,12 +2552,12 @@ function AddManualAssetModal({ onClose, onAdd }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(form)
       });
-      if (res.ok) { onAdd(); onClose(); } 
+      if (res.ok) { onAdd(); onClose(); }
       else {
         const errData = await res.json().catch(() => ({}));
         alert("Failed to save asset: " + (errData.message || "Server error"));
       }
-    } catch (e) { alert("Network error: " + e.message); } 
+    } catch (e) { alert("Network error: " + e.message); }
     finally { setLoading(false); }
   };
 
@@ -2566,11 +2566,11 @@ function AddManualAssetModal({ onClose, onAdd }) {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header"><div className="modal-title">➕ Add Asset</div></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto' }}>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Category</label>
-            <CustomSelect 
-              value={form.category} 
+            <CustomSelect
+              value={form.category}
               onChange={val => {
                 const becomingMath = ['FD', 'RD'].includes(val);
                 const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
@@ -2579,34 +2579,34 @@ function AddManualAssetModal({ onClose, onAdd }) {
                   interest_rate: becomingMarket ? '' : form.interest_rate,
                   is_recurring: becomingMath ? false : form.is_recurring
                 });
-              }} 
-              options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))} 
+              }}
+              options={['FD', 'EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].map(c => ({ label: c, value: c }))}
               placeholder="Select Category" width="100%"
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Asset Name</label>
-            <input className="inp" placeholder="e.g., Gold, PPF" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+            <input className="inp" placeholder="e.g., Gold, PPF" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
             {/* 1. Invested Amount */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Invested Amount (₹)</label>
-              <input className="inp" type="number" placeholder="0.00" value={form.invested_value} onChange={e => setForm({...form, invested_value: e.target.value})} />
+              <input className="inp" type="number" placeholder="0.00" value={form.invested_value} onChange={e => setForm({ ...form, invested_value: e.target.value })} />
             </div>
-            
+
             {/* 2. Current Value */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative' }}>
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Current Value (₹)</label>
-              <input 
-                className="inp" type="number" placeholder="0.00" 
-                value={form.current_value} 
-                onChange={e => setForm({...form, current_value: e.target.value})} 
-                disabled={!!form.interest_rate} 
-                style={{ 
-                  opacity: form.interest_rate ? 0.5 : 1, 
+              <input
+                className="inp" type="number" placeholder="0.00"
+                value={form.current_value}
+                onChange={e => setForm({ ...form, current_value: e.target.value })}
+                disabled={!!form.interest_rate}
+                style={{
+                  opacity: form.interest_rate ? 0.5 : 1,
                   cursor: form.interest_rate ? 'not-allowed' : 'text',
                   background: form.interest_rate ? 'var(--bg3)' : 'var(--card)'
                 }}
@@ -2616,36 +2616,36 @@ function AddManualAssetModal({ onClose, onAdd }) {
               )}
             </div>
           </div>
-          
+
           {/* 3. Interest Rate Row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</label>
-                {isLedgerOrMarket && (
-                  <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually." 
-                        style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
-                )}
-             </div>
-             <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({...form, interest_rate: e.target.value})} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Interest Rate %</label>
+              {isLedgerOrMarket && (
+                <span title="Market/Ledger assets fluctuate. Leave this blank and update Current Value manually."
+                  style={{ cursor: 'help', background: 'var(--bg3)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+              )}
+            </div>
+            <input className="inp" type="number" placeholder="e.g. 7.1" value={form.interest_rate} onChange={e => setForm({ ...form, interest_rate: e.target.value })} disabled={isLedgerOrMarket} style={{ opacity: isLedgerOrMarket ? 0.3 : 1, cursor: isLedgerOrMarket ? 'not-allowed' : 'text' }} />
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</label>
-               <input className="inp" type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={{ color: form.start_date ? 'var(--text)' : 'var(--text3)' }} />
-               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>Needed for auto-compound.</span>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Start Date</label>
+              <input className="inp" type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} style={{ color: form.start_date ? 'var(--text)' : 'var(--text3)' }} />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>Needed for auto-compound.</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</label>
-               <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({...form, maturity_date: e.target.value})} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
-               <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When compounding stops.</span>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 600 }}>Maturity Date</label>
+              <input className="inp" type="date" value={form.maturity_date} onChange={e => setForm({ ...form, maturity_date: e.target.value })} style={{ color: form.maturity_date ? 'var(--text)' : 'var(--text3)' }} />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text3)', lineHeight: '1.2' }}>When compounding stops.</span>
             </div>
           </div>
 
           {/* Automate Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', opacity: isMath ? 0.4 : 1 }}>
-            <div 
-              onClick={() => !isMath && setForm({...form, is_recurring: !form.is_recurring})}
+            <div
+              onClick={() => !isMath && setForm({ ...form, is_recurring: !form.is_recurring })}
               style={{
                 width: '44px', height: '24px', borderRadius: '12px',
                 background: form.is_recurring ? 'var(--pos)' : 'var(--border2)',
@@ -2664,8 +2664,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
                 <div style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>Add amount automatically</div>
               </div>
               {isMath && (
-                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets." 
-                      style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
+                <span title="Math assets auto-compound daily using the Interest Rate. Recurring additions are meant for Ledger/Market assets."
+                  style={{ cursor: 'help', background: 'var(--bg2)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text2)', border: '1px solid var(--border)' }}>?</span>
               )}
             </div>
           </div>
@@ -2673,33 +2673,33 @@ function AddManualAssetModal({ onClose, onAdd }) {
           {/* New Flexbox Recurring Section */}
           {form.is_recurring && !isMath && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem', background: 'rgba(52, 211, 153, 0.05)', border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '8px', animation: 'fadeIn 0.2s ease' }}>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 100%' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Amount to Add (₹)</label>
-                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({...form, amount_to_add: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
+                <input className="inp" type="number" placeholder="0.00" value={form.amount_to_add} onChange={e => setForm({ ...form, amount_to_add: e.target.value })} style={{ borderColor: 'rgba(52, 211, 153, 0.3)' }} />
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 220px' }}>
                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Frequency</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
-                     <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
-                     <input type="number" min="1" value={form.interval_value} onChange={e => setForm({...form, interval_value: parseInt(e.target.value)})} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
-                   </div>
-                   <div style={{ flex: '1 1 140px' }}>
-                     <CustomSelect 
-                       value={form.interval_unit} 
-                       onChange={val => setForm({...form, interval_unit: val})} 
-                       options={[{label: 'Days', value: 'days'}, {label: 'Months', value: 'months'}, {label: 'Years', value: 'years'}]} 
-                       placeholder="Unit"
-                     />
-                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card)', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '0 0.5rem', height: '36px', flex: '1 1 80px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text2)', paddingRight: '0.5rem' }}>Every</span>
+                    <input type="number" min="1" value={form.interval_value} onChange={e => setForm({ ...form, interval_value: parseInt(e.target.value) })} style={{ border: 'none', width: '100%', background: 'transparent', color: 'var(--text)', outline: 'none' }} />
+                  </div>
+                  <div style={{ flex: '1 1 140px' }}>
+                    <CustomSelect
+                      value={form.interval_unit}
+                      onChange={val => setForm({ ...form, interval_unit: val })}
+                      options={[{ label: 'Days', value: 'days' }, { label: 'Months', value: 'months' }, { label: 'Years', value: 'years' }]}
+                      placeholder="Unit"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
-                 <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
-                 <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({...form, next_run_date: e.target.value})} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
+                <label style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>Next Trigger</label>
+                <input className="inp" type="date" value={form.next_run_date} onChange={e => setForm({ ...form, next_run_date: e.target.value })} style={{ borderColor: 'rgba(52, 211, 153, 0.3)', height: '36px' }} />
               </div>
 
             </div>
@@ -2735,73 +2735,73 @@ function ReconciliationModal({ accounts, onClose, onRefresh }) {
   };
 
   return (
-     <div className="modal-backdrop" onClick={onClose}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95%' }}>
-            <div className="modal-header">
-               <div className="modal-title">⚖️ Reconcile Balances</div>
-               <button className="modal-close" onClick={onClose}>×</button>
-            </div>
-            
-            <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                   <div style={{ fontSize: '0.85rem', color: 'var(--text2)', maxWidth: '400px', lineHeight: 1.5 }}>
-                      Upload UPI screenshots to your specific Drive folder, then click Scan to detect discrepancies.
-                   </div>
-                   <button className="action-btn" onClick={scanBalances} disabled={scanning} style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)' }}>
-                      {scanning ? '⏳ Scanning Drive...' : '📸 Scan Screenshots'}
-                   </button>
-                </div>
-
-                <div className="data-table">
-                   <div className="table-header" style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
-                      <span>Account</span>
-                      <span>App Tracked</span>
-                      <span>Bank Real</span>
-                      <span>Action Required</span>
-                   </div>
-                   {accounts.filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360').map((acc, i) => {
-                      const tracked = acc.balance || 0;
-                      const real = acc.real_balance;
-                      const diff = real !== null && real !== undefined ? tracked - real : null;
-
-                      let status = "";
-                      let actionClass = "";
-
-                      if (diff === null) {
-                         status = "Not Scanned";
-                         actionClass = "text3";
-                      } else if (diff === 0) {
-                         status = "✅ NO CHANGE";
-                         actionClass = "pos";
-                      } else if (diff < 0) {
-                         // C4 - D4 < 0: Move money OUT of real account
-                         status = `🔴 REDUCE ₹${Math.abs(diff)}`;
-                         actionClass = "neg";
-                      } else {
-                         // C4 - D4 > 0: Move money INTO real account
-                         status = `🟢 INCREASE ₹${Math.abs(diff)}`;
-                         actionClass = "pos";
-                      }
-
-                      return (
-                         <div key={acc.account} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
-                            <span style={{ fontWeight: 600 }}>{BANKS[acc.account]?.emoji} {acc.account}</span>
-                            <span style={{ fontFamily: 'Syne, sans-serif' }}>{fmt(tracked)}</span>
-                            <span style={{ fontFamily: 'Syne, sans-serif', color: real !== null ? 'var(--accent2)' : 'var(--text3)' }}>
-                               {real !== null ? fmt(real) : "—"}
-                            </span>
-                            <span className={actionClass} style={{ fontWeight: 800, fontSize: '0.85rem' }}>{status}</span>
-                         </div>
-                      );
-                   })}
-                </div>
-            </div>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95%' }}>
+        <div className="modal-header">
+          <div className="modal-title">⚖️ Reconcile Balances</div>
+          <button className="modal-close" onClick={onClose}>×</button>
         </div>
-     </div>
+
+        <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text2)', maxWidth: '400px', lineHeight: 1.5 }}>
+              Upload UPI screenshots to your specific Drive folder, then click Scan to detect discrepancies.
+            </div>
+            <button className="action-btn" onClick={scanBalances} disabled={scanning} style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)' }}>
+              {scanning ? '⏳ Scanning Drive...' : '📸 Scan Screenshots'}
+            </button>
+          </div>
+
+          <div className="data-table">
+            <div className="table-header" style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
+              <span>Account</span>
+              <span>App Tracked</span>
+              <span>Bank Real</span>
+              <span>Action Required</span>
+            </div>
+            {accounts.filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360').map((acc, i) => {
+              const tracked = acc.balance || 0;
+              const real = acc.real_balance;
+              const diff = real !== null && real !== undefined ? tracked - real : null;
+
+              let status = "";
+              let actionClass = "";
+
+              if (diff === null) {
+                status = "Not Scanned";
+                actionClass = "text3";
+              } else if (diff === 0) {
+                status = "✅ NO CHANGE";
+                actionClass = "pos";
+              } else if (diff < 0) {
+                // C4 - D4 < 0: Move money OUT of real account
+                status = `🔴 REDUCE ₹${Math.abs(diff)}`;
+                actionClass = "neg";
+              } else {
+                // C4 - D4 > 0: Move money INTO real account
+                status = `🟢 INCREASE ₹${Math.abs(diff)}`;
+                actionClass = "pos";
+              }
+
+              return (
+                <div key={acc.account} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
+                  <span style={{ fontWeight: 600 }}>{BANKS[acc.account]?.emoji} {acc.account}</span>
+                  <span style={{ fontFamily: 'Syne, sans-serif' }}>{fmt(tracked)}</span>
+                  <span style={{ fontFamily: 'Syne, sans-serif', color: real !== null ? 'var(--accent2)' : 'var(--text3)' }}>
+                    {real !== null ? fmt(real) : "—"}
+                  </span>
+                  <span className={actionClass} style={{ fontWeight: 800, fontSize: '0.85rem' }}>{status}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-      
+
 function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh }) {
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(
@@ -2828,12 +2828,12 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
     try {
       const payload = rows.map(r => ({ ...r, amount: parseFloat(r.amount), exclude_analytics: r.exclude_analytics }))
       const res = await fetch(`${API}/transactions/bulk-edit`, {
-        method: "PUT", 
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, 
+        method: "PUT",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        onRefresh(); 
+        onRefresh();
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1500);
       } else {
@@ -2854,35 +2854,35 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
-          
+
           <div className="bulk-grid bulk-header">
-            <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span><span style={{textAlign: 'center'}} title="Exclude from Analyser">🙈</span>
+            <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span><span style={{ textAlign: 'center' }} title="Exclude from Analyser">🙈</span>
           </div>
 
           {rows.map((row) => (
             <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease' }}>
-             <CustomSelect 
-                value={row.account} 
-                onChange={val => updateRow(row.id, 'account', val)} 
-                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))} 
-                minWidth="140px" 
+              <CustomSelect
+                value={row.account}
+                onChange={val => updateRow(row.id, 'account', val)}
+                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))}
+                minWidth="140px"
               />
               <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
-              <CustomSelect 
-                value={row.type} 
-                onChange={val => updateRow(row.id, 'type', val)} 
+              <CustomSelect
+                value={row.type}
+                onChange={val => updateRow(row.id, 'type', val)}
                 options={[
                   { label: '🔴 Debit', value: 'Debit' },
                   { label: '🟢 Credit', value: 'Credit' },
                   { label: '💰 Savings', value: 'Savings' },
                   { label: '💸 Investment', value: 'Investment' }
-                ]} 
-                minWidth="130px" 
+                ]}
+                minWidth="130px"
               />
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
-              
-              <button 
+
+              <button
                 className="bulk-hide-btn"
                 onClick={() => updateRow(row.id, 'exclude_analytics', !row.exclude_analytics)}
                 style={{
@@ -2963,23 +2963,23 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
           <div className="modal-title">⚙️ Manage Categories</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        
+
         {/* Search Bar */}
         <div style={{ padding: '1rem 1.5rem 0' }}>
-            <input 
-                className="inp" 
-                placeholder="🔍 Search categories..." 
-                value={search} 
-                onChange={e => setSearch(e.target.value)}
-            />
+          <input
+            className="inp"
+            placeholder="🔍 Search categories..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
 
         <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: '1.5rem' }}>
           <div style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '1.5rem', lineHeight: 1.6, background: 'rgba(99,102,241,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.1)' }}>
-            Exclude entire categories from the Spending Analyser pie chart and statistics. 
-            <br/><br/><strong style={{ color: 'var(--accent)' }}>✨ Magic Feature:</strong> If a category is hidden here, any <i>new</i> transactions you log in this category will be automatically excluded in the future!
+            Exclude entire categories from the Spending Analyser pie chart and statistics.
+            <br /><br /><strong style={{ color: 'var(--accent)' }}>✨ Magic Feature:</strong> If a category is hidden here, any <i>new</i> transactions you log in this category will be automatically excluded in the future!
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {displayHeadings.map(cat => {
               const isExcluded = exclusionMap[cat];
@@ -3010,7 +3010,7 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
                 </div>
               );
             })}
-            
+
             {displayHeadings.length === 0 && (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)', fontSize: '0.9rem' }}>
                 No categories found matching "{search}"
@@ -3025,8 +3025,8 @@ function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh 
 
 function AddActivityModal({ onAdd, onClose }) {
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ 
-    date: today, gym: false, badminton: false, table_tennis: false, cricket: false, others: false, description: '' 
+  const [form, setForm] = useState({
+    date: today, gym: false, badminton: false, table_tennis: false, cricket: false, others: false, description: ''
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -3039,7 +3039,7 @@ function AddActivityModal({ onAdd, onClose }) {
         method: "POST", headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify(form),
       });
       if (res.ok) {
-        onAdd(); 
+        onAdd();
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1500);
       } else {
@@ -3061,7 +3061,7 @@ function AddActivityModal({ onAdd, onClose }) {
         </div>
         <div className="modal-body">
           <div className="add-form-card" style={{ border: 'none', padding: 0, minWidth: 'auto', background: 'transparent' }}>
-            
+
             <div className="form-group">
               <label>Date</label>
               <input type="date" className="inp" value={form.date} onChange={e => set('date', e.target.value)} />
@@ -3071,11 +3071,11 @@ function AddActivityModal({ onAdd, onClose }) {
               <label>Activities Completed</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 {[
-                  ['gym', '🏋️ Gym'], ['badminton', '🏸 Badminton'], 
-                  ['table_tennis', '🏓 Table Tennis'], ['cricket', '🏏 Cricket'], 
+                  ['gym', '🏋️ Gym'], ['badminton', '🏸 Badminton'],
+                  ['table_tennis', '🏓 Table Tennis'], ['cricket', '🏏 Cricket'],
                   ['others', '🏃‍♂️ Others']
                 ].map(([key, label]) => (
-                  <div 
+                  <div
                     key={key} onClick={() => set(key, !form[key])}
                     style={{
                       padding: '0.65rem', border: `1px solid ${form[key] ? 'var(--accent)' : 'var(--border)'}`,
@@ -3117,50 +3117,50 @@ function GymTab({ physical, onOpenModal }) {
   });
 
   // 2. Count how many of those filtered days had at least one activity
-  const physActive = filteredRecords.filter(p => 
+  const physActive = filteredRecords.filter(p =>
     p.gym || p.badminton || p.table_tennis || p.cricket || p.others
   ).length;
 
   // 3. Sort the filtered records for the table
-  const sorted = [...filteredRecords].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...filteredRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (
     <div className="invest-layout" style={{ display: 'block' }}>
-      
+
       {/* Header & Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        
+
         {/* Cleaned Up Days Active Stat Block */}
         <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', background: 'var(--card)', padding: '1rem 1.5rem', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-           
-           {/* BIG Number */}
-           <div style={{ fontSize: '3.2rem', fontWeight: 800, color: 'var(--accent2)', lineHeight: 0.85, fontFamily: "'Syne', sans-serif", position: 'relative', top: '-3px' }}>
-             {physActive}
-           </div>
-           
-           {/* Streamlined Label */}
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '0.5rem' }}>
-             <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text)', fontWeight: 700, letterSpacing: '0.5px' }}>Days Active</span>
-             <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500 }}>in {MONTHS[physMonth]} {physYear}</span>
-           </div>
-           
-           <div style={{ width: '1px', height: '40px', background: 'var(--border)' }}></div>
-           
-           {/* Filters */}
-           <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
-              <CustomSelect 
-                value={physMonth} 
-                onChange={val => setPhysMonth(parseInt(val))} 
-                options={MONTHS.map((m, i) => ({ label: m, value: i }))} 
-                minWidth="130px" 
-              />
-              <CustomSelect 
-                value={physYear} 
-                onChange={val => setPhysYear(parseInt(val))} 
-                options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))} 
-                minWidth="100px" 
-              />
-           </div>
+
+          {/* BIG Number */}
+          <div style={{ fontSize: '3.2rem', fontWeight: 800, color: 'var(--accent2)', lineHeight: 0.85, fontFamily: "'Syne', sans-serif", position: 'relative', top: '-3px' }}>
+            {physActive}
+          </div>
+
+          {/* Streamlined Label */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text)', fontWeight: 700, letterSpacing: '0.5px' }}>Days Active</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500 }}>in {MONTHS[physMonth]} {physYear}</span>
+          </div>
+
+          <div style={{ width: '1px', height: '40px', background: 'var(--border)' }}></div>
+
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
+            <CustomSelect
+              value={physMonth}
+              onChange={val => setPhysMonth(parseInt(val))}
+              options={MONTHS.map((m, i) => ({ label: m, value: i }))}
+              minWidth="130px"
+            />
+            <CustomSelect
+              value={physYear}
+              onChange={val => setPhysYear(parseInt(val))}
+              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+              minWidth="100px"
+            />
+          </div>
         </div>
 
 
@@ -3174,15 +3174,15 @@ function GymTab({ physical, onOpenModal }) {
         <div className="data-table">
           <div className="table-header" style={{ gridTemplateColumns: '1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 2fr' }}>
             <span>📅 Date</span>
-            <span style={{textAlign:'center'}}>🏋️ Gym</span>
-            <span style={{textAlign:'center'}}>🏸 Badminton</span>
-            <span style={{textAlign:'center'}}>🏓 TT</span>
-            <span style={{textAlign:'center'}}>🏏 Cricket</span>
-            <span style={{textAlign:'center'}}>🏃‍♂️ Others</span>
+            <span style={{ textAlign: 'center' }}>🏋️ Gym</span>
+            <span style={{ textAlign: 'center' }}>🏸 Badminton</span>
+            <span style={{ textAlign: 'center' }}>🏓 TT</span>
+            <span style={{ textAlign: 'center' }}>🏏 Cricket</span>
+            <span style={{ textAlign: 'center' }}>🏃‍♂️ Others</span>
             <span>📝 Description</span>
           </div>
           {sorted.map((p, i) => (
-            <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 2fr' }}>
+            <div key={i} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: '1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 2fr' }}>
               <span style={{ fontWeight: 500 }}>{formatDate(p.date)}</span>
               <span style={{ textAlign: 'center' }}>{p.gym ? '✅' : '—'}</span>
               <span style={{ textAlign: 'center' }}>{p.badminton ? '✅' : '—'}</span>
@@ -3226,7 +3226,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const isMobile = window.innerWidth <= 768;
-      
+
       if (isMobile) {
         setDropdownStyle({
           position: 'fixed',
@@ -3234,7 +3234,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
           left: '16px',
           right: '16px',
           width: 'calc(100vw - 32px)',
-          zIndex: 999999 
+          zIndex: 999999
         });
       } else {
         const isRightSide = rect.right > window.innerWidth * 0.6;
@@ -3244,7 +3244,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
           left: isRightSide ? 'auto' : `${rect.left}px`,
           right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
           minWidth: `${rect.width}px`,
-          zIndex: 999999 
+          zIndex: 999999
         });
       }
     }
@@ -3268,10 +3268,10 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
         </div>
         <span className="chip-arrow">▼</span>
       </button>
-      
+
       {isOpen && createPortal(
         <div className="chip-dropdown" ref={dropdownRef} style={{ ...dropdownStyle, maxHeight: '300px' }}>
-          
+
           {/* 🚀 STICKY HEADER GROUP */}
           <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
             {options.length > 5 && (
@@ -3280,9 +3280,9 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
               </div>
             )}
             {selectedAssets.size > 0 && (
-              <div 
-                className="chip-dropdown-item" 
-                onClick={(e) => { e.stopPropagation(); setSelectedAssets(new Set()); setIsOpen(false); setSearchTerm(""); }} 
+              <div
+                className="chip-dropdown-item"
+                onClick={(e) => { e.stopPropagation(); setSelectedAssets(new Set()); setIsOpen(false); setSearchTerm(""); }}
                 style={{ fontWeight: 600, color: 'var(--neg)', justifyContent: 'center', borderRadius: 0, padding: '0.6rem 0.5rem', borderTop: options.length > 5 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
               >
                 ✕ Clear Selection
@@ -3293,15 +3293,15 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
           {filtered.map(sym => {
             const isSelected = selectedAssets.has(sym);
             return (
-              <div 
-                key={sym} 
-                className="chip-dropdown-item" 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  const next = new Set(selectedAssets); 
-                  if (next.has(sym)) next.delete(sym); else next.add(sym); 
-                  setSelectedAssets(next); 
-                }} 
+              <div
+                key={sym}
+                className="chip-dropdown-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const next = new Set(selectedAssets);
+                  if (next.has(sym)) next.delete(sym); else next.add(sym);
+                  setSelectedAssets(next);
+                }}
                 style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}
               >
                 {/* 4px border radius for square multi-select checkboxes */}
@@ -3319,7 +3319,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
 }
 
 // ─── INVEST TAB ───────────────────────────────────────────────────────────
-function InvestTab({ investments, manualAssets, assetList, onAdd }) {  
+function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   // 🚀 PIN LOCK STATES
   const [savedPin, setSavedPin] = useState(localStorage.getItem('dt_inv_pin'));
   const [isUnlocked, setIsUnlocked] = useState(sessionStorage.getItem('dt_inv_unlocked') === 'true');
@@ -3442,30 +3442,30 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tokenStr, setTokenStr] = useState("");
   const [syncingSheets, setSyncingSheets] = useState(false);
-  
+
   // 🚀 MASTER CHART & MULTI-SELECT STATES
   const [chartCategory, setChartCategory] = useState('ALL');
   const [timeframe, setTimeframe] = useState('3M');
   const [chartMode, setChartMode] = useState('PERCENTAGE'); // 🚀 NEW: 'ABSOLUTE' or 'PERCENTAGE'
   const [selectedAssets, setSelectedAssets] = useState(new Set());
-  
+
   // 🚀 OPTIMIZATION: IN-MEMORY CACHE
   const assetHistoryCache = useRef({});
   const drilldownCache = useRef({});
   const [isDrillDownLoading, setIsDrillDownLoading] = useState(false);
-  const [triggerRender, setTriggerRender] = useState(0); 
+  const [triggerRender, setTriggerRender] = useState(0);
 
   // Fetch history specifically when multiple micro-assets are selected
   useEffect(() => {
     if (chartCategory === 'ALL') { setSelectedAssets(new Set()); return; }
-    
+
     if (selectedAssets.size > 0) {
       // Find which assets we don't have cached yet
       const missing = Array.from(selectedAssets).filter(sym => !assetHistoryCache.current[sym]);
       if (missing.length > 0) {
         Promise.all(missing.map(sym =>
-          fetch(`${API}/investments/history?symbol=${encodeURIComponent(sym)}&type=${chartCategory}`, { 
-            headers: { 'Authorization': `Bearer ${getToken()}` } 
+          fetch(`${API}/investments/history?symbol=${encodeURIComponent(sym)}&type=${chartCategory}`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
           }).then(r => r.json())
         )).then(results => {
           missing.forEach((sym, i) => { assetHistoryCache.current[sym] = results[i]; });
@@ -3474,17 +3474,17 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       }
     }
   }, [selectedAssets, chartCategory]);
-  
+
   const [expandedSection, setExpandedSection] = useState('MARKET');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [showBalances, setShowBalances] = useState(false); 
-  const [invCurrentPage, setInvCurrentPage] = useState(0); 
+  const [showBalances, setShowBalances] = useState(false);
+  const [invCurrentPage, setInvCurrentPage] = useState(0);
   const [invRowsPerPage, setInvRowsPerPage] = useState(5);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   // 🚀 ASSET VISIBILITY TOGGLES
   const [hiddenCategories, setHiddenCategories] = useState(() => {
-    try { 
+    try {
       const stored = localStorage.getItem('dt_inv_hidden_cats');
       if (stored) return JSON.parse(stored);
       return ['PROVIDENT', 'GOLD'];
@@ -3508,7 +3508,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       return next;
     });
   };
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
@@ -3520,9 +3520,9 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     try {
       const res = await fetch(`${API}/manual_assets/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (res.ok) onAdd();
-    } catch(e) { alert("Error deleting asset: " + e.message); }
+    } catch (e) { alert("Error deleting asset: " + e.message); }
   };
-  
+
   const [drillDownDate, setDrillDownDate] = useState(null);
   const [drillDownData, setDrillDownData] = useState([]);
   const [drillDownType, setDrillDownType] = useState(null);
@@ -3537,55 +3537,55 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
   // Reusable Diff Badge for the UI
   const DiffBadge = ({ diff, isCurrency = true, isPct = false }) => {
-    if (!diff || Math.abs(diff) < 0.01) return <span style={{fontSize:'0.65rem', color:'var(--text3)'}}>= No Change</span>;
+    if (!diff || Math.abs(diff) < 0.01) return <span style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>= No Change</span>;
     const isPos = diff > 0;
-    const formatted = isPct ? diff.toFixed(2) + '%' : (isCurrency ? '₹' + Math.abs(diff).toLocaleString('en-IN', {maximumFractionDigits:2}) : Math.abs(diff).toFixed(2));
+    const formatted = isPct ? diff.toFixed(2) + '%' : (isCurrency ? '₹' + Math.abs(diff).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : Math.abs(diff).toFixed(2));
     return (
-      <span className={isPos ? 'pos' : 'neg'} style={{fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px', background: isPos ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)', padding: '2px 6px', borderRadius: '4px', width: 'fit-content'}}>
+      <span className={isPos ? 'pos' : 'neg'} style={{ fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px', background: isPos ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)', padding: '2px 6px', borderRadius: '4px', width: 'fit-content' }}>
         {isPos ? '▲' : '▼'} {formatted}
       </span>
     );
   };
-  
+
   // 🚀 DYNAMIC CHART DATA PROCESSOR (Handles Multi-Line Overlaps & Percentages)
   const chartData = useMemo(() => {
     let data = [];
-    
+
     if (selectedAssets.size > 0) {
       // 1. MULTI-LINE MODE: Merge cached timelines
       let dates = new Set();
       const assetsData = {};
-      
+
       selectedAssets.forEach(sym => {
-         const history = assetHistoryCache.current[sym] || [];
-         history.forEach(d => {
-            dates.add(d.date);
-            if (!assetsData[d.date]) assetsData[d.date] = { date: formatDate(d.date), rawDate: new Date(d.date) };
-            assetsData[d.date][sym] = d.Current; 
-            assetsData[d.date][`${sym}_Inv`] = d.Invested; // Hidden field for tooltip math
-            assetsData[d.date][`${sym}_Pct`] = d.Invested > 0 ? ((d.Current - d.Invested) / d.Invested) * 100 : 0; // 🚀 Calculate % Return
-         });
+        const history = assetHistoryCache.current[sym] || [];
+        history.forEach(d => {
+          dates.add(d.date);
+          if (!assetsData[d.date]) assetsData[d.date] = { date: formatDate(d.date), rawDate: new Date(d.date) };
+          assetsData[d.date][sym] = d.Current;
+          assetsData[d.date][`${sym}_Inv`] = d.Invested; // Hidden field for tooltip math
+          assetsData[d.date][`${sym}_Pct`] = d.Invested > 0 ? ((d.Current - d.Invested) / d.Invested) * 100 : 0; // 🚀 Calculate % Return
+        });
       });
-      data = Array.from(dates).sort((a,b) => new Date(a) - new Date(b)).map(d => assetsData[d]);
-      
+      data = Array.from(dates).sort((a, b) => new Date(a) - new Date(b)).map(d => assetsData[d]);
+
     } else {
       // 2. CATEGORY TOTALS MODE
       let baseData = [...investments].reverse();
       if (!baseData || baseData.length === 0) return [];
       data = baseData.map(d => {
-         let curr = 0; let inv = 0;
-         if (chartCategory === 'ALL') { curr = d.total_curr; inv = d.total_inv; }
-         else if (chartCategory === 'EQUITY') { curr = d.curr_stocks; inv = d.inv_stocks; }
-         else if (chartCategory === 'MF') { curr = d.curr_mf; inv = d.inv_mf; }
-         else if (chartCategory === 'PROVIDENT') { curr = d.curr_prov; inv = d.inv_prov; }
-         else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
-         else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
-         
-         const pct = inv > 0 ? ((curr - inv) / inv) * 100 : 0;
-         return { date: formatDate(d.date), rawDate: new Date(d.date), Current: curr || 0, Invested: inv || 0, ReturnPct: pct };
+        let curr = 0; let inv = 0;
+        if (chartCategory === 'ALL') { curr = d.total_curr; inv = d.total_inv; }
+        else if (chartCategory === 'EQUITY') { curr = d.curr_stocks; inv = d.inv_stocks; }
+        else if (chartCategory === 'MF') { curr = d.curr_mf; inv = d.inv_mf; }
+        else if (chartCategory === 'PROVIDENT') { curr = d.curr_prov; inv = d.inv_prov; }
+        else if (chartCategory === 'FIXED_INCOME') { curr = d.curr_fixed; inv = d.inv_fixed; }
+        else if (chartCategory === 'GOLD') { curr = d.curr_gold; inv = d.inv_gold; }
+
+        const pct = inv > 0 ? ((curr - inv) / inv) * 100 : 0;
+        return { date: formatDate(d.date), rawDate: new Date(d.date), Current: curr || 0, Invested: inv || 0, ReturnPct: pct };
       });
     }
-    
+
     // 3. APPLY TIMEFRAME
     if (timeframe !== 'ALL') {
       const now = new Date();
@@ -3600,7 +3600,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     return data;
   }, [investments, chartCategory, timeframe, selectedAssets, triggerRender]);
 
-// 🚀 HIGH-CONTRAST PALETTE FOR MULTI-LINES
+  // 🚀 HIGH-CONTRAST PALETTE FOR MULTI-LINES
   const PIE_COLORS = [
     "#6366f1", // Indigo
     "#f59e0b", // Amber
@@ -3622,34 +3622,34 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {payload.map((p, i) => {
-               const sym = p.name;
-               const curr = p.value || 0;
-               const inv = selectedAssets.size > 0 ? (p.payload[`${sym}_Inv`] || 0) : (payload.find(x => x.dataKey === 'Invested')?.value || 0);
-               const retAmt = curr - inv;
-               const isPos = retAmt >= 0;
-               const pct = selectedAssets.size > 0 ? (inv > 0 ? (retAmt / inv) * 100 : 0) : (payload[0].payload.ReturnPct || 0);
-               
-               // If in single mode, skip drawing the "Invested Amount" block as its own entity since we merge it above
-               if (selectedAssets.size === 0 && sym === 'Invested Amount') return null;
+              const sym = p.name;
+              const curr = p.value || 0;
+              const inv = selectedAssets.size > 0 ? (p.payload[`${sym}_Inv`] || 0) : (payload.find(x => x.dataKey === 'Invested')?.value || 0);
+              const retAmt = curr - inv;
+              const isPos = retAmt >= 0;
+              const pct = selectedAssets.size > 0 ? (inv > 0 ? (retAmt / inv) * 100 : 0) : (payload[0].payload.ReturnPct || 0);
 
-               return (
-                  <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{sym === 'Current Value' ? 'Total Portfolio' : sym}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                      <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
-                      <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                      <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
-                      <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                        {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
-                      </span>
-                    </div>
+              // If in single mode, skip drawing the "Invested Amount" block as its own entity since we merge it above
+              if (selectedAssets.size === 0 && sym === 'Invested Amount') return null;
+
+              return (
+                <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{sym === 'Current Value' ? 'Total Portfolio' : sym}</span>
                   </div>
-               )
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                    <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
+                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                    <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
+                    <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
+                      {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              )
             })}
           </div>
         </div>
@@ -3668,25 +3668,25 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       setDrillSortBy("symbol"); setDrillSortDir("asc");
       return;
     }
-    
+
     setIsDrillDownLoading(true);
     setDrillDownType(type);
     setDrillDownDate(dateStr);
-    
+
     try {
       const endpoint = type === "EQUITY" ? "equity_holdings" : "holdings";
       const res = await fetch(`${API}/investments/${dateStr}/${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
-      
+
       const dataWithRet = data.map(d => ({
         ...d,
         ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0)
       }));
-      
+
       drilldownCache.current[cacheKey] = dataWithRet;
       setDrillDownData(dataWithRet);
       setDrillSortBy("symbol"); setDrillSortDir("asc");
-    } catch(e) {
+    } catch (e) {
       console.error(e);
     } finally {
       setIsDrillDownLoading(false);
@@ -3707,18 +3707,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       const dataWithRet = data.map(d => ({ ...d, ret_pct: d.ret_pct !== undefined ? d.ret_pct : (d.invested_value > 0 ? ((d.current_value - d.invested_value) / d.invested_value) * 100 : 0) }));
       drilldownCache.current[cacheKey] = dataWithRet;
       setDrillDownCompareData(dataWithRet);
-    } catch(e) { console.error(e); } finally { setIsCompareLoading(false); }
+    } catch (e) { console.error(e); } finally { setIsCompareLoading(false); }
   };
 
   const openDrillDown = (dateStr) => {
     fetchDrillDownData(dateStr, 'EQUITY');
-    
+
     const currentDate = new Date(dateStr);
     const earlierDates = investments
       .map(inv => inv.date.split('T')[0])
       .filter(dt => new Date(dt) < currentDate)
       .sort((a, b) => new Date(b) - new Date(a));
-      
+
     if (earlierDates.length > 0) {
       const prevDate = earlierDates[0];
       setDrillDownCompareDate(prevDate);
@@ -3741,7 +3741,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     drillDownCompareData.forEach(item => { mapB[item.symbol] = item; });
     const mapA = {}; // Target (Newer Date)
     drillDownData.forEach(item => { mapA[item.symbol] = item; });
-    
+
     const allSymbols = Array.from(new Set([...Object.keys(mapA), ...Object.keys(mapB)]));
     return allSymbols.map(sym => {
       const a = mapA[sym] || { quantity: 0, invested_value: 0, current_value: 0, average_price: 0, ltp: 0, nav: 0, ret_pct: 0 };
@@ -3785,7 +3785,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
   const availableCompareDates = useMemo(() => {
     if (!drillDownDate) return [];
-    return investments.filter(inv => inv.date.split('T')[0] !== drillDownDate).map(inv => ({ 
+    return investments.filter(inv => inv.date.split('T')[0] !== drillDownDate).map(inv => ({
       label: formatDate(inv.date), value: inv.date.split('T')[0], rawDate: new Date(inv.date)
     })).sort((a, b) => b.rawDate - a.rawDate);
   }, [investments, drillDownDate]);
@@ -3795,8 +3795,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     data.sort((a, b) => {
       let aVal = a[drillSortBy]; let bVal = b[drillSortBy];
       if (drillSortBy === 'price') {
-         aVal = drillDownType === "EQUITY" ? a.ltp : a.nav;
-         bVal = drillDownType === "EQUITY" ? b.ltp : b.nav;
+        aVal = drillDownType === "EQUITY" ? a.ltp : a.nav;
+        bVal = drillDownType === "EQUITY" ? b.ltp : b.nav;
       }
       if (typeof aVal === 'string') return drillSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       return drillSortDir === 'asc' ? aVal - bVal : bVal - aVal;
@@ -3828,15 +3828,15 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     }
     data.sort((a, b) => {
       const getVal = (item, key) => {
-         if (key === 'date') return new Date(item.date).getTime();
-         const invVal = viewMode === 'ALL' ? parseFloat(item.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(item.inv_stocks || 0) : parseFloat(item.inv_mf || 0);
-         const currVal = viewMode === 'ALL' ? parseFloat(item.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(item.curr_stocks || 0) : parseFloat(item.curr_mf || 0);
-         const retPct = viewMode === 'ALL' ? parseFloat(item.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(item.ret_pct_stocks || 0) : parseFloat(item.ret_pct_mf || 0);
-         const statusStr = viewMode === 'ALL' ? item.total_status : viewMode === 'EQUITY' ? item.status_stocks : item.status_mf;
-         
-         if (key === 'inv') return invVal; if (key === 'curr') return currVal;
-         if (key === 'ret_amount') return currVal - invVal; if (key === 'ret_pct') return retPct;
-         if (key === 'status') return statusStr; return 0;
+        if (key === 'date') return new Date(item.date).getTime();
+        const invVal = viewMode === 'ALL' ? parseFloat(item.total_inv || 0) : viewMode === 'EQUITY' ? parseFloat(item.inv_stocks || 0) : parseFloat(item.inv_mf || 0);
+        const currVal = viewMode === 'ALL' ? parseFloat(item.total_curr || 0) : viewMode === 'EQUITY' ? parseFloat(item.curr_stocks || 0) : parseFloat(item.curr_mf || 0);
+        const retPct = viewMode === 'ALL' ? parseFloat(item.total_ret_pct || 0) : viewMode === 'EQUITY' ? parseFloat(item.ret_pct_stocks || 0) : parseFloat(item.ret_pct_mf || 0);
+        const statusStr = viewMode === 'ALL' ? item.total_status : viewMode === 'EQUITY' ? item.status_stocks : item.status_mf;
+
+        if (key === 'inv') return invVal; if (key === 'curr') return currVal;
+        if (key === 'ret_amount') return currVal - invVal; if (key === 'ret_pct') return retPct;
+        if (key === 'status') return statusStr; return 0;
       };
       const aVal = getVal(a, sortBy); const bVal = getVal(b, sortBy);
       if (typeof aVal === 'string') return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
@@ -3851,7 +3851,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   };
 
   const handleOpenKite = () => { window.open("https://kite.zerodha.com/connect/LOGIN?api_key=6gcxnf0qycaphw5k", "_blank", "width=500,height=600"); setShowTokenInput(true); };
-  
+
   const handleSubmitToken = async () => {
     let token = tokenStr.trim();
     if (token.includes("request_token=")) {
@@ -3863,9 +3863,9 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     try {
       const res = await fetch(`${API}/sync/kite`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }, body: JSON.stringify({ request_token: token }) });
       const data = await res.json();
-      if (data.success) { alert("✅ " + data.message); onAdd(); setShowTokenInput(false); setTokenStr(""); } 
+      if (data.success) { alert("✅ " + data.message); onAdd(); setShowTokenInput(false); setTokenStr(""); }
       else alert("❌ Sync Failed: " + data.message);
-    } catch (e) { alert("❌ Network Error: " + e.message); } 
+    } catch (e) { alert("❌ Network Error: " + e.message); }
     finally { setSyncing(false); }
   };
 
@@ -3875,7 +3875,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       const res = await fetch(`${API}/sync/investments-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
       const data = await res.json();
       alert(data.success ? (data.message.includes("No new") ? "👍 " + data.message : "✅ " + data.message) : "❌ Sync Failed: " + data.message);
-    } catch (e) { alert("❌ Network Error: " + e.message); } 
+    } catch (e) { alert("❌ Network Error: " + e.message); }
     finally { setSyncingSheets(false); }
   };
 
@@ -3907,7 +3907,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
   return (
     <div style={{ position: 'relative', minHeight: '80vh' }}>
-      
+
       {/* 🚀 THE PIN LOCK OVERLAY (Now Perfectly Centered) */}
       {!isUnlocked && (
         <div style={{
@@ -3923,7 +3923,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             <p style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '2rem' }}>
               {savedPin ? 'Unlock your investment portfolio.' : 'Protect your assets with a 4-digit PIN.'}
             </p>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                 {[0, 1, 2, 3].map((index) => (
@@ -3952,18 +3952,18 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   />
                 ))}
               </div>
-              <button 
+              <button
                 onClick={() => setShowPin(!showPin)}
-                style={{ 
-                  background: 'transparent', border: 'none', color: 'var(--text3)', 
-                  fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' 
+                style={{
+                  background: 'transparent', border: 'none', color: 'var(--text3)',
+                  fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline'
                 }}
               >
                 {showPin ? 'Hide PIN' : 'Show PIN'}
               </button>
             </div>
             {pinError && <div style={{ color: 'var(--neg)', fontSize: '0.8rem', marginTop: '0.75rem', fontWeight: 600 }}>{savedPin ? 'Incorrect PIN' : 'PIN must be exactly 4 digits'}</div>}
-            
+
             <button
               onClick={handlePinSubmit}
               style={{ width: '100%', marginTop: '2rem', background: 'linear-gradient(135deg, var(--accent), var(--accent3))', color: '#fff', border: 'none', padding: '1rem', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 8px 20px rgba(99,102,241,0.3)' }}
@@ -3972,15 +3972,15 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             >
               {savedPin ? 'Unlock Portfolio' : 'Save & Lock'}
             </button>
-            
+
             {savedPin && (
-              <div 
-                onClick={() => { 
-                  if(window.confirm('Forgot your PIN? This will sign you out to verify your identity.')) { 
-                    localStorage.removeItem('dt_inv_pin'); 
+              <div
+                onClick={() => {
+                  if (window.confirm('Forgot your PIN? This will sign you out to verify your identity.')) {
+                    localStorage.removeItem('dt_inv_pin');
                     localStorage.removeItem('dt_token'); // Kills the session
                     window.location.reload(); // Forces back to Google Login page
-                  } 
+                  }
                 }}
                 style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '1.25rem', cursor: 'pointer', textDecoration: 'underline', transition: 'color 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
@@ -3994,170 +3994,170 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       )}
 
       {/* 🚀 BLUR WRAPPER AROUND EXISTING CONTENT */}
-      <div className="invest-layout" style={{ 
-        display: 'block', 
-        filter: !isUnlocked ? 'blur(12px) grayscale(50%)' : 'none', 
-        pointerEvents: !isUnlocked ? 'none' : 'auto', 
-        userSelect: !isUnlocked ? 'none' : 'auto', 
+      <div className="invest-layout" style={{
+        display: 'block',
+        filter: !isUnlocked ? 'blur(12px) grayscale(50%)' : 'none',
+        pointerEvents: !isUnlocked ? 'none' : 'auto',
+        userSelect: !isUnlocked ? 'none' : 'auto',
         transition: 'filter 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: !isUnlocked ? 0.4 : 1
       }}>
-        
+
         {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
-        
-        {/* Summary Metrics Card */}
-        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Combined Net Worth</span>
-                  {hiddenCategories.length > 0 && (
-                    <span className="filtered-badge">
-                      ⚡ ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(1.4rem, 7vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
-                  {showBalances ? fmt(filteredTotals.curr) : '₹ ••••••'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, marginTop: '-4px' }}>
-                <button 
-                  onClick={() => setShowAssetSettings(!showAssetSettings)}
-                  style={{ 
-                    background: showAssetSettings ? 'rgba(99,102,241,0.15)' : 'transparent', 
-                    border: showAssetSettings ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent', 
-                    cursor: 'pointer', fontSize: '1.1rem', padding: '0.35rem', 
-                    opacity: showAssetSettings ? 1 : 0.7, transition: 'all 0.2s', 
-                    borderRadius: '8px', position: 'relative'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                  onMouseLeave={e => { if (!showAssetSettings) e.currentTarget.style.opacity = 0.7; }}
-                  title="Configure Net Worth Categories"
-                >
-                  ⚙️
-                  {hiddenCategories.length > 0 && (
-                    <span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--card)' }} />
-                  )}
-                </button>
-                <button 
-                  onClick={() => setShowBalances(!showBalances)}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.3rem', padding: '0.4rem', opacity: 0.7, transition: 'opacity 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                  onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
-                  title={showBalances ? "Hide Balances" : "Show Balances"}
-                >
-                  {showBalances ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
 
-            {/* 🚀 ASSET VISIBILITY SETTINGS PANEL */}
-            {showAssetSettings && (
-              <div className="asset-settings-panel">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Include in Net Worth</span>
-                  <button 
-                    onClick={() => {
-                      if (hiddenCategories.length > 0) {
-                        setHiddenCategories([]);
-                        localStorage.setItem('dt_inv_hidden_cats', '[]');
-                      } else {
-                        const allIds = ASSET_CATEGORIES.map(c => c.id);
-                        setHiddenCategories(allIds);
-                        localStorage.setItem('dt_inv_hidden_cats', JSON.stringify(allIds));
-                      }
+          {/* Summary Metrics Card */}
+          <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Combined Net Worth</span>
+                    {hiddenCategories.length > 0 && (
+                      <span className="filtered-badge">
+                        ⚡ ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(1.4rem, 7vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
+                    {showBalances ? fmt(filteredTotals.curr) : '₹ ••••••'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, marginTop: '-4px' }}>
+                  <button
+                    onClick={() => setShowAssetSettings(!showAssetSettings)}
+                    style={{
+                      background: showAssetSettings ? 'rgba(99,102,241,0.15)' : 'transparent',
+                      border: showAssetSettings ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                      cursor: 'pointer', fontSize: '1.1rem', padding: '0.35rem',
+                      opacity: showAssetSettings ? 1 : 0.7, transition: 'all 0.2s',
+                      borderRadius: '8px', position: 'relative'
                     }}
-                    style={{ fontSize: '0.7rem', color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => { if (!showAssetSettings) e.currentTarget.style.opacity = 0.7; }}
+                    title="Configure Net Worth Categories"
                   >
-                    {hiddenCategories.length > 0 ? 'Show All' : 'Hide All'}
+                    ⚙️
+                    {hiddenCategories.length > 0 && (
+                      <span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--card)' }} />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowBalances(!showBalances)}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.3rem', padding: '0.4rem', opacity: 0.7, transition: 'opacity 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
+                    title={showBalances ? "Hide Balances" : "Show Balances"}
+                  >
+                    {showBalances ? '🙈' : '👁️'}
                   </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {ASSET_CATEGORIES.map(cat => {
-                    const isVisible = !hiddenCategories.includes(cat.id);
-                    const catValue = latest ? parseFloat(latest[cat.field_curr] || 0) : 0;
-                    return (
-                      <div 
-                        key={cat.id} 
-                        className="asset-setting-row"
-                        onClick={() => toggleCategory(cat.id)}
-                        style={{ opacity: isVisible ? 1 : 0.5 }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
-                          <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: cat.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isVisible ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s', textDecoration: isVisible ? 'none' : 'line-through' }}>
-                            {cat.icon} {cat.label}
-                          </span>
-                          {showBalances && catValue > 0 && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500, flexShrink: 0 }}>
-                              {fmt(catValue)}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
-                          style={{
-                            width: '40px', height: '22px', borderRadius: '11px',
-                            background: isVisible ? 'var(--pos)' : 'var(--border2)',
-                            position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.25s',
-                            flexShrink: 0
-                          }}
-                        >
-                          <div style={{
-                            width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
-                            position: 'absolute', top: '3px',
-                            left: isVisible ? '21px' : '3px',
-                            transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
-                          }} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
-            )}
 
-            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '100px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>
-                  {showBalances ? fmt(filteredTotals.inv) : '₹ ••••••'}
+              {/* 🚀 ASSET VISIBILITY SETTINGS PANEL */}
+              {showAssetSettings && (
+                <div className="asset-settings-panel">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Include in Net Worth</span>
+                    <button
+                      onClick={() => {
+                        if (hiddenCategories.length > 0) {
+                          setHiddenCategories([]);
+                          localStorage.setItem('dt_inv_hidden_cats', '[]');
+                        } else {
+                          const allIds = ASSET_CATEGORIES.map(c => c.id);
+                          setHiddenCategories(allIds);
+                          localStorage.setItem('dt_inv_hidden_cats', JSON.stringify(allIds));
+                        }
+                      }}
+                      style={{ fontSize: '0.7rem', color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                    >
+                      {hiddenCategories.length > 0 ? 'Show All' : 'Hide All'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {ASSET_CATEGORIES.map(cat => {
+                      const isVisible = !hiddenCategories.includes(cat.id);
+                      const catValue = latest ? parseFloat(latest[cat.field_curr] || 0) : 0;
+                      return (
+                        <div
+                          key={cat.id}
+                          className="asset-setting-row"
+                          onClick={() => toggleCategory(cat.id)}
+                          style={{ opacity: isVisible ? 1 : 0.5 }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: cat.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isVisible ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s', textDecoration: isVisible ? 'none' : 'line-through' }}>
+                              {cat.icon} {cat.label}
+                            </span>
+                            {showBalances && catValue > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500, flexShrink: 0 }}>
+                                {fmt(catValue)}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
+                            style={{
+                              width: '40px', height: '22px', borderRadius: '11px',
+                              background: isVisible ? 'var(--pos)' : 'var(--border2)',
+                              position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.25s',
+                              flexShrink: 0
+                            }}
+                          >
+                            <div style={{
+                              width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
+                              position: 'absolute', top: '3px',
+                              left: isVisible ? '21px' : '3px',
+                              transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
+                            }} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-              <div style={{ width: '1px', background: 'var(--border)' }}></div>
-              <div style={{ flex: 1, minWidth: '100px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns & XIRR</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px', flexWrap: 'wrap' }}>
-                  <span className={filteredTotals.ret >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
-                    {showBalances ? (filteredTotals.ret >= 0 ? '+' : '-') + fmt(Math.abs(filteredTotals.ret)) : '₹ ••••••'}
-                  </span>
-                  <span className={filteredTotals.retPct >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
-                    {latest ? `(${filteredTotals.retPct >= 0 ? '+' : '-'}${Math.abs(filteredTotals.retPct).toFixed(2)}% Abs)` : ''}
-                  </span>
-                  
-                  {/* ---> NEW XIRR BADGE <--- */}
-                  {xirr !== null && (
-                    <span className={xirr >= 0 ? 'pos' : 'neg'} style={{ 
-                      fontWeight: 700, fontSize: '0.75rem', 
-                      background: xirr >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)', 
-                      padding: '0.2rem 0.5rem', borderRadius: '6px', border: `1px solid ${xirr >= 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
-                      marginLeft: '4px'
-                    }}>
-                      {loadingXirr ? '⏳' : `${xirr >= 0 ? '+' : ''}${xirr}% XIRR`}
+              )}
+
+              <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '100px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>
+                    {showBalances ? fmt(filteredTotals.inv) : '₹ ••••••'}
+                  </div>
+                </div>
+                <div style={{ width: '1px', background: 'var(--border)' }}></div>
+                <div style={{ flex: 1, minWidth: '100px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns & XIRR</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px', flexWrap: 'wrap' }}>
+                    <span className={filteredTotals.ret >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
+                      {showBalances ? (filteredTotals.ret >= 0 ? '+' : '-') + fmt(Math.abs(filteredTotals.ret)) : '₹ ••••••'}
                     </span>
-                  )}
+                    <span className={filteredTotals.retPct >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
+                      {latest ? `(${filteredTotals.retPct >= 0 ? '+' : '-'}${Math.abs(filteredTotals.retPct).toFixed(2)}% Abs)` : ''}
+                    </span>
+
+                    {/* ---> NEW XIRR BADGE <--- */}
+                    {xirr !== null && (
+                      <span className={xirr >= 0 ? 'pos' : 'neg'} style={{
+                        fontWeight: 700, fontSize: '0.75rem',
+                        background: xirr >= 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                        padding: '0.2rem 0.5rem', borderRadius: '6px', border: `1px solid ${xirr >= 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
+                        marginLeft: '4px'
+                      }}>
+                        {loadingXirr ? '⏳' : `${xirr >= 0 ? '+' : ''}${xirr}% XIRR`}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-             {!showTokenInput ? (
+
+            {/* Action Buttons */}
+            <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+              {!showTokenInput ? (
                 <>
                   <button className="action-btn" style={{ flex: 1, minWidth: '120px', justifyContent: 'center', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }} onClick={() => setIsAddModalOpen(true)}>
                     ➕ Add Asset
@@ -4169,225 +4169,225 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                     ⚡ Sync Broker
                   </button>
                 </>
-             ) : (
+              ) : (
                 <div style={{ display: 'flex', gap: '0.5rem', width: '100%', animation: 'fadeIn 0.3s ease', flexWrap: 'wrap' }}>
                   <input className="inp" placeholder="Paste request_token URL..." value={tokenStr} onChange={e => setTokenStr(e.target.value)} style={{ flex: '1 1 200px' }} />
                   <button className="action-btn" onClick={handleSubmitToken} disabled={syncing}>{syncing ? '⏳' : 'Sync'}</button>
                   <button className="action-btn secondary" onClick={() => { setShowTokenInput(false); setTokenStr(""); }}>✕</button>
                 </div>
-             )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Allocation Donut Card - Mobile Wrapped */}
-        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-          <div style={{ width: '220px', height: '220px', position: 'relative', flexShrink: 0 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={75} outerRadius={105} paddingAngle={3} cornerRadius={6} stroke="none">
-                  {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
-                </Pie>
-                <Tooltip 
-                  position={{ x: 110, y: 110 }}
-                  wrapperStyle={{ pointerEvents: 'none', zIndex: 10 }}
-                  cursor={false}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div style={{ 
-                          transform: 'translate(-50%, -50%)', textAlign: 'center', background: 'var(--card)', borderRadius: '50%', 
-                          width: '140px', height: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.15)' 
-                        }}>
-                          <div style={{ 
-                            fontSize: '0.65rem', color: data.fill, fontWeight: 700, letterSpacing: '0.5px', 
-                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', 
-                            overflow: 'hidden', textOverflow: 'ellipsis', 
-                            maxWidth: '120px', padding: '0 8px', lineHeight: 1.2, marginBottom: '4px'
+          {/* Allocation Donut Card - Mobile Wrapped */}
+          <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+            <div style={{ width: '220px', height: '220px', position: 'relative', flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={75} outerRadius={105} paddingAngle={3} cornerRadius={6} stroke="none">
+                    {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
+                  </Pie>
+                  <Tooltip
+                    position={{ x: 110, y: 110 }}
+                    wrapperStyle={{ pointerEvents: 'none', zIndex: 10 }}
+                    cursor={false}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div style={{
+                            transform: 'translate(-50%, -50%)', textAlign: 'center', background: 'var(--card)', borderRadius: '50%',
+                            width: '140px', height: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                           }}>
-                            {data.name.toUpperCase()}
+                            <div style={{
+                              fontSize: '0.65rem', color: data.fill, fontWeight: 700, letterSpacing: '0.5px',
+                              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden', textOverflow: 'ellipsis',
+                              maxWidth: '120px', padding: '0 8px', lineHeight: 1.2, marginBottom: '4px'
+                            }}>
+                              {data.name.toUpperCase()}
+                            </div>
+                            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
+                              {showBalances ? fmt(data.value) : '₹ ••••••'}
+                            </div>
                           </div>
-                          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
-                            {showBalances ? fmt(data.value) : '₹ ••••••'}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, letterSpacing: '0.5px' }}>ASSETS</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{pieData.length}</div>
+              </div>
+            </div>
+
+            {/* Legend - Responsive Flex layout */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', width: '100%', maxWidth: '900px' }}>
+              {pieData.map(d => {
+                const pct = filteredTotals.curr > 0 ? ((d.value / filteredTotals.curr) * 100).toFixed(1) : 0;
+                return (
+                  <div key={d.name} className="invest-legend-item" style={{ flex: '1 1 220px', maxWidth: '300px' }}>
+
+                    {/* Left Side: Name - Allows shrinking and ellipses */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill, flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                    </div>
+
+                    {/* Right Side: Values - Protected from shrinking */}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0 }}>
+                      <span style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.05rem)', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif", whiteSpace: 'nowrap' }}>
+                        {showBalances ? fmt(d.value) : '₹ ••••••'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, minWidth: '38px', textAlign: 'right' }}>
+                        {pct}%
+                      </span>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 🚀 THE COMMAND CENTER: MASTER CHART */}
+        <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* Chart Header & Time/Mode Toggles */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📈 Investment Analyser</h3>
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              {/* 🚀 NEW: Chart Mode Toggle */}
+              <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                {['ABSOLUTE', 'PERCENTAGE'].map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setChartMode(mode)}
+                    style={{
+                      background: chartMode === mode ? 'var(--card)' : 'transparent',
+                      color: chartMode === mode ? 'var(--text)' : 'var(--text3)',
+                      border: chartMode === mode ? '1px solid var(--border2)' : '1px solid transparent',
+                      padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: chartMode === mode ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+                    }}
+                  >
+                    {mode === 'ABSOLUTE' ? '₹ Value' : '% Return'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Timeframe Toggle */}
+              <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    style={{
+                      background: timeframe === tf ? 'var(--card)' : 'transparent',
+                      color: timeframe === tf ? 'var(--text)' : 'var(--text3)',
+                      border: timeframe === tf ? '1px solid var(--border2)' : '1px solid transparent',
+                      padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: timeframe === tf ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+                    }}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Category Toggles & Multi-Asset Filter */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
+              {[
+                { id: 'ALL', label: 'Overall' },
+                { id: 'EQUITY', label: 'Stocks' },
+                { id: 'MF', label: 'Mutual Funds' },
+                { id: 'PROVIDENT', label: 'Retirement' },
+                { id: 'FIXED_INCOME', label: 'Fixed Deposits' },
+                { id: 'GOLD', label: 'Gold' }
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setChartCategory(cat.id)}
+                  style={{
+                    flexShrink: 0, padding: '0.45rem 1.25rem', borderRadius: '999px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                    background: chartCategory === cat.id ? 'var(--accent)' : 'transparent',
+                    color: chartCategory === cat.id ? '#fff' : 'var(--text2)',
+                    border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
                   }}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 🚀 MULTI-ASSET CUSTOM SELECTOR */}
+            {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
+              <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
+                <MultiAssetSelect
+                  selectedAssets={selectedAssets}
+                  setSelectedAssets={setSelectedAssets}
+                  options={assetList[chartCategory]}
+                  placeholder="All Assets"
                 />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, letterSpacing: '0.5px' }}>ASSETS</div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{pieData.length}</div>
-            </div>
-          </div>
-          
-          {/* Legend - Responsive Flex layout */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', width: '100%', maxWidth: '900px' }}>
-            {pieData.map(d => {
-              const pct = filteredTotals.curr > 0 ? ((d.value / filteredTotals.curr) * 100).toFixed(1) : 0;
-              return (
-                <div key={d.name} className="invest-legend-item" style={{ flex: '1 1 220px', maxWidth: '300px' }}>
-                  
-                  {/* Left Side: Name - Allows shrinking and ellipses */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.fill, flexShrink: 0 }}></div>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text2)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
-                  </div>
-                  
-                  {/* Right Side: Values - Protected from shrinking */}
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0 }}>
-                    <span style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.05rem)', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif", whiteSpace: 'nowrap' }}>
-                      {showBalances ? fmt(d.value) : '₹ ••••••'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, minWidth: '38px', textAlign: 'right' }}>
-                      {pct}%
-                    </span>
-                  </div>
-                  
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      
-      {/* 🚀 THE COMMAND CENTER: MASTER CHART */}
-      <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        {/* Chart Header & Time/Mode Toggles */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📈 Investment Analyser</h3>
-          
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            {/* 🚀 NEW: Chart Mode Toggle */}
-            <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              {['ABSOLUTE', 'PERCENTAGE'].map(mode => (
-                <button 
-                  key={mode}
-                  onClick={() => setChartMode(mode)}
-                  style={{
-                    background: chartMode === mode ? 'var(--card)' : 'transparent',
-                    color: chartMode === mode ? 'var(--text)' : 'var(--text3)',
-                    border: chartMode === mode ? '1px solid var(--border2)' : '1px solid transparent',
-                    padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: chartMode === mode ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                  }}
-                >
-                  {mode === 'ABSOLUTE' ? '₹ Value' : '% Return'}
-                </button>
-              ))}
-            </div>
-
-            {/* Timeframe Toggle */}
-            <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
-                <button 
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  style={{
-                    background: timeframe === tf ? 'var(--card)' : 'transparent',
-                    color: timeframe === tf ? 'var(--text)' : 'var(--text3)',
-                    border: timeframe === tf ? '1px solid var(--border2)' : '1px solid transparent',
-                    padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: timeframe === tf ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                  }}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Category Toggles & Multi-Asset Filter */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
-          
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
-            {[
-              { id: 'ALL', label: 'Overall' },
-              { id: 'EQUITY', label: 'Stocks' },
-              { id: 'MF', label: 'Mutual Funds' },
-              { id: 'PROVIDENT', label: 'Retirement' },
-              { id: 'FIXED_INCOME', label: 'Fixed Deposits' },
-              { id: 'GOLD', label: 'Gold' }
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setChartCategory(cat.id)}
-                style={{
-                  flexShrink: 0, padding: '0.45rem 1.25rem', borderRadius: '999px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
-                  background: chartCategory === cat.id ? 'var(--accent)' : 'transparent',
-                  color: chartCategory === cat.id ? '#fff' : 'var(--text2)',
-                  border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
-                }}
-              >
-                {cat.label}
-              </button>
-            ))}
+              </div>
+            )}
           </div>
 
-          {/* 🚀 MULTI-ASSET CUSTOM SELECTOR */}
-          {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-            <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
-              <MultiAssetSelect
-                selectedAssets={selectedAssets}
-                setSelectedAssets={setSelectedAssets}
-                options={assetList[chartCategory]}
-                placeholder="All Assets"
-              />
-            </div>
-          )}
-        </div>
+          {/* The Recharts Graph */}
+          <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                <YAxis
+                  stroke="var(--text3)"
+                  fontSize={11}
+                  tickFormatter={v => chartMode === 'PERCENTAGE' ? `${v.toFixed(0)}%` : `₹${(v / 1000).toFixed(0)}k`}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={['auto', 'auto']}
+                />
+                {/* 🚀 DYNAMIC TOOLTIP: Renders Both Metrics Gracefully */}
+                <Tooltip
+                  cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', minWidth: '220px' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {payload.map((p, i) => {
+                              // 🚀 NEW: Ignore the dotted "Invested" line so we don't get duplicate tooltip blocks
+                              if (p.dataKey && p.dataKey.endsWith('_Inv')) return null;
 
-        {/* The Recharts Graph */}
-        <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-              <YAxis 
-                stroke="var(--text3)" 
-                fontSize={11} 
-                tickFormatter={v => chartMode === 'PERCENTAGE' ? `${v.toFixed(0)}%` : `₹${(v/1000).toFixed(0)}k`} 
-                axisLine={false} 
-                tickLine={false} 
-                domain={['auto', 'auto']} 
-              />
-              {/* 🚀 DYNAMIC TOOLTIP: Renders Both Metrics Gracefully */}
-              <Tooltip 
-                cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }} 
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', minWidth: '220px' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {payload.map((p, i) => {
-                             // 🚀 NEW: Ignore the dotted "Invested" line so we don't get duplicate tooltip blocks
-                             if (p.dataKey && p.dataKey.endsWith('_Inv')) return null;
+                              let sym = p.name;
+                              let curr = 0, inv = 0, pct = 0, retAmt = 0;
 
-                             let sym = p.name;
-                             let curr = 0, inv = 0, pct = 0, retAmt = 0;
-                             
-                             if (selectedAssets.size > 0) {
-                               sym = p.dataKey.replace('_Pct', ''); 
-                               curr = p.payload[sym] || 0;
-                               inv = p.payload[`${sym}_Inv`] || 0;
-                               pct = p.payload[`${sym}_Pct`] || 0;
-                             } else {
-                               if (i > 0) return null; // Avoid duplicate tooltip rows for single mode
-                               curr = p.payload.Current || 0;
-                               inv = p.payload.Invested || 0;
-                               pct = p.payload.ReturnPct || 0;
-                               sym = "Total Portfolio";
-                             }
-                             retAmt = curr - inv;
-                             const isPos = retAmt >= 0;
+                              if (selectedAssets.size > 0) {
+                                sym = p.dataKey.replace('_Pct', '');
+                                curr = p.payload[sym] || 0;
+                                inv = p.payload[`${sym}_Inv`] || 0;
+                                pct = p.payload[`${sym}_Pct`] || 0;
+                              } else {
+                                if (i > 0) return null; // Avoid duplicate tooltip rows for single mode
+                                curr = p.payload.Current || 0;
+                                inv = p.payload.Invested || 0;
+                                pct = p.payload.ReturnPct || 0;
+                                sym = "Total Portfolio";
+                              }
+                              retAmt = curr - inv;
+                              const isPos = retAmt >= 0;
 
-                             return (
+                              return (
                                 <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
@@ -4395,730 +4395,730 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   </div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                                     <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
-                                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'}</span>
+                                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'}</span>
                                   </div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
                                     <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
                                     <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                                      {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', {maximumFractionDigits:0})}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
+                                      {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
                                     </span>
                                   </div>
                                 </div>
-                             )
-                          })}
+                              )
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }} 
-              />
-              <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
-              
-              {/* 🚀 DYNAMIC LINES BASED ON MODE */}
-              {selectedAssets.size > 0 ? (
-                <>
-                  {Array.from(selectedAssets).map((sym, i) => (
-                    <Line 
-                      key={sym} 
-                      type="monotone" 
-                      name={sym} 
-                      dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym} 
-                      stroke={PIE_COLORS[i % PIE_COLORS.length]} 
-                      strokeWidth={3} 
-                      dot={chartData.length <= 1} 
-                      activeDot={{ r: 6, strokeWidth: 0 }} 
-                      animationDuration={800} 
-                    />
-                  ))}
-                  {/* 🚀 NEW: If exactly ONE asset is selected and we are in ₹ Value mode, show the dotted Invested line! */}
-                  {selectedAssets.size === 1 && chartMode !== 'PERCENTAGE' && (
-                    <Line 
-                      key={`${Array.from(selectedAssets)[0]}_Inv`} 
-                      type="monotone" 
-                      name="Invested Amount" 
-                      dataKey={`${Array.from(selectedAssets)[0]}_Inv`} 
-                      stroke="var(--text3)" 
-                      strokeWidth={2} 
-                      strokeDasharray="5 5" 
-                      dot={chartData.length <= 1} 
-                      activeDot={false} 
-                      animationDuration={800} 
-                    />
-                  )}
-                </>
-              ) : (
-                chartMode === 'PERCENTAGE' ? (
-                  <Line type="monotone" name="Return %" dataKey="ReturnPct" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
-                ) : (
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+
+                {/* 🚀 DYNAMIC LINES BASED ON MODE */}
+                {selectedAssets.size > 0 ? (
                   <>
-                    <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
-                    <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
+                    {Array.from(selectedAssets).map((sym, i) => (
+                      <Line
+                        key={sym}
+                        type="monotone"
+                        name={sym}
+                        dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym}
+                        stroke={PIE_COLORS[i % PIE_COLORS.length]}
+                        strokeWidth={3}
+                        dot={chartData.length <= 1}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        animationDuration={800}
+                      />
+                    ))}
+                    {/* 🚀 NEW: If exactly ONE asset is selected and we are in ₹ Value mode, show the dotted Invested line! */}
+                    {selectedAssets.size === 1 && chartMode !== 'PERCENTAGE' && (
+                      <Line
+                        key={`${Array.from(selectedAssets)[0]}_Inv`}
+                        type="monotone"
+                        name="Invested Amount"
+                        dataKey={`${Array.from(selectedAssets)[0]}_Inv`}
+                        stroke="var(--text3)"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={chartData.length <= 1}
+                        activeDot={false}
+                        animationDuration={800}
+                      />
+                    )}
                   </>
-                )
-              )}
-            </LineChart>
-          </ResponsiveContainer>
+                ) : (
+                  chartMode === 'PERCENTAGE' ? (
+                    <Line type="monotone" name="Return %" dataKey="ReturnPct" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
+                  ) : (
+                    <>
+                      <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
+                      <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
+                    </>
+                  )
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
 
-      {/* 🚀 THE ASSET CLASS GRID (ACCORDIONS) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {[
-          { title: "Stocks & MFs (Brokerage)", id: "MARKET" },
-          { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'PPF', 'NPS'] },
-          { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'Cash'] },
-          { title: "Gold & Real Estate", id: "GOLD", categories: ['SGB', 'RealEstate'] }
-        ].map(section => {
-          
-          // Filter manual assets for this specific section
-          const sectionAssets = manualAssets ? manualAssets.filter(a => section.categories?.includes(a.category)) : [];
+        {/* 🚀 THE ASSET CLASS GRID (ACCORDIONS) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {[
+            { title: "Stocks & MFs (Brokerage)", id: "MARKET" },
+            { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'PPF', 'NPS'] },
+            { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'Cash'] },
+            { title: "Gold & Real Estate", id: "GOLD", categories: ['SGB', 'RealEstate'] }
+          ].map(section => {
 
-          return (
-            <div key={section.id} className="analyser-card" style={{ marginBottom: 0 }}>
-              <div 
-                className={`analyser-header ${expandedSection === section.id ? 'open' : ''}`} 
-                onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
-              >
-                <div className="analyser-header-left">
-                  <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
-                  <div className="analyser-header-title">{section.title}</div>
+            // Filter manual assets for this specific section
+            const sectionAssets = manualAssets ? manualAssets.filter(a => section.categories?.includes(a.category)) : [];
+
+            return (
+              <div key={section.id} className="analyser-card" style={{ marginBottom: 0 }}>
+                <div
+                  className={`analyser-header ${expandedSection === section.id ? 'open' : ''}`}
+                  onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
+                >
+                  <div className="analyser-header-left">
+                    <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
+                    <div className="analyser-header-title">{section.title}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                    {section.id === 'MARKET' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (investments && investments.length >= 2) {
+                            const latestDate = investments[0].date.split('T')[0];
+                            const previousDate = investments[1].date.split('T')[0];
+                            setDrillDownDate(latestDate);
+                            setDrillDownCompareDate(previousDate);
+                            fetchDrillDownData(latestDate, 'EQUITY');
+                            fetchCompareData(previousDate, 'EQUITY');
+                          } else if (investments && investments.length === 1) {
+                            const latestDate = investments[0].date.split('T')[0];
+                            setDrillDownDate(latestDate);
+                            fetchDrillDownData(latestDate, 'EQUITY');
+                          }
+                        }}
+                        className="action-btn secondary"
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                        title="Compare Snapshots"
+                      >
+                        <span style={{ fontSize: '0.85rem' }}>⚖️</span>
+                        <span className="manage-btn-text">Compare</span>
+                      </button>
+                    )}
+                    <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                  {section.id === 'MARKET' && (
-                    <button 
-                      onClick={(e) => {
-                         e.stopPropagation();
-                         if (investments && investments.length >= 2) {
-                           const latestDate = investments[0].date.split('T')[0];
-                           const previousDate = investments[1].date.split('T')[0];
-                           setDrillDownDate(latestDate);
-                           setDrillDownCompareDate(previousDate);
-                           fetchDrillDownData(latestDate, 'EQUITY');
-                           fetchCompareData(previousDate, 'EQUITY');
-                         } else if (investments && investments.length === 1) {
-                           const latestDate = investments[0].date.split('T')[0];
-                           setDrillDownDate(latestDate);
-                           fetchDrillDownData(latestDate, 'EQUITY');
-                         }
-                      }}
-                      className="action-btn secondary"
-                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
-                      title="Compare Snapshots"
-                    >
-                      <span style={{ fontSize: '0.85rem' }}>⚖️</span>
-                      <span className="manage-btn-text">Compare</span>
-                    </button>
-                  )}
-                  <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
-                </div>
-              </div>
 
-              {expandedSection === section.id && (
-                <div className="analyser-body" style={{ padding: '1.5rem', animation: 'fadeIn 0.2s ease' }}>
-                  
-                  {section.id === "MARKET" ? (
-                    /* 🚀 UPGRADED MARKET CARDS (Mobile-First Layout) */
-                    <div>
-                      {!isMobile ? (
-                        /* 🖥️ DESKTOP: Classic Data Table */
-                        <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
-                          <div className="data-table" style={{ minWidth: '750px' }}>
-                            <div className="table-header" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr' }}>
-                              <span onClick={() => handleSort('date')}>SYNC DATE {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                              <span onClick={() => handleSort('ret_amount')}>RETURNS {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                {expandedSection === section.id && (
+                  <div className="analyser-body" style={{ padding: '1.5rem', animation: 'fadeIn 0.2s ease' }}>
+
+                    {section.id === "MARKET" ? (
+                      /* 🚀 UPGRADED MARKET CARDS (Mobile-First Layout) */
+                      <div>
+                        {!isMobile ? (
+                          /* 🖥️ DESKTOP: Classic Data Table */
+                          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
+                            <div className="data-table" style={{ minWidth: '750px' }}>
+                              <div className="table-header" style={{ cursor: 'pointer', userSelect: 'none', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr' }}>
+                                <span onClick={() => handleSort('date')}>SYNC DATE {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                                <span onClick={() => handleSort('inv')}>TOTAL INV {sortBy === 'inv' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                                <span onClick={() => handleSort('curr')}>TOTAL CURR {sortBy === 'curr' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                                <span onClick={() => handleSort('ret_amount')}>RETURNS {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                              </div>
+                              {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
+                                const broker_inv = (parseFloat(inv.inv_stocks) || 0) + (parseFloat(inv.inv_mf) || 0);
+                                const broker_curr = (parseFloat(inv.curr_stocks) || 0) + (parseFloat(inv.curr_mf) || 0);
+                                const ret = broker_curr - broker_inv;
+                                const broker_ret_pct = broker_inv > 0 ? (ret / broker_inv) * 100 : 0;
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`}
+                                    onClick={() => openDrillDown(inv.date.split('T')[0])}
+                                    style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr', transition: 'background 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    title="Click to view split"
+                                  >
+                                    <span style={{ fontWeight: 600, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      🔍 {formatDate(inv.date)}
+                                    </span>
+                                    <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</span>
+                                    <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</span>
+
+                                    {/* Stacked Returns Column */}
+                                    <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
+                                      <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                      <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({broker_ret_pct >= 0 ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
+                                    </span>
+                                  </div>
+                                );
+                              }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
                             </div>
+                          </div>
+                        ) : (
+                          /* 📱 MOBILE: Clean Vertical Cards */
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
                               const broker_inv = (parseFloat(inv.inv_stocks) || 0) + (parseFloat(inv.inv_mf) || 0);
                               const broker_curr = (parseFloat(inv.curr_stocks) || 0) + (parseFloat(inv.curr_mf) || 0);
                               const ret = broker_curr - broker_inv;
                               const broker_ret_pct = broker_inv > 0 ? (ret / broker_inv) * 100 : 0;
+                              const isPos = ret >= 0;
                               return (
-                                <div 
-                                  key={i} 
-                                  className={`table-row ${i%2===0?'row-even':''}`} 
-                                  onClick={() => openDrillDown(inv.date.split('T')[0])} 
-                                  style={{ cursor: 'pointer', gridTemplateColumns: '1.2fr 1.5fr 1.5fr 1.5fr', transition: 'background 0.2s' }}
-                                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.08)'}
-                                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                  title="Click to view split"
+                                <div
+                                  key={i}
+                                  onClick={() => openDrillDown(inv.date.split('T')[0])}
+                                  style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+                                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                 >
-                                  <span style={{ fontWeight: 600, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    🔍 {formatDate(inv.date)}
-                                  </span>
-                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</span>
-                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</span>
-                                  
-                                  {/* Stacked Returns Column */}
-                                  <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
-                                    <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({broker_ret_pct >= 0 ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
-                                  </span>
+                                  {/* Top Row: Date & Action */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>📅 {formatDate(inv.date)}</span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      Tap for Split ❯
+                                    </span>
+                                  </div>
+                                  {/* Metrics Grid */}
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
+                                    <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                      <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</div>
+                                    </div>
+                                    <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
+                                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</div>
+                                    </div>
+                                    <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
+                                      <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                        <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
                           </div>
-                        </div>
-                      ) : (
-                        /* 📱 MOBILE: Clean Vertical Cards */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
-                            const broker_inv = (parseFloat(inv.inv_stocks) || 0) + (parseFloat(inv.inv_mf) || 0);
-                            const broker_curr = (parseFloat(inv.curr_stocks) || 0) + (parseFloat(inv.curr_mf) || 0);
-                            const ret = broker_curr - broker_inv;
-                            const broker_ret_pct = broker_inv > 0 ? (ret / broker_inv) * 100 : 0;
-                            const isPos = ret >= 0;
-                            return (
-                              <div 
-                                key={i} 
-                                onClick={() => openDrillDown(inv.date.split('T')[0])} 
-                                style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '1rem' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                              >
-                                {/* Top Row: Date & Action */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>📅 {formatDate(inv.date)}</span>
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    Tap for Split ❯
-                                  </span>
-                                </div>
-                                {/* Metrics Grid */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</div>
-                                  </div>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</div>
-                                  </div>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
-                                    <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                      <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }) : <div className="empty-state">No brokerage snapshots match your filters.</div>}
-                        </div>
-                      )}
+                        )}
 
-                      {/* 🚀 PAGINATION CONTROLS */}
-                      {invTotalPages > 1 && (
-                        <div style={{ 
-                          display: 'flex', 
-                          flexDirection: isMobile ? 'column' : 'row', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          marginTop: '1.5rem', 
-                          padding: '0.85rem 1.25rem', 
-                          background: 'var(--bg2)', 
-                          borderRadius: '12px', 
-                          border: '1px solid var(--border)', 
-                          gap: '1rem' 
-                        }}>
-                          
-                          {/* Left Side: Row Selector & Count */}
-                          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            <CustomSelect 
-                              value={invRowsPerPage} 
-                              onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
-                              options={[5, 10, 25, 50].map(r => ({ label: `${r} rows`, value: r }))}
-                              minWidth="110px"
-                            />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-                              Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
-                            </span>
-                          </div>
-
-                          {/* Right Side: Navigation Buttons */}
-                          <div style={{ 
-                            display: 'flex', 
-                            gap: '0.5rem', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            width: isMobile ? '100%' : 'auto' 
+                        {/* 🚀 PAGINATION CONTROLS */}
+                        {invTotalPages > 1 && (
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: isMobile ? 'column' : 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginTop: '1.5rem',
+                            padding: '0.85rem 1.25rem',
+                            background: 'var(--bg2)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            gap: '1rem'
                           }}>
-                            <button 
-                              onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))} 
-                              disabled={invCurrentPage === 0} 
-                              className="action-btn secondary" 
-                              style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
-                            >
-                              ← Prev
-                            </button>
-                            
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem', whiteSpace: 'nowrap' }}>
-                              Page {invCurrentPage + 1} of {invTotalPages}
-                            </span>
-                            
-                            <button 
-                              onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))} 
-                              disabled={invCurrentPage === invTotalPages - 1} 
-                              className="action-btn secondary" 
-                              style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
-                            >
-                              Next →
-                            </button>
+
+                            {/* Left Side: Row Selector & Count */}
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <CustomSelect
+                                value={invRowsPerPage}
+                                onChange={val => { setInvRowsPerPage(Number(val)); setInvCurrentPage(0); }}
+                                options={[5, 10, 25, 50].map(r => ({ label: `${r} rows`, value: r }))}
+                                minWidth="110px"
+                              />
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                                Showing {invCurrentPage * invRowsPerPage + 1} - {Math.min((invCurrentPage + 1) * invRowsPerPage, processedData.length)} of {processedData.length}
+                              </span>
+                            </div>
+
+                            {/* Right Side: Navigation Buttons */}
+                            <div style={{
+                              display: 'flex',
+                              gap: '0.5rem',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: isMobile ? '100%' : 'auto'
+                            }}>
+                              <button
+                                onClick={() => setInvCurrentPage(Math.max(0, invCurrentPage - 1))}
+                                disabled={invCurrentPage === 0}
+                                className="action-btn secondary"
+                                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                              >
+                                ← Prev
+                              </button>
+
+                              <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, margin: '0 0.5rem', whiteSpace: 'nowrap' }}>
+                                Page {invCurrentPage + 1} of {invTotalPages}
+                              </span>
+
+                              <button
+                                onClick={() => setInvCurrentPage(Math.min(invTotalPages - 1, invCurrentPage + 1))}
+                                disabled={invCurrentPage === invTotalPages - 1}
+                                className="action-btn secondary"
+                                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                              >
+                                Next →
+                              </button>
+                            </div>
+
                           </div>
-
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* 🚀 FIXED CARD STRUCTURE FOR MANUAL ASSETS */
-                    <div>
+                        )}
+                      </div>
+                    ) : (
+                      /* 🚀 FIXED CARD STRUCTURE FOR MANUAL ASSETS */
                       <div>
-                      {!isMobile ? (
-                        /* 🖥️ DESKTOP: Classic Data Table */
-                        <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
-                          <div className="data-table" style={{ minWidth: '1500px' }}>
-                            {sectionAssets.length > 0 ? (
-                              <>
-                                <div className="table-header" style={{ gridTemplateColumns: 'minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr)' }}>
-                                  <span>Asset Name</span>
-                                  <span>Type</span>
-                                  <span>Invested</span>
-                                  <span>Current Value</span>
-                                  <span>Returns</span>
-                                  <span>Details</span>
-                                  <span>Automation</span>
-                                  <span style={{justifyContent: 'flex-end'}}>Actions</span>
-                                </div>
-                                {sectionAssets.map((asset, i) => {
-                                  const ret = asset.current_value - asset.invested_value;
-                                  const isPos = ret >= 0;
-                                  return (
-                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: 'minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr)' }}>
-                                      <span style={{ fontWeight: 600 }}>{asset.name}</span>
-                                      <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
-                                      <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(asset.invested_value) : '₹ ••••••'}</span>
-                                      <span style={{ fontWeight: 700, textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(asset.current_value) : '₹ ••••••'}</span>
-                                      <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
-                                        <span style={{ fontWeight: 700 }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                        {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
-                                      </span>
+                        <div>
+                          {!isMobile ? (
+                            /* 🖥️ DESKTOP: Classic Data Table */
+                            <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
+                              <div className="data-table" style={{ minWidth: '1500px' }}>
+                                {sectionAssets.length > 0 ? (
+                                  <>
+                                    <div className="table-header" style={{ gridTemplateColumns: 'minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr)' }}>
+                                      <span>Asset Name</span>
+                                      <span>Type</span>
+                                      <span>Invested</span>
+                                      <span>Current Value</span>
+                                      <span>Returns</span>
+                                      <span>Details</span>
+                                      <span>Automation</span>
+                                      <span style={{ justifyContent: 'flex-end' }}>Actions</span>
+                                    </div>
+                                    {sectionAssets.map((asset, i) => {
+                                      const ret = asset.current_value - asset.invested_value;
+                                      const isPos = ret >= 0;
+                                      return (
+                                        <div key={asset.id} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: 'minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr)' }}>
+                                          <span style={{ fontWeight: 600 }}>{asset.name}</span>
+                                          <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
+                                          <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(asset.invested_value) : '₹ ••••••'}</span>
+                                          <span style={{ fontWeight: 700, textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(asset.current_value) : '₹ ••••••'}</span>
+                                          <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
+                                            <span style={{ fontWeight: 700 }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                            {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
+                                          </span>
 
-                                      {/* New Details Column */}
-                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
-                                        {asset.interest_rate ? <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{asset.interest_rate}% Interest</span> : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>No Interest</span>}
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Start: {asset.start_date || '—'}</span>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Ends: {asset.maturity_date || '—'}</span>
-                                      </span>
-                                      
-                                      {/* New Automation Column */}
-                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                          {/* New Details Column */}
+                                          <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                            {asset.interest_rate ? <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{asset.interest_rate}% Interest</span> : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>No Interest</span>}
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Start: {asset.start_date || '—'}</span>
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Ends: {asset.maturity_date || '—'}</span>
+                                          </span>
+
+                                          {/* New Automation Column */}
+                                          <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                            {asset.is_recurring ? (
+                                              <>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>{showBalances ? '+ ' + fmt(asset.amount_to_add) : '₹ ••••••'}</span>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Every {asset.interval_value} {asset.interval_unit}</span>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Next: {asset.next_run_date}</span>
+                                              </>
+                                            ) : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>Not Automated</span>}
+                                          </span>
+
+                                          <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit">✏️</button>
+                                            <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete">🗑️</button>
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </>
+                                ) : (
+                                  <div className="empty-state">No assets added in this category yet.</div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            /* 📱 MOBILE: Clean Vertical Cards */
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
+                                const ret = asset.current_value - asset.invested_value;
+                                const isPos = ret >= 0;
+                                return (
+                                  <div key={asset.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {/* Top Row: Name */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{asset.name}</span>
+                                        <span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase' }}>{asset.category}</span>
+                                      </div>
+                                    </div>
+                                    {/* Metrics Grid */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
+                                      <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(asset.invested_value) : '₹ ••••••'}</div>
+                                      </div>
+                                      <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
+                                        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(asset.current_value) : '₹ ••••••'}</div>
+                                      </div>
+                                      <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
+                                        <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
+                                          {asset.invested_value > 0 && <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* 🚀 NEW Additional Details row for Mobile */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                                      <div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Details</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text)', marginTop: '4px' }}>{asset.interest_rate ? `${asset.interest_rate}% Rate` : 'No Interest'}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.start_date ? `Start: ${asset.start_date}` : ''}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.maturity_date ? `Ends: ${asset.maturity_date}` : ''}</div>
+                                      </div>
+                                      <div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Automation</div>
                                         {asset.is_recurring ? (
                                           <>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>{showBalances ? '+ ' + fmt(asset.amount_to_add) : '₹ ••••••'}</span>
-                                            <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Every {asset.interval_value} {asset.interval_unit}</span>
-                                            <span style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Next: {asset.next_run_date}</span>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--pos)', fontWeight: 600, marginTop: '4px' }}>{showBalances ? '+' + fmt(asset.amount_to_add) : '₹ ••••••'}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>Every {asset.interval_value} {asset.interval_unit}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '2px' }}>Next: {asset.next_run_date}</div>
                                           </>
-                                        ) : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>Not Automated</span>}
-                                      </span>
-                                      
-                                      <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                        <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit">✏️</button>
-                                        <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete">🗑️</button>
-                                      </span>
+                                        ) : <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '4px' }}>Off</div>}
+                                      </div>
                                     </div>
-                                  );
-                                })}
-                              </>
-                            ) : (
-                              <div className="empty-state">No assets added in this category yet.</div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        /* 📱 MOBILE: Clean Vertical Cards */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          {sectionAssets.length > 0 ? sectionAssets.map((asset, i) => {
-                            const ret = asset.current_value - asset.invested_value;
-                            const isPos = ret >= 0;
-                            return (
-                              <div key={asset.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {/* Top Row: Name */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{asset.name}</span>
-                                    <span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase' }}>{asset.category}</span>
-                                  </div>
-                                </div>
-                                {/* Metrics Grid */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.invested_value)}</div>
-                                  </div>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.current_value)}</div>
-                                  </div>
-                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
-                                    <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                      <span style={{ whiteSpace: 'nowrap' }}>{(isPos ? '+' : '-') + fmt(Math.abs(ret))}</span>
-                                      {asset.invested_value > 0 && <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 500 }}>Last updated: {asset.last_updated}</div>
+                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>✏️</button>
+                                        <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>🗑️</button>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                
-                                {/* 🚀 NEW Additional Details row for Mobile */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-                                  <div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Details</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text)', marginTop: '4px' }}>{asset.interest_rate ? `${asset.interest_rate}% Rate` : 'No Interest'}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.start_date ? `Start: ${asset.start_date}` : ''}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{asset.maturity_date ? `Ends: ${asset.maturity_date}` : ''}</div>
-                                  </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Automation</div>
-                                    {asset.is_recurring ? (
-                                      <>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--pos)', fontWeight: 600, marginTop: '4px' }}>+{fmt(asset.amount_to_add)}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>Every {asset.interval_value} {asset.interval_unit}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '2px' }}>Next: {asset.next_run_date}</div>
-                                      </>
-                                    ) : <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '4px' }}>Off</div>}
-                                  </div>
-                                </div>
-                                
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 500 }}>Last updated: {asset.last_updated}</div>
-                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button className="action-btn secondary" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>✏️ Edit</button>
-                                    <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', background: 'rgba(239,68,68,0.1)', color: 'var(--neg)', border: 'none', boxShadow: 'none' }}>🗑️ Delete</button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }) : (
-                            <div className="empty-state">No assets added in this category yet.</div>
+                                );
+                              }) : (
+                                <div className="empty-state">No assets added in this category yet.</div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Render the Add Modal if state is true */}
-      {isAddModalOpen && <AddManualAssetModal onClose={() => setIsAddModalOpen(false)} onAdd={onAdd} />}
-      {editingAsset && <EditManualAssetModal asset={editingAsset} onClose={() => setEditingAsset(null)} onRefresh={onAdd} />}
-        
-      {/* Drill-down Modal (Shared for MF & Equity) */}
-      {drillDownDate && (
-        <div className="modal-backdrop" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>
-          <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)' }}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                <div className="modal-title" style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>
-                  Portfolio Snapshot
-                  {(isDrillDownLoading || isCompareLoading) && <span className="loader-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', marginLeft: '0.5rem', display: 'inline-block', verticalAlign: 'middle' }} />}
-                </div>
-                <button className="modal-close" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>×</button>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
-                  <CustomSelect
-                     value={drillDownDate}
-                     onChange={(val) => {
-                       setDrillDownDate(val);
-                       setDrillDownCompareDate(null);
-                       setDrillDownCompareData([]);
-                       fetchDrillDownData(val, drillDownType);
-                     }}
-                     options={[...investments].sort((a,b) => new Date(b.date) - new Date(a.date)).map(inv => ({ label: formatDate(inv.date), value: inv.date.split('T')[0] }))}
-                     width={isMobile ? '100%' : 'auto'}
-                     minWidth="130px"
-                  />
-                  <CustomSelect 
-                    value={drillDownCompareDate || ""}
-                    onChange={(val) => fetchCompareData(val, drillDownType)}
-                    options={[
-                      { label: 'No Compare', value: '' }, 
-                      ...availableCompareDates
-                    ]}
-                    placeholder="⚖️ vs..."
-                    width={isMobile ? '100%' : 'auto'}
-                    minWidth="130px"
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '0.4rem', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
-                  <button 
-                    onClick={() => { fetchDrillDownData(drillDownDate, 'EQUITY'); if(drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'EQUITY'); }}
-                    style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'EQUITY' ? 'var(--card)' : 'transparent', color: drillDownType === 'EQUITY' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'EQUITY' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'EQUITY' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
-                  >📈 Stocks</button>
-                  <button 
-                    onClick={() => { fetchDrillDownData(drillDownDate, 'MF'); if(drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'MF'); }}
-                    style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'MF' ? 'var(--card)' : 'transparent', color: drillDownType === 'MF' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'MF' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'MF' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
-                  >🏦 MFs</button>
-                </div>
-              </div>
-
-            </div>
-            
-            <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '65vh' }}>
-              {(isDrillDownLoading || isCompareLoading) ? (
-                <div style={{ padding: '4rem 1rem', textAlign: 'center', color: 'var(--text2)' }}>
-                  <div className="loader-spinner" style={{ marginBottom: '1rem' }} />
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Analyzing and Crunching Deltas...</div>
-                </div>
-              ) : drillDownCompareDate && comparisonData ? (
-                /* 🚀 COMPARISON VIEW 🚀 */
-                <>
-                {/* Summary Banner */}
-                {comparisonSummary && (
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                    {[
-                      { label: 'Invested', valA: comparisonSummary.inv_A, valB: comparisonSummary.inv_B, diff: comparisonSummary.inv_diff },
-                      { label: 'Current Value', valA: comparisonSummary.curr_A, valB: comparisonSummary.curr_B, diff: comparisonSummary.curr_diff },
-                      { label: 'Returns', valA: comparisonSummary.ret_A, valB: comparisonSummary.ret_B, diff: comparisonSummary.ret_diff, pctA: comparisonSummary.ret_pct_A, pctB: comparisonSummary.ret_pct_B },
-                    ].map((card, ci) => (
-                      <div key={ci} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem 1.25rem' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '0.6rem' }}>{card.label}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.5rem' }}>
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownDate)}</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: card.label === 'Returns' ? (card.valA >= 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--text)', fontFamily: "'DM Sans', sans-serif" }}>
-                              {card.label === 'Returns' && (card.valA >= 0 ? '+' : '-')}₹{Math.abs(card.valA).toLocaleString('en-IN', {maximumFractionDigits:0})}
-                              {card.pctA !== undefined && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '4px' }}>({card.pctA >= 0 ? '+' : ''}{card.pctA.toFixed(1)}%)</span>}
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownCompareDate)}</div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text2)', fontFamily: "'DM Sans', sans-serif" }}>
-                              {card.label === 'Returns' && (card.valB >= 0 ? '+' : '-')}₹{Math.abs(card.valB).toLocaleString('en-IN', {maximumFractionDigits:0})}
-                              {card.pctB !== undefined && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: '3px' }}>({card.pctB >= 0 ? '+' : ''}{card.pctB.toFixed(1)}%)</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
-                          <DiffBadge diff={card.diff} isCurrency={true} />
-                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
-                {comparisonSummary && (
-                  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-                      {comparisonSummary.total_stocks} {drillDownType === 'EQUITY' ? 'stocks' : 'funds'}
-                    </span>
-                    {comparisonSummary.stocks_new > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(52,211,153,0.1)', color: 'var(--pos)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>+{comparisonSummary.stocks_new} New</span>}
-                    {comparisonSummary.stocks_exited > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(248,113,113,0.1)', color: 'var(--neg)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{comparisonSummary.stocks_exited} Exited</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Render the Add Modal if state is true */}
+        {isAddModalOpen && <AddManualAssetModal onClose={() => setIsAddModalOpen(false)} onAdd={onAdd} />}
+        {editingAsset && <EditManualAssetModal asset={editingAsset} onClose={() => setEditingAsset(null)} onRefresh={onAdd} />}
+
+        {/* Drill-down Modal (Shared for MF & Equity) */}
+        {drillDownDate && (
+          <div className="modal-backdrop" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>
+            <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)' }}>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                  <div className="modal-title" style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>
+                    Portfolio Snapshot
+                    {(isDrillDownLoading || isCompareLoading) && <span className="loader-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', marginLeft: '0.5rem', display: 'inline-block', verticalAlign: 'middle' }} />}
                   </div>
-                )}
-                {!isMobile ? (
-                  <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                    <div className="data-table" style={{ minWidth: '850px' }}>
-                      <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr', userSelect: 'none' }}>
-                        <span>Symbol</span>
-                        <span>Qty Δ</span>
-                        <span>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} Δ</span>
-                        <span>Invested Δ</span>
-                        <span>Current Δ</span>
-                        <span>Returns Δ</span>
-                      </div>
-                      {comparisonData.map((h, i) => (
-                        <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {h.symbol}
-                              {h.is_new && <span style={{background: 'var(--pos)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px'}}>NEW</span>}
-                              {h.is_exited && <span style={{background: 'var(--neg)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px'}}>EXITED</span>}
+                  <button className="modal-close" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>×</button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
+                    <CustomSelect
+                      value={drillDownDate}
+                      onChange={(val) => {
+                        setDrillDownDate(val);
+                        setDrillDownCompareDate(null);
+                        setDrillDownCompareData([]);
+                        fetchDrillDownData(val, drillDownType);
+                      }}
+                      options={[...investments].sort((a, b) => new Date(b.date) - new Date(a.date)).map(inv => ({ label: formatDate(inv.date), value: inv.date.split('T')[0] }))}
+                      width={isMobile ? '100%' : 'auto'}
+                      minWidth="130px"
+                    />
+                    <CustomSelect
+                      value={drillDownCompareDate || ""}
+                      onChange={(val) => fetchCompareData(val, drillDownType)}
+                      options={[
+                        { label: 'No Compare', value: '' },
+                        ...availableCompareDates
+                      ]}
+                      placeholder="⚖️ vs..."
+                      width={isMobile ? '100%' : 'auto'}
+                      minWidth="130px"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
+                    <button
+                      onClick={() => { fetchDrillDownData(drillDownDate, 'EQUITY'); if (drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'EQUITY'); }}
+                      style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'EQUITY' ? 'var(--card)' : 'transparent', color: drillDownType === 'EQUITY' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'EQUITY' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'EQUITY' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
+                    >📈 Stocks</button>
+                    <button
+                      onClick={() => { fetchDrillDownData(drillDownDate, 'MF'); if (drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'MF'); }}
+                      style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'MF' ? 'var(--card)' : 'transparent', color: drillDownType === 'MF' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'MF' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'MF' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
+                    >🏦 MFs</button>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '65vh' }}>
+                {(isDrillDownLoading || isCompareLoading) ? (
+                  <div style={{ padding: '4rem 1rem', textAlign: 'center', color: 'var(--text2)' }}>
+                    <div className="loader-spinner" style={{ marginBottom: '1rem' }} />
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Analyzing and Crunching Deltas...</div>
+                  </div>
+                ) : drillDownCompareDate && comparisonData ? (
+                  /* 🚀 COMPARISON VIEW 🚀 */
+                  <>
+                    {/* Summary Banner */}
+                    {comparisonSummary && (
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        {[
+                          { label: 'Invested', valA: comparisonSummary.inv_A, valB: comparisonSummary.inv_B, diff: comparisonSummary.inv_diff },
+                          { label: 'Current Value', valA: comparisonSummary.curr_A, valB: comparisonSummary.curr_B, diff: comparisonSummary.curr_diff },
+                          { label: 'Returns', valA: comparisonSummary.ret_A, valB: comparisonSummary.ret_B, diff: comparisonSummary.ret_diff, pctA: comparisonSummary.ret_pct_A, pctB: comparisonSummary.ret_pct_B },
+                        ].map((card, ci) => (
+                          <div key={ci} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem 1.25rem' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '0.6rem' }}>{card.label}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.5rem' }}>
+                              <div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownDate)}</div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: card.label === 'Returns' ? (card.valA >= 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--text)', fontFamily: "'DM Sans', sans-serif" }}>
+                                  {card.label === 'Returns' && (card.valA >= 0 ? '+' : '-')}₹{Math.abs(card.valA).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                  {card.pctA !== undefined && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '4px' }}>({card.pctA >= 0 ? '+' : ''}{card.pctA.toFixed(1)}%)</span>}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownCompareDate)}</div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text2)', fontFamily: "'DM Sans', sans-serif" }}>
+                                  {card.label === 'Returns' && (card.valB >= 0 ? '+' : '-')}₹{Math.abs(card.valB).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                  {card.pctB !== undefined && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: '3px' }}>({card.pctB >= 0 ? '+' : ''}{card.pctB.toFixed(1)}%)</span>}
+                                </div>
+                              </div>
                             </div>
-                          </span>
-                          <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <span>{h.qty_A.toFixed(2)}</span>
-                            <DiffBadge diff={h.qty_diff} isCurrency={false} />
-                          </span>
-                          <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <span>₹{h.price_A.toLocaleString('en-IN', {maximumFractionDigits:2})}</span>
-                            <DiffBadge diff={h.price_diff} isCurrency={true} />
-                          </span>
-                          <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <span>₹{h.inv_A.toLocaleString('en-IN', {maximumFractionDigits:0})}</span>
-                            <DiffBadge diff={h.inv_diff} isCurrency={true} />
-                          </span>
-                          <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text)' }}>₹{h.curr_A.toLocaleString('en-IN', {maximumFractionDigits:0})}</span>
-                            <DiffBadge diff={h.curr_diff} isCurrency={true} />
-                          </span>
-                          <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
-                            <span className={h.ret_A >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 700 }}>{h.ret_A >= 0 ? '+' : '-'}₹{Math.abs(h.ret_A).toLocaleString('en-IN', {maximumFractionDigits:0})}</span>
-                            <DiffBadge diff={h.ret_diff} isCurrency={true} />
-                          </span>
+                            <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                              <DiffBadge diff={card.diff} isCurrency={true} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {comparisonSummary && (
+                      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+                          {comparisonSummary.total_stocks} {drillDownType === 'EQUITY' ? 'stocks' : 'funds'}
+                        </span>
+                        {comparisonSummary.stocks_new > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(52,211,153,0.1)', color: 'var(--pos)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>+{comparisonSummary.stocks_new} New</span>}
+                        {comparisonSummary.stocks_exited > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(248,113,113,0.1)', color: 'var(--neg)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{comparisonSummary.stocks_exited} Exited</span>}
+                      </div>
+                    )}
+                    {!isMobile ? (
+                      <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <div className="data-table" style={{ minWidth: '850px' }}>
+                          <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr', userSelect: 'none' }}>
+                            <span>Symbol</span>
+                            <span>Qty Δ</span>
+                            <span>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} Δ</span>
+                            <span>Invested Δ</span>
+                            <span>Current Δ</span>
+                            <span>Returns Δ</span>
+                          </div>
+                          {comparisonData.map((h, i) => (
+                            <div key={i} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '600', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {h.symbol}
+                                  {h.is_new && <span style={{ background: 'var(--pos)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px' }}>NEW</span>}
+                                  {h.is_exited && <span style={{ background: 'var(--neg)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px' }}>EXITED</span>}
+                                </div>
+                              </span>
+                              <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <span>{h.qty_A.toFixed(2)}</span>
+                                <DiffBadge diff={h.qty_diff} isCurrency={false} />
+                              </span>
+                              <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <span>₹{h.price_A.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                <DiffBadge diff={h.price_diff} isCurrency={true} />
+                              </span>
+                              <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <span>₹{h.inv_A.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                <DiffBadge diff={h.inv_diff} isCurrency={true} />
+                              </span>
+                              <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text)' }}>₹{h.curr_A.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                <DiffBadge diff={h.curr_diff} isCurrency={true} />
+                              </span>
+                              <span style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '4px' }}>
+                                <span className={h.ret_A >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 700 }}>{h.ret_A >= 0 ? '+' : '-'}₹{Math.abs(h.ret_A).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                <DiffBadge diff={h.ret_diff} isCurrency={true} />
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {comparisonData.map((h, i) => {
+                          const isPosRet = h.ret_A >= 0;
+                          return (
+                            <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.2s' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)', lineHeight: 1.3 }}>{h.symbol}</div>
+                                  {h.is_new && <span style={{ background: 'var(--pos)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px' }}>NEW</span>}
+                                  {h.is_exited && <span style={{ background: 'var(--neg)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px' }}>EXITED</span>}
+                                </div>
+                                <div className={isPosRet ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', background: isPosRet ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                  Ret: {isPosRet ? '+' : '-'}₹{Math.abs(h.ret_A).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                                <div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Quantity</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>{h.qty_A.toFixed(2)}</div>
+                                  <div style={{ marginTop: '4px' }}><DiffBadge diff={h.qty_diff} isCurrency={false} /></div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'}</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.price_A.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                                  <div style={{ marginTop: '4px' }}><DiffBadge diff={h.price_diff} isCurrency={true} /></div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.inv_A.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                                  <div style={{ marginTop: '4px' }}><DiffBadge diff={h.inv_diff} isCurrency={true} /></div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Val</div>
+                                  <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.curr_A.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                                  <div style={{ marginTop: '4px' }}><DiffBadge diff={h.curr_diff} isCurrency={true} /></div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {comparisonData.map((h, i) => {
-                      const isPosRet = h.ret_A >= 0;
-                      return (
-                        <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.2s' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)', lineHeight: 1.3 }}>{h.symbol}</div>
-                              {h.is_new && <span style={{background: 'var(--pos)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px'}}>NEW</span>}
-                              {h.is_exited && <span style={{background: 'var(--neg)', color: '#fff', fontSize: '0.55rem', padding: '2px 4px', borderRadius: '4px'}}>EXITED</span>}
-                            </div>
-                            <div className={isPosRet ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', background: isPosRet ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                              Ret: {isPosRet ? '+' : '-'}₹{Math.abs(h.ret_A).toLocaleString('en-IN', {maximumFractionDigits:0})}
-                            </div>
-                          </div>
-                          
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                            <div>
-                               <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Quantity</div>
-                               <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>{h.qty_A.toFixed(2)}</div>
-                               <div style={{ marginTop: '4px' }}><DiffBadge diff={h.qty_diff} isCurrency={false} /></div>
-                            </div>
-                            <div>
-                               <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'}</div>
-                               <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.price_A.toLocaleString('en-IN', {maximumFractionDigits:2})}</div>
-                               <div style={{ marginTop: '4px' }}><DiffBadge diff={h.price_diff} isCurrency={true} /></div>
-                            </div>
-                            <div>
-                               <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                               <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.inv_A.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
-                               <div style={{ marginTop: '4px' }}><DiffBadge diff={h.inv_diff} isCurrency={true} /></div>
-                            </div>
-                            <div>
-                               <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Val</div>
-                               <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px' }}>₹{h.curr_A.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
-                               <div style={{ marginTop: '4px' }}><DiffBadge diff={h.curr_diff} isCurrency={true} /></div>
-                            </div>
-                          </div>
+                  /* 🚀 STANDARD VIEW (Original Logic) 🚀 */
+                  !isMobile ? (
+                    <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      <div className="data-table" style={{ minWidth: '750px' }}>
+                        <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr', cursor: 'pointer', userSelect: 'none' }}>
+                          <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <span onClick={() => handleDrillSort('ret_pct')}>Returns {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-                </>
-              ) : (
-                /* 🚀 STANDARD VIEW (Original Logic) 🚀 */
-                !isMobile ? (
-                  <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                    <div className="data-table" style={{ minWidth: '750px' }}>
-                      <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr', cursor: 'pointer', userSelect: 'none' }}>
-                        <span onClick={() => handleDrillSort('symbol')}>Symbol {drillSortBy === 'symbol' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('quantity')}>Qty {drillSortBy === 'quantity' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('average_price')}>Avg Price {drillSortBy === 'average_price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('price')}>{drillDownType === 'EQUITY' ? 'LTP' : 'NAV'} {drillSortBy === 'price' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('invested_value')}>Invested {drillSortBy === 'invested_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('current_value')}>Current {drillSortBy === 'current_value' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                        <span onClick={() => handleDrillSort('ret_pct')}>Returns {drillSortBy === 'ret_pct' && <span className="sort-indicator">{drillSortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                        {processedDrillDownData.map((h, i) => {
+                          const isPos = h.ret_pct >= 0;
+                          return (
+                            <div key={i} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
+                              <span>{h.quantity.toFixed(2)}</span>
+                              <span>₹{h.average_price.toFixed(2)}</span>
+                              <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
+                              <span>₹{h.invested_value.toFixed(0)}</span>
+                              <span style={{ fontWeight: 600, color: 'var(--text)' }}>₹{h.current_value.toFixed(0)}</span>
+                              <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
+                                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%)</span>
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {processedDrillDownData.map((h, i) => {
                         const isPos = h.ret_pct >= 0;
                         return (
-                          <div key={i} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr 1.2fr' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{h.symbol}</span>
-                            <span>{h.quantity.toFixed(2)}</span>
-                            <span>₹{h.average_price.toFixed(2)}</span>
-                            <span>₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}</span>
-                            <span>₹{h.invested_value.toFixed(0)}</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text)' }}>₹{h.current_value.toFixed(0)}</span>
-                            <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
-                              <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
-                              <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%)</span>
-                            </span>
+                          <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)', lineHeight: 1.3 }}>{h.symbol}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '6px' }}>
+                                  {h.quantity.toFixed(2)} units • Avg: ₹{h.average_price.toFixed(2)} • {drillDownType === 'EQUITY' ? 'LTP' : 'NAV'}: ₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}
+                                </div>
+                              </div>
+                              <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', background: isPos ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                {isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%
+                              </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                              <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
+                                <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.invested_value.toFixed(0)}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current</div>
+                                <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.current_value.toFixed(0)}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Return ₹</div>
+                                <div className={h.current_value >= h.invested_value ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column' }}>
+                                  <span>{h.current_value >= h.invested_value ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        )
+                        );
                       })}
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {processedDrillDownData.map((h, i) => {
-                      const isPos = h.ret_pct >= 0;
-                      return (
-                        <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.2s' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)', lineHeight: 1.3 }}>{h.symbol}</div>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginTop: '6px' }}>
-                                {h.quantity.toFixed(2)} units • Avg: ₹{h.average_price.toFixed(2)} • {drillDownType === 'EQUITY' ? 'LTP' : 'NAV'}: ₹{(drillDownType === 'EQUITY' ? h.ltp : h.nav).toFixed(2)}
-                              </div>
-                            </div>
-                            <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', background: isPos ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                              {isPos ? '+' : '-'}{Math.abs(h.ret_pct).toFixed(2)}%
-                            </div>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                            <div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                              <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.invested_value.toFixed(0)}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current</div>
-                              <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>₹{h.current_value.toFixed(0)}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Return ₹</div>
-                              <div className={h.current_value >= h.invested_value ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column' }}>
-                                <span>{h.current_value >= h.invested_value ? '+' : '-'}₹{Math.abs(h.current_value - h.invested_value).toFixed(0)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
+                  )
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 🚀 FLOATING HIDE/SHOW TOGGLE */}
-      <button
-        onClick={() => setShowBalances(!showBalances)}
-        title={showBalances ? "Hide Balances" : "Show Balances"}
-        style={{
-          position: 'fixed',
-          bottom: isMobile ? '85px' : '30px', /* Stays above mobile bottom nav */
-          right: '20px',
-          zIndex: 999,
-          width: '50px',
-          height: '50px',
-          borderRadius: '25px',
-          background: 'var(--card)',
-          border: '1px solid var(--accent)',
-          fontSize: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
-          cursor: 'pointer',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(99,102,241,0.4)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.4)'; }}
-      >
-        {showBalances ? '🙈' : '👁️'}
-      </button>
+        {/* 🚀 FLOATING HIDE/SHOW TOGGLE */}
+        <button
+          onClick={() => setShowBalances(!showBalances)}
+          title={showBalances ? "Hide Balances" : "Show Balances"}
+          style={{
+            position: 'fixed',
+            bottom: isMobile ? '85px' : '30px', /* Stays above mobile bottom nav */
+            right: '20px',
+            zIndex: 999,
+            width: '50px',
+            height: '50px',
+            borderRadius: '25px',
+            background: 'var(--card)',
+            border: '1px solid var(--accent)',
+            fontSize: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+            cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(99,102,241,0.4)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.4)'; }}
+        >
+          {showBalances ? '🙈' : '👁️'}
+        </button>
 
+      </div>
     </div>
-  </div>
   );
 }
 
@@ -5169,28 +5169,28 @@ function SecretAdminModal({ onClose }) {
         </div>
         <div className="modal-body" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            <input 
-              className="inp" 
-              placeholder="friend@gmail.com" 
-              value={newEmail} 
-              onChange={e => setNewEmail(e.target.value.toLowerCase())} 
+            <input
+              className="inp"
+              placeholder="friend@gmail.com"
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value.toLowerCase())}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
             <button className="action-btn" onClick={handleAdd}>Add</button>
           </div>
 
           <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '0.75rem' }}>Approved Accounts</div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
               <span style={{ fontWeight: 600, color: 'var(--accent)' }}>sbsabarish14@gmail.com</span>
               <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 700, padding: '0.1rem 0.4rem', background: 'var(--bg3)', borderRadius: '4px' }}>MASTER</span>
             </div>
-            
+
             {loading ? <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text3)' }}>Loading...</div> : emails.map(email => (
               <div key={email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
                 <span style={{ fontWeight: 500, color: 'var(--text)' }}>{email}</span>
-                <button 
+                <button
                   onClick={() => handleRemove(email)}
                   style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--neg)', border: 'none', width: '28px', height: '28px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
@@ -5209,7 +5209,7 @@ function SecretAdminModal({ onClose }) {
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
-  const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token'));  const [tab, setTab] = useState(0);
+  const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token')); const [tab, setTab] = useState(0);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -5219,7 +5219,7 @@ export default function App() {
   const [assetList, setAssetList] = useState({}); // 🚀 NEW: Dropdown options
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  
+
   // 🚀 SECRET DEV MENU STATES
   const [logoClicks, setLogoClicks] = useState(0);
   const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
@@ -5241,8 +5241,8 @@ export default function App() {
   // The hidden trigger function
   const handleLogoClick = () => {
     setTab(0); // Maintain normal home navigation
-    if (!isAdmin) return; 
-    
+    if (!isAdmin) return;
+
     setLogoClicks(prev => {
       if (prev + 1 >= 7) {
         setIsSecretMenuOpen(true);
@@ -5253,23 +5253,23 @@ export default function App() {
   };
 
   // --- Sidebar Resizing Logic ---
-  const [sidebarWidth, setSidebarWidth] = useState(70); 
+  const [sidebarWidth, setSidebarWidth] = useState(70);
   const [isResizing, setIsResizing] = useState(false);
 
   // --- Theme Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
   const logout = () => {
-  signOut(auth);
-  localStorage.removeItem('dt_token');
-  localStorage.removeItem('dt_is_admin'); // <-- ADD THIS LINE
-  setIsLoggedIn(false);
-  setAllTransactionsLoaded(false);
-  setTransactions([]);
-  setAccounts([]);
-  setPhysical([]);
-  setInvestments([]);
-};
+    signOut(auth);
+    localStorage.removeItem('dt_token');
+    localStorage.removeItem('dt_is_admin'); // <-- ADD THIS LINE
+    setIsLoggedIn(false);
+    setAllTransactionsLoaded(false);
+    setTransactions([]);
+    setAccounts([]);
+    setPhysical([]);
+    setInvestments([]);
+  };
 
   useEffect(() => {
     // This injects the theme directly into the HTML tag so CSS can read it
@@ -5282,8 +5282,8 @@ export default function App() {
     if (!isLoggedIn) return;
     const pingInterval = setInterval(() => {
       // Pings the /test-db route every 3 minutes
-      fetch(API.replace('/api', '/test-db')).catch(() => {});
-    }, 3 * 60 * 1000); 
+      fetch(API.replace('/api', '/test-db')).catch(() => { });
+    }, 3 * 60 * 1000);
     return () => clearInterval(pingInterval);
   }, [isLoggedIn]);
 
@@ -5332,15 +5332,15 @@ export default function App() {
     try {
       let offset = 0;
       let hasMore = true;
-      
+
       while (hasMore) {
         if (!getToken()) break; // stop mid-loop if logged out
-        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, { 
-          headers: { 'Authorization': `Bearer ${getToken()}` } 
+        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
         }).then(r => r.json());
-        
+
         if (!res.transactions || res.transactions.length === 0) break;
-        
+
         // PROGRESSIVE UPDATE: Show data immediately as each batch arrives!
         if (getToken()) {
           setTransactions(prev => {
@@ -5350,15 +5350,15 @@ export default function App() {
             return [...prev, ...newTxs];
           });
         }
-        
+
         hasMore = res.hasMore;
         offset += 500;
       }
-      
-      if (getToken()) { 
+
+      if (getToken()) {
         setAllTransactionsLoaded(true);
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Failed to load all transactions", e);
     }
   }, [allTransactionsLoaded]);
@@ -5368,9 +5368,9 @@ export default function App() {
     try {
       // Trigger Lazy Cron before fetching data so UI gets the updated values
       if (getToken()) {
-         await fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(()=>console.log("Cron passed"));
+        await fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(() => console.log("Cron passed"));
       }
-      
+
       // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
       const fetchWithCheck = async (url) => {
         const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
@@ -5383,26 +5383,26 @@ export default function App() {
         fetchWithCheck(`${API}/accounts`),
         fetchWithCheck(`${API}/physical`),
         fetchWithCheck(`${API}/investments`),
-        fetchWithCheck(`${API}/manual_assets`), 
+        fetchWithCheck(`${API}/manual_assets`),
         fetchWithCheck(`${API}/transactions?limit=100&offset=0`),
         fetchWithCheck(`${API}/assets/list`), // 🚀 FETCH SYMBOLS
         fetchWithCheck(`${API}/transactions/categories`)
       ]);
-      
+
       setAccounts(acc);
       setTransactions(txRes.transactions);
-      setAllTransactionsLoaded(false); 
+      setAllTransactionsLoaded(false);
       setPhysical(phy);
       setInvestments(inv);
-      setManualAssets(manAssets); 
+      setManualAssets(manAssets);
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
       if (catRes && catRes.success) setCategories(catRes.categories);
-      
-      if (showLoading) setAppLoading(false); 
-    } catch(e) {
+
+      if (showLoading) setAppLoading(false);
+    } catch (e) {
       console.warn("Server is asleep or database is booting. Retrying in 3 seconds...", e.message);
       // The loading screen stays up, and we try again automatically!
-      setTimeout(() => fetchAll(showLoading), 3000); 
+      setTimeout(() => fetchAll(showLoading), 3000);
     }
   }, []);
 
@@ -5416,47 +5416,47 @@ export default function App() {
   }, [tab, fetchAllTransactions]);
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const dateStr = today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const renderTab = () => {
-    switch(tab) {
+    switch (tab) {
       case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
       case 1: return <MoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />;
       case 2: return <AddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />;
-      case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;      
+      case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;
       case 4: return <InvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
       default: return null;
     }
   };
 
   const syncBalances = useCallback(async (data) => {
-  // data = { KOTAK: 12000, IDBI: 5000, FEDERAL: 0, CUB: 0, INDIAN: 0, ICICI: 0 }
-  await Promise.all(
-    Object.entries(data).map(([account, balance]) =>
-      fetch(`${API}/accounts`, {
-        method: 'PUT',
-        headers: { 
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getToken()}` 
-},
-        body: JSON.stringify({ account, balance: parseFloat(balance) }),
-      })
-    )
-  );
-  fetchAll(); // refresh UI
-}, [fetchAll]);
+    // data = { KOTAK: 12000, IDBI: 5000, FEDERAL: 0, CUB: 0, INDIAN: 0, ICICI: 0 }
+    await Promise.all(
+      Object.entries(data).map(([account, balance]) =>
+        fetch(`${API}/accounts`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({ account, balance: parseFloat(balance) }),
+        })
+      )
+    );
+    fetchAll(); // refresh UI
+  }, [fetchAll]);
 
 
   if (!isLoggedIn) return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
   if (appLoading) return <LoadingScreen />;
 
-    return (
+  return (
     <div className="app">
       {/* Sidebar */}
       <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
-        
+
         {/* Invisible Drag Handle */}
-        <div 
+        <div
           onMouseDown={startResizing}
           style={{
             position: 'absolute',
@@ -5489,7 +5489,7 @@ export default function App() {
               className={`nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
               onClick={() => setTab(t.id)}
               title={sidebarMinimized ? t.label : ''}
-              style={{ 
+              style={{
                 justifyContent: sidebarMinimized ? 'center' : (t.add ? 'center' : 'flex-start'),
                 gap: sidebarMinimized ? 0 : '0.75rem',
                 padding: sidebarMinimized ? '0.7rem 0' : '0.7rem 0.85rem',
@@ -5498,8 +5498,8 @@ export default function App() {
               }}
             >
               <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: sidebarMinimized ? '100%' : 'auto' }}>{t.icon}</span>
-              <span className="nav-label" style={{ 
-                opacity: sidebarMinimized ? 0 : 1, 
+              <span className="nav-label" style={{
+                opacity: sidebarMinimized ? 0 : 1,
                 flex: sidebarMinimized ? 'none' : 1,
                 minWidth: 0,
                 width: sidebarMinimized ? 0 : 'auto',
@@ -5515,13 +5515,13 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-footer" style={{ padding: sidebarMinimized ? '1rem 0' : '1rem 1.5rem', transition: 'padding 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <button 
+          <button
             onClick={() => setSidebarWidth(sidebarMinimized ? 280 : 70)} // <-- Increased from 250
-            style={{ 
-              width: '100%', 
-              padding: '0', 
-              border: 'none', 
-              background: 'transparent', 
+            style={{
+              width: '100%',
+              padding: '0',
+              border: 'none',
+              background: 'transparent',
               color: 'var(--text)',
               cursor: 'pointer',
               fontSize: '1.2rem',
@@ -5540,59 +5540,59 @@ export default function App() {
             title={sidebarMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sidebarMinimized ? '➡' : '⬅'}</span>
-            <span style={{ 
-              opacity: sidebarMinimized ? 0 : 1, 
-              maxWidth: sidebarMinimized ? 0 : '50px', 
-              overflow: 'hidden', 
-              whiteSpace: 'nowrap', 
-              transition: 'all 0.3s ease', 
-              fontSize: '0.75rem', 
-              letterSpacing: '0.5px', 
-              pointerEvents: sidebarMinimized ? 'none' : 'auto' 
+            <span style={{
+              opacity: sidebarMinimized ? 0 : 1,
+              maxWidth: sidebarMinimized ? 0 : '50px',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.3s ease',
+              fontSize: '0.75rem',
+              letterSpacing: '0.5px',
+              pointerEvents: sidebarMinimized ? 'none' : 'auto'
             }}>
               HIDE
             </span>
           </button>
-          
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             justifyContent: 'center',
             width: '100%',
             overflow: 'hidden',
             whiteSpace: 'nowrap'
           }}>
             <div className="sidebar-date" style={{ fontSize: sidebarMinimized ? '0.7rem' : '0.75rem', transition: 'all 0.3s ease', color: 'var(--text3)', fontWeight: 500 }}>
-              {sidebarMinimized 
-                ? today.toLocaleDateString('en-IN', { day:'numeric', month:'numeric', year:'2-digit' }) 
-                : today.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+              {sidebarMinimized
+                ? today.toLocaleDateString('en-IN', { day: 'numeric', month: 'numeric', year: '2-digit' })
+                : today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
               }
             </div>
             <div style={{
-               opacity: sidebarMinimized ? 0 : 1, 
-               maxHeight: sidebarMinimized ? 0 : '20px', 
-               marginTop: sidebarMinimized ? 0 : '2px', 
-               fontSize: '0.75rem', 
-               color: 'var(--text2)', 
-               transition: 'all 0.3s ease',
-               overflow: 'hidden'
+              opacity: sidebarMinimized ? 0 : 1,
+              maxHeight: sidebarMinimized ? 0 : '20px',
+              marginTop: sidebarMinimized ? 0 : '2px',
+              fontSize: '0.75rem',
+              color: 'var(--text2)',
+              transition: 'all 0.3s ease',
+              overflow: 'hidden'
             }}>
-               {today.toLocaleDateString('en-IN', {weekday:'long'})}
+              {today.toLocaleDateString('en-IN', { weekday: 'long' })}
             </div>
-            
+
             {/* NEW: Version and Build Time */}
             <div style={{
-               opacity: sidebarMinimized ? 0 : 1,
-               maxHeight: sidebarMinimized ? 0 : '20px',
-               marginTop: '8px',
-               fontSize: '0.6rem',
-               color: 'var(--border2)',
-               transition: 'all 0.3s ease',
-               overflow: 'hidden',
-               fontFamily: "'DM Sans', monospace"
+              opacity: sidebarMinimized ? 0 : 1,
+              maxHeight: sidebarMinimized ? 0 : '20px',
+              marginTop: '8px',
+              fontSize: '0.6rem',
+              color: 'var(--border2)',
+              transition: 'all 0.3s ease',
+              overflow: 'hidden',
+              fontFamily: "'DM Sans', monospace"
             }}>
-               v:{__COMMIT_SHA__} • {__BUILD_TIME__}
+              v:{__COMMIT_SHA__} • {__BUILD_TIME__}
             </div>
           </div>
         </div>
@@ -5603,9 +5603,9 @@ export default function App() {
         <header className="topbar">
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            
+
             {/* 1. Theme Toggle (Icons Only) */}
-            <button 
+            <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
               title="Toggle Theme"
@@ -5619,7 +5619,7 @@ export default function App() {
 
             {/* 2. Hamburger Menu */}
             <div style={{ position: 'relative' }}>
-              <button 
+              <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
               >
@@ -5629,16 +5629,16 @@ export default function App() {
               {isMenuOpen && (
                 <div style={{
                   position: 'absolute', right: 0, top: '100%', marginTop: '0.5rem',
-                  background: 'var(--card)', border: '1px solid var(--border)', 
+                  background: 'var(--card)', border: '1px solid var(--border)',
                   borderRadius: '12px', padding: '0.5rem', zIndex: 100,
                   boxShadow: '0 10px 25px rgba(0,0,0,0.5)', minWidth: '150px'
                 }}>
-                  <button 
-                    onClick={() => { setIsMenuOpen(false); logout(); }} 
-                    style={{ 
-                      width: '100%', background: 'rgba(239, 68, 68, 0.1)', 
-                      border: 'none', borderRadius: '8px', padding: '0.6rem 1rem', 
-                      color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem', 
+                  <button
+                    onClick={() => { setIsMenuOpen(false); logout(); }}
+                    style={{
+                      width: '100%', background: 'rgba(239, 68, 68, 0.1)',
+                      border: 'none', borderRadius: '8px', padding: '0.6rem 1rem',
+                      color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem',
                       fontWeight: 600, textAlign: 'left', display: 'flex', gap: '8px'
                     }}
                   >
@@ -5649,17 +5649,17 @@ export default function App() {
             </div>
 
           </div>
-        </header>      
-      <main className="page-body" key={tab}>
+        </header>
+        <main className="page-body" key={tab}>
           {renderTab()}
         </main>
       </div>
 
       {/* Floating Add Activity Modal */}
       {isActivityModalOpen && (
-        <AddActivityModal 
-          onAdd={fetchAll} 
-          onClose={() => setIsActivityModalOpen(false)} 
+        <AddActivityModal
+          onAdd={fetchAll}
+          onClose={() => setIsActivityModalOpen(false)}
         />
       )}
 
@@ -5679,12 +5679,12 @@ export default function App() {
           >
             <span className="mobile-nav-icon">{t.icon}</span>
             {/* Split the label so things like "Gym & Activity" don't break the UI */}
-            <span className="mobile-nav-label">{t.label.split(' ')[0]}</span> 
+            <span className="mobile-nav-label">{t.label.split(' ')[0]}</span>
           </button>
         ))}
       </nav>
-      </div>
+    </div>
 
-      
+
   );
 }
