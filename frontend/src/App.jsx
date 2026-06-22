@@ -3225,15 +3225,28 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
     e.stopPropagation();
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const isRightSide = rect.right > window.innerWidth * 0.6;
-      setDropdownStyle({
-        position: 'fixed',
-        top: `${rect.bottom + 4}px`,
-        left: isRightSide ? 'auto' : `${rect.left}px`,
-        right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
-        minWidth: `${rect.width}px`,
-        zIndex: 999999 
-      });
+      const isMobile = window.innerWidth <= 768;
+      
+      if (isMobile) {
+        setDropdownStyle({
+          position: 'fixed',
+          top: `${rect.bottom + 4}px`,
+          left: '16px',
+          right: '16px',
+          width: 'calc(100vw - 32px)',
+          zIndex: 999999 
+        });
+      } else {
+        const isRightSide = rect.right > window.innerWidth * 0.6;
+        setDropdownStyle({
+          position: 'fixed',
+          top: `${rect.bottom + 4}px`,
+          left: isRightSide ? 'auto' : `${rect.left}px`,
+          right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
+          minWidth: `${rect.width}px`,
+          zIndex: 999999 
+        });
+      }
     }
     setIsOpen(!isOpen);
   };
@@ -3989,7 +4002,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                     </span>
                   )}
                 </div>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', wordBreak: 'break-word' }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(1.7rem, 8vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
                   {showBalances ? fmt(filteredTotals.curr) : '₹ ••••••'}
                 </div>
               </div>
@@ -4170,12 +4183,14 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             </div>
           </div>
           
-          {/* Legend - Responsive Grid - Widened minmax from 200px to 240px */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', width: '100%', flex: 1 }}>
+          {/* Legend - Responsive Flex layout */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', width: '100%', maxWidth: '900px' }}>
             {pieData.map(d => {
               const pct = filteredTotals.curr > 0 ? ((d.value / filteredTotals.curr) * 100).toFixed(1) : 0;
               return (
-                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.7rem 0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
+                <div key={d.name} style={{ flex: '1 1 220px', maxWidth: '300px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.7rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', gap: '12px', transition: 'all 0.2s', cursor: 'default' }}
+                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}>
                   
                   {/* Left Side: Name - Allows shrinking and ellipses */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
@@ -4525,16 +4540,16 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   </span>
                                 </div>
                                 {/* Metrics Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                  <div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
                                     <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</div>
                                   </div>
-                                  <div>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
                                     <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</div>
                                   </div>
-                                  <div>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
                                     <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                       <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
@@ -4691,16 +4706,16 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   </div>
                                 </div>
                                 {/* Metrics Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                  <div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
                                     <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.invested_value)}</div>
                                   </div>
-                                  <div>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
                                     <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{fmt(asset.current_value)}</div>
                                   </div>
-                                  <div>
+                                  <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
                                     <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                       <span style={{ whiteSpace: 'nowrap' }}>{(isPos ? '+' : '-') + fmt(Math.abs(ret))}</span>
