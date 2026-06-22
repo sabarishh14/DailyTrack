@@ -4681,7 +4681,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                           <div className="data-table" style={{ minWidth: '1100px' }}>
                             {sectionAssets.length > 0 ? (
                               <>
-                                <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr', padding: '0.75rem 1.25rem' }}>
+                                <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr' }}>
                                   <span>Asset Name</span>
                                   <span>Type</span>
                                   <span>Invested</span>
@@ -4695,7 +4695,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   const ret = asset.current_value - asset.invested_value;
                                   const isPos = ret >= 0;
                                   return (
-                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr', padding: '0.75rem 1.25rem', alignItems: 'center' }}>
+                                    <div key={asset.id} className={`table-row ${i%2===0?'row-even':''}`} style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr' }}>
                                       <span style={{ fontWeight: 600 }}>{asset.name}</span>
                                       <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
                                       <span>{fmt(asset.invested_value)}</span>
