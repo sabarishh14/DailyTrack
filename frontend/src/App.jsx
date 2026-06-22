@@ -4004,10 +4004,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       }}>
         
         {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem', alignItems: 'flex-start' }}>
         
         {/* Summary Metrics Card */}
-        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
               <div style={{ minWidth: 0, flex: 1 }}>

@@ -973,7 +973,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 }
 
 @media (max-width: 480px) {
-  .accounts-grid { grid-template-columns: 1fr; }
+  .accounts-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .account-card { padding: 0.85rem; }
+  .acc-balance { font-size: 0.9rem; word-break: break-word; }
   .inv-summary-grid { grid-template-columns: 1fr; }
   .phys-home-card { flex-direction: column; text-align: center; gap: 1rem; padding: 1.25rem; }
   .phys-controls { margin: 0 auto; justify-content: center; width: 100%; }
