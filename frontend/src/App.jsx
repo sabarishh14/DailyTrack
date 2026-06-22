@@ -4004,7 +4004,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       }}>
         
         {/* 🚀 NEW HERO SECTION: Metrics & Allocation */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Summary Metrics Card */}
         <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
@@ -4180,7 +4180,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
 
         {/* Allocation Donut Card - Mobile Wrapped */}
-        <div style={{ flex: '1.2 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div style={{ width: '220px', height: '220px', position: 'relative', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
