@@ -4580,11 +4580,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                 >
                                   {/* Top Row: Date & Action */}
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>📅 {formatDate(inv.date)}</span>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      Tap for Split ❯
-                                    </span>
-                                  </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                      <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{formatDate(inv.date)}</span>
+                                      <span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase' }}>Market Sync</span>
+                                    </div>
                                   {/* Metrics Grid */}
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
                                     <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
