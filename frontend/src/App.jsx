@@ -4156,7 +4156,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           </div>
           
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
              {!showTokenInput ? (
                 <>
                   <button className="action-btn" style={{ flex: 1, minWidth: '120px', justifyContent: 'center', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', boxShadow: 'none' }} onClick={() => setIsAddModalOpen(true)}>

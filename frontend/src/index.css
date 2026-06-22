@@ -280,6 +280,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 [data-theme="light"] .chip-clear { background: rgba(0,0,0,0.1); color: var(--text); }
 [data-theme="light"] .chip-clear:hover { background: var(--neg); color: #fff; }
 
+[data-theme="light"] .filter-chip.active {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #3730a3;
+}
+
 [data-theme="light"] .filter-chip.exclude-active {
   background: rgba(220, 38, 38, 0.1);
   border-color: rgba(220, 38, 38, 0.4);
@@ -980,6 +986,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   .phys-home-card { flex-direction: column; text-align: center; gap: 1rem; padding: 1.25rem; }
   .phys-controls { margin: 0 auto; justify-content: center; width: 100%; }
   .action-btn { width: auto; justify-content: center; margin-bottom: 0; }
+  .invest-action-buttons { flex-direction: column; }
+  .invest-action-buttons .action-btn { width: 100%; min-width: 0 !important; }
   .analyser-header { padding: 1rem 1rem; }
   .analyser-header-left { gap: 0.5rem; }
   .analyser-header-icon { width: 30px; height: 30px; font-size: 0.85rem; border-radius: 8px; }
