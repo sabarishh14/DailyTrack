@@ -53,6 +53,11 @@
 [data-theme="light"] .tx-col-header, [data-theme="light"] .table-header > span { border-right-color: var(--border); }
 [data-theme="light"] .tx-row > span, [data-theme="light"] .table-row > span { border-right-color: var(--border); }
 [data-theme="light"] .account-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+[data-theme="light"] .tx-row { border-bottom-color: var(--border); }
+[data-theme="light"] .chip-checkbox { border-color: var(--border2); }
+[data-theme="light"] .chip-helper-text { background: rgba(0,0,0,0.04); color: var(--text2); }
+[data-theme="light"] .tx-stats-bar { background: rgba(99, 102, 241, 0.08); border-top-color: rgba(99, 102, 241, 0.2); }
+[data-theme="light"] .preview-amount-pill { background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.2); }
 
 html, body, #root { height: 100%; width: 100%; }
 body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; }
