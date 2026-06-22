@@ -4788,7 +4788,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                       );
                     })}
                   </div>
-                )
+                )}
                 </>
               ) : (
                 /* 🚀 STANDARD VIEW (Original Logic) 🚀 */
