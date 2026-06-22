@@ -1604,7 +1604,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             setFilterState={setFilterHeadings}
             dropdownKey="tableHeading"
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', padding: '0.45rem 0.875rem' }}>
+          <div className="date-filter-chip">
           <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
           <input
             type="date"
@@ -4230,9 +4230,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             {pieData.map(d => {
               const pct = filteredTotals.curr > 0 ? ((d.value / filteredTotals.curr) * 100).toFixed(1) : 0;
               return (
-                <div key={d.name} style={{ flex: '1 1 220px', maxWidth: '300px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.7rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', gap: '12px', transition: 'all 0.2s', cursor: 'default' }}
-                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}>
+                <div key={d.name} className="invest-legend-item" style={{ flex: '1 1 220px', maxWidth: '300px' }}>
                   
                   {/* Left Side: Name - Allows shrinking and ellipses */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
