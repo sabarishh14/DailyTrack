@@ -4466,8 +4466,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {[
             { title: "Stocks & MFs (Brokerage)", id: "MARKET" },
-            { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'NPS'] },
-            { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'PPF', 'Cash'] },
+            { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'PPF', 'NPS'] },
+            { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'Cash'] },
             { title: "Gold & Real Estate", id: "GOLD", categories: ['SGB', 'RealEstate'] }
           ].map(section => {
 
