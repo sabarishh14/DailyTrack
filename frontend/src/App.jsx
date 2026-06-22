@@ -4552,7 +4552,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</span>
                                   
                                   {/* Stacked Returns Column */}
-                                  <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                  <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
                                     <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
                                     <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({broker_ret_pct >= 0 ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
                                   </span>
@@ -4700,20 +4700,20 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                       <span><span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>{asset.category}</span></span>
                                       <span>{fmt(asset.invested_value)}</span>
                                       <span style={{ fontWeight: 700 }}>{fmt(asset.current_value)}</span>
-                                      <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                                      <span className={isPos ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center', alignItems: 'flex-start' }}>
                                         <span style={{ fontWeight: 700 }}>{isPos ? '+' : '-'}{fmt(Math.abs(ret))}</span>
                                         {asset.invested_value > 0 && <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({isPos ? '+' : '-'}{((Math.abs(ret) / asset.invested_value) * 100).toFixed(2)}%)</span>}
                                       </span>
 
                                       {/* New Details Column */}
-                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
                                         {asset.interest_rate ? <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{asset.interest_rate}% Interest</span> : <span style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>No Interest</span>}
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Start: {asset.start_date || '—'}</span>
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text2)' }}>Ends: {asset.maturity_date || '—'}</span>
                                       </span>
                                       
                                       {/* New Automation Column */}
-                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                      <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
                                         {asset.is_recurring ? (
                                           <>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--pos)', fontWeight: 600 }}>+ {fmt(asset.amount_to_add)}</span>
