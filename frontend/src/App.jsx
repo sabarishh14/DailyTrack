@@ -3990,19 +3990,19 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
         
         {/* Summary Metrics Card */}
-        <div style={{ flex: '1 1 400px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: '1rem' }}>
-              <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Combined Net Worth</span>
                   {hiddenCategories.length > 0 && (
                     <span className="filtered-badge">
                       ⚡ Filtered ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
                     </span>
                   )}
                 </div>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(1.7rem, 8vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(1.4rem, 7vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', whiteSpace: 'nowrap' }}>
                   {showBalances ? fmt(filteredTotals.curr) : '₹ ••••••'}
                 </div>
               </div>
@@ -4163,7 +4163,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
 
         {/* Allocation Donut Card - Mobile Wrapped */}
-        <div style={{ flex: '1.2 1 450px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+        <div style={{ flex: '1.2 1 320px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           <div style={{ width: '220px', height: '220px', position: 'relative', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
