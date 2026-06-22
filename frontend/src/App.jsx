@@ -327,10 +327,10 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
     <div>
       {/* Action buttons row */}
       <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <button className="action-btn" onClick={syncBalances} disabled={syncing} style={{ flex: 1, minWidth: '200px', justifyContent: 'center' }}>
+        <button className="action-btn" onClick={syncBalances} disabled={syncing} style={{ minWidth: '200px', justifyContent: 'center' }}>
           {syncing ? '⏳ Syncing...' : '🔄 Sync Balances from Sheet'}
         </button>
-        <button className="action-btn" onClick={syncTransactionsFromSheets} disabled={syncingSheetsTransactions} style={{ flex: 1, minWidth: '200px', justifyContent: 'center', background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}>
+        <button className="action-btn" onClick={syncTransactionsFromSheets} disabled={syncingSheetsTransactions} style={{ minWidth: '200px', justifyContent: 'center', background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}>
           {syncingSheetsTransactions ? '⏳ Syncing...' : '📥 Sync Transactions to Sheets'}
         </button>
         {syncMsg && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: syncMsg.startsWith('✅') ? 'var(--pos)' : 'var(--neg)', width: '100%', textAlign: 'center', marginTop: '0.5rem' }}>{syncMsg}</span>}
