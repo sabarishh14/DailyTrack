@@ -4531,7 +4531,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                               <span onClick={() => handleSort('ret_amount')}>RETURNS {sortBy === 'ret_amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                             </div>
                             {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
-                              const ret = inv.total_curr - inv.total_inv;
+                              const broker_inv = (parseFloat(inv.inv_stocks) || 0) + (parseFloat(inv.inv_mf) || 0);
+                              const broker_curr = (parseFloat(inv.curr_stocks) || 0) + (parseFloat(inv.curr_mf) || 0);
+                              const ret = broker_curr - broker_inv;
+                              const broker_ret_pct = broker_inv > 0 ? (ret / broker_inv) * 100 : 0;
                               return (
                                 <div 
                                   key={i} 
@@ -4545,13 +4548,13 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                   <span style={{ fontWeight: 600, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     🔍 {formatDate(inv.date)}
                                   </span>
-                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</span>
-                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</span>
+                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</span>
+                                  <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed', textUnderlineOffset: '4px', textDecorationColor: 'var(--border2)' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</span>
                                   
                                   {/* Stacked Returns Column */}
                                   <span className={ret >= 0 ? 'pos' : 'neg'} style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
                                     <span style={{ fontWeight: 700 }}>{showBalances ? (ret >= 0 ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({inv.total_ret_pct >= 0 ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
+                                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({broker_ret_pct >= 0 ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
                                   </span>
                                 </div>
                               );
@@ -4562,7 +4565,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                         /* 📱 MOBILE: Clean Vertical Cards */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {invPaginatedRows && invPaginatedRows.length > 0 ? invPaginatedRows.map((inv, i) => {
-                            const ret = inv.total_curr - inv.total_inv;
+                            const broker_inv = (parseFloat(inv.inv_stocks) || 0) + (parseFloat(inv.inv_mf) || 0);
+                            const broker_curr = (parseFloat(inv.curr_stocks) || 0) + (parseFloat(inv.curr_mf) || 0);
+                            const ret = broker_curr - broker_inv;
+                            const broker_ret_pct = broker_inv > 0 ? (ret / broker_inv) * 100 : 0;
                             const isPos = ret >= 0;
                             return (
                               <div 
@@ -4583,17 +4589,17 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
                                   <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Invested</div>
-                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_inv) : '₹ ••••••'}</div>
+                                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_inv) : '₹ ••••••'}</div>
                                   </div>
                                   <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Current Value</div>
-                                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(inv.total_curr) : '₹ ••••••'}</div>
+                                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem', marginTop: '4px', whiteSpace: 'nowrap' }}>{showBalances ? fmt(broker_curr) : '₹ ••••••'}</div>
                                   </div>
                                   <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns</div>
                                     <div className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                       <span style={{ whiteSpace: 'nowrap' }}>{showBalances ? (isPos ? '+' : '-') + fmt(Math.abs(ret)) : '₹ ••••••'}</span>
-                                      <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{Math.abs(inv.total_ret_pct).toFixed(2)}%)</span>
+                                      <span style={{ fontSize: '0.7rem', opacity: 0.9, whiteSpace: 'nowrap' }}>({isPos ? '+' : '-'}{Math.abs(broker_ret_pct).toFixed(2)}%)</span>
                                     </div>
                                   </div>
                                 </div>
