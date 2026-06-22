@@ -3324,6 +3324,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         setIsAddModalOpen(false);
         setEditingAsset(null);
         setDrillDownDate(null);
+        setShowAssetSettings(false);
       }
     };
     window.addEventListener('keydown', handleEsc);
@@ -3467,6 +3468,29 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [invCurrentPage, setInvCurrentPage] = useState(0); 
   const [invRowsPerPage, setInvRowsPerPage] = useState(5);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // 🚀 ASSET VISIBILITY TOGGLES
+  const [hiddenCategories, setHiddenCategories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dt_inv_hidden_cats') || '[]'); }
+    catch { return []; }
+  });
+  const [showAssetSettings, setShowAssetSettings] = useState(false);
+
+  const ASSET_CATEGORIES = [
+    { id: 'EQUITY', label: 'Equity', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: '#6366f1', icon: '📈' },
+    { id: 'MF', label: 'Mutual Funds', field_curr: 'curr_mf', field_inv: 'inv_mf', color: '#8b5cf6', icon: '🏦' },
+    { id: 'FIXED_INCOME', label: 'Fixed Income', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
+    { id: 'PROVIDENT', label: 'Provident', field_curr: 'curr_prov', field_inv: 'inv_prov', color: '#f59e0b', icon: '🛡️' },
+    { id: 'GOLD', label: 'Gold', field_curr: 'curr_gold', field_inv: 'inv_gold', color: '#eab308', icon: '🥇' },
+  ];
+
+  const toggleCategory = (catId) => {
+    setHiddenCategories(prev => {
+      const next = prev.includes(catId) ? prev.filter(c => c !== catId) : [...prev, catId];
+      localStorage.setItem('dt_inv_hidden_cats', JSON.stringify(next));
+      return next;
+    });
+  };
   
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -3826,11 +3850,26 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   useEffect(() => { setInvCurrentPage(0); }, [filterMonth, sortBy, sortDir, viewMode]);
 
   const latest = investments.length > 0 ? investments[0] : null;
-  const pieData = latest ? [
-    { name: "Equity", value: latest.curr_stocks || 0, fill: "#6366f1" }, { name: "Mutual Funds", value: latest.curr_mf || 0, fill: "#8b5cf6" },
-    { name: "Fixed Income", value: latest.curr_fixed || 0, fill: "#10b981" }, { name: "Provident", value: latest.curr_prov || 0, fill: "#f59e0b" },
-    { name: "Gold", value: latest.curr_gold || 0, fill: "#eab308" }
-  ].filter(d => d.value > 0) : [];
+
+  // 🚀 FILTERED TOTALS (Respects hidden categories)
+  const filteredTotals = useMemo(() => {
+    if (!latest) return { curr: 0, inv: 0, ret: 0, retPct: 0 };
+    let curr = 0, inv = 0;
+    ASSET_CATEGORIES.forEach(cat => {
+      if (!hiddenCategories.includes(cat.id)) {
+        curr += parseFloat(latest[cat.field_curr] || 0);
+        inv += parseFloat(latest[cat.field_inv] || 0);
+      }
+    });
+    const ret = curr - inv;
+    const retPct = inv > 0 ? (ret / inv) * 100 : 0;
+    return { curr, inv, ret, retPct };
+  }, [latest, hiddenCategories]);
+
+  const pieData = latest ? ASSET_CATEGORIES
+    .filter(cat => !hiddenCategories.includes(cat.id))
+    .map(cat => ({ name: cat.label, value: parseFloat(latest[cat.field_curr] || 0), fill: cat.color }))
+    .filter(d => d.value > 0) : [];
 
   return (
     <div style={{ position: 'relative', minHeight: '80vh' }}>
@@ -3938,38 +3977,132 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', gap: '1rem' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Combined Net Worth</span>
+                  {hiddenCategories.length > 0 && (
+                    <span className="filtered-badge">
+                      ⚡ Filtered ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '0.2rem', wordBreak: 'break-word' }}>
-                  {showBalances ? (latest ? fmt(latest.total_curr) : '₹0') : '₹ ••••••'}
+                  {showBalances ? fmt(filteredTotals.curr) : '₹ ••••••'}
                 </div>
               </div>
-              <button 
-                onClick={() => setShowBalances(!showBalances)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.3rem', padding: '0.4rem', opacity: 0.7, transition: 'opacity 0.2s', flexShrink: 0, marginTop: '-4px' }}
-                onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
-                title={showBalances ? "Hide Balances" : "Show Balances"}
-              >
-                {showBalances ? '🙈' : '👁️'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, marginTop: '-4px' }}>
+                <button 
+                  onClick={() => setShowAssetSettings(!showAssetSettings)}
+                  style={{ 
+                    background: showAssetSettings ? 'rgba(99,102,241,0.15)' : 'transparent', 
+                    border: showAssetSettings ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent', 
+                    cursor: 'pointer', fontSize: '1.1rem', padding: '0.35rem', 
+                    opacity: showAssetSettings ? 1 : 0.7, transition: 'all 0.2s', 
+                    borderRadius: '8px', position: 'relative'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => { if (!showAssetSettings) e.currentTarget.style.opacity = 0.7; }}
+                  title="Configure Net Worth Categories"
+                >
+                  ⚙️
+                  {hiddenCategories.length > 0 && (
+                    <span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--card)' }} />
+                  )}
+                </button>
+                <button 
+                  onClick={() => setShowBalances(!showBalances)}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.3rem', padding: '0.4rem', opacity: 0.7, transition: 'opacity 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
+                  title={showBalances ? "Hide Balances" : "Show Balances"}
+                >
+                  {showBalances ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
+
+            {/* 🚀 ASSET VISIBILITY SETTINGS PANEL */}
+            {showAssetSettings && (
+              <div className="asset-settings-panel">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Include in Net Worth</span>
+                  <button 
+                    onClick={() => {
+                      if (hiddenCategories.length > 0) {
+                        setHiddenCategories([]);
+                        localStorage.setItem('dt_inv_hidden_cats', '[]');
+                      } else {
+                        const allIds = ASSET_CATEGORIES.map(c => c.id);
+                        setHiddenCategories(allIds);
+                        localStorage.setItem('dt_inv_hidden_cats', JSON.stringify(allIds));
+                      }
+                    }}
+                    style={{ fontSize: '0.7rem', color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                  >
+                    {hiddenCategories.length > 0 ? 'Show All' : 'Hide All'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {ASSET_CATEGORIES.map(cat => {
+                    const isVisible = !hiddenCategories.includes(cat.id);
+                    const catValue = latest ? parseFloat(latest[cat.field_curr] || 0) : 0;
+                    return (
+                      <div 
+                        key={cat.id} 
+                        className="asset-setting-row"
+                        onClick={() => toggleCategory(cat.id)}
+                        style={{ opacity: isVisible ? 1 : 0.5 }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                          <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: cat.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isVisible ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s', textDecoration: isVisible ? 'none' : 'line-through' }}>
+                            {cat.icon} {cat.label}
+                          </span>
+                          {showBalances && catValue > 0 && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500, flexShrink: 0 }}>
+                              {fmt(catValue)}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
+                          style={{
+                            width: '40px', height: '22px', borderRadius: '11px',
+                            background: isVisible ? 'var(--pos)' : 'var(--border2)',
+                            position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.25s',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div style={{
+                            width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
+                            position: 'absolute', top: '3px',
+                            left: isVisible ? '21px' : '3px',
+                            transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
+                          }} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'var(--bg2)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '100px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Total Invested</span>
                 <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--text)', marginTop: '2px' }}>
-                  {showBalances ? (latest ? fmt(latest.total_inv) : '₹0') : '₹ ••••••'}
+                  {showBalances ? fmt(filteredTotals.inv) : '₹ ••••••'}
                 </div>
               </div>
               <div style={{ width: '1px', background: 'var(--border)' }}></div>
               <div style={{ flex: 1, minWidth: '100px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 600 }}>Returns & XIRR</span>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginTop: '2px', flexWrap: 'wrap' }}>
-                  <span className={(latest && latest.total_curr - latest.total_inv >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
-                    {showBalances ? (latest && latest.total_curr - latest.total_inv >= 0 ? '+' : '-') + (latest ? fmt(Math.abs(latest.total_curr - latest.total_inv)) : '₹0') : '₹ ••••••'}
+                  <span className={filteredTotals.ret >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 800, fontSize: '1.1rem' }}>
+                    {showBalances ? (filteredTotals.ret >= 0 ? '+' : '-') + fmt(Math.abs(filteredTotals.ret)) : '₹ ••••••'}
                   </span>
-                  <span className={(latest && latest.total_ret_pct >= 0) ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
-                    {latest ? `(${latest.total_ret_pct >= 0 ? '+' : '-'}${Math.abs(latest.total_ret_pct).toFixed(2)}% Abs)` : ''}
+                  <span className={filteredTotals.retPct >= 0 ? 'pos' : 'neg'} style={{ fontWeight: 700, fontSize: '0.85rem', opacity: 0.9 }}>
+                    {latest ? `(${filteredTotals.retPct >= 0 ? '+' : '-'}${Math.abs(filteredTotals.retPct).toFixed(2)}% Abs)` : ''}
                   </span>
                   
                   {/* ---> NEW XIRR BADGE <--- */}
@@ -4036,7 +4169,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           {/* Legend - Responsive Grid - Widened minmax from 200px to 240px */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', width: '100%', flex: 1 }}>
             {pieData.map(d => {
-              const pct = latest && latest.total_curr > 0 ? ((d.value / latest.total_curr) * 100).toFixed(1) : 0;
+              const pct = filteredTotals.curr > 0 ? ((d.value / filteredTotals.curr) * 100).toFixed(1) : 0;
               return (
                 <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.7rem 0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
                   
