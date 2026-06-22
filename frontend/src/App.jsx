@@ -2382,8 +2382,8 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
   const [loading, setLoading] = useState(false);
 
   // 🚀 Determine the Asset Bucket to lock/unlock fields
-  const isLedgerOrMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
-  const isMath = ['FD', 'RD', 'PPF'].includes(form.category);
+  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD'].includes(form.category);
 
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
@@ -2410,8 +2410,8 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
           <CustomSelect
             value={form.category}
             onChange={val => {
-              const becomingMath = ['FD', 'RD', 'PPF'].includes(val);
-              const becomingMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+              const becomingMath = ['FD', 'RD'].includes(val);
+              const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
               setForm({
                 ...form, category: val,
                 interest_rate: becomingMarket ? '' : form.interest_rate,
@@ -2538,8 +2538,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
   const [loading, setLoading] = useState(false);
 
   // 🚀 Determine the Asset Bucket to lock/unlock fields
-  const isLedgerOrMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
-  const isMath = ['FD', 'RD', 'PPF'].includes(form.category);
+  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD'].includes(form.category);
 
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
@@ -2572,8 +2572,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
             <CustomSelect
               value={form.category}
               onChange={val => {
-                const becomingMath = ['FD', 'RD', 'PPF'].includes(val);
-                const becomingMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+                const becomingMath = ['FD', 'RD'].includes(val);
+                const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
                 setForm({
                   ...form, category: val,
                   interest_rate: becomingMarket ? '' : form.interest_rate,
