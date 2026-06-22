@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
 from pyxirr import xirr
+import socket
+from urllib.parse import urlparse
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
@@ -135,13 +137,24 @@ def set_security_headers(response):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
+# --- IPv6 Blackhole Fix ---
+# Force IPv4 connection to prevent 21s timeout hangs when Windows prefers broken IPv6 routes
+connect_args = {
+    "sslmode": "require",
+    "connect_timeout": 30   # Gives Neon 30 seconds to wake up from cold start
+}
+try:
+    parsed_url = urlparse(DATABASE_URL)
+    if parsed_url.hostname:
+        ipv4 = socket.gethostbyname(parsed_url.hostname)
+        connect_args["hostaddr"] = ipv4
+except Exception as e:
+    print(f"Warning: Could not resolve IPv4 for DB host: {e}")
+
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True,      # Checks if the DB connection is alive before using it
     "pool_recycle": 300,        # Reconnects every 5 minutes to prevent stale idle connections
-    "connect_args": {
-        "sslmode": "require",
-        "connect_timeout": 10   # Gives Neon an extra 10 seconds to wake up from cold start
-    }
+    "connect_args": connect_args
 }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
