@@ -4015,7 +4015,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text2)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Combined Net Worth</span>
                   {hiddenCategories.length > 0 && (
                     <span className="filtered-badge">
-                      ⚡ Filtered ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
+                      ⚡ ({ASSET_CATEGORIES.length - hiddenCategories.length}/{ASSET_CATEGORIES.length})
                     </span>
                   )}
                 </div>
@@ -4678,7 +4678,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                       {!isMobile ? (
                         /* 🖥️ DESKTOP: Classic Data Table */
                         <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
-                          <div className="data-table" style={{ minWidth: '800px' }}>
+                          <div className="data-table" style={{ minWidth: '1100px' }}>
                             {sectionAssets.length > 0 ? (
                               <>
                                 <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr', padding: '0.75rem 1.25rem' }}>
