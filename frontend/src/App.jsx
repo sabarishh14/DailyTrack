@@ -4188,6 +4188,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Pie>
                 <Tooltip 
+                  offset={25}
+                  allowEscapeViewBox={{ x: true, y: true }}
                   formatter={(value) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
                   contentStyle={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                   itemStyle={{ color: 'var(--text)', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
