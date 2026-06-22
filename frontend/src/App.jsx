@@ -3471,16 +3471,20 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
   // 🚀 ASSET VISIBILITY TOGGLES
   const [hiddenCategories, setHiddenCategories] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('dt_inv_hidden_cats') || '[]'); }
-    catch { return []; }
+    try { 
+      const stored = localStorage.getItem('dt_inv_hidden_cats');
+      if (stored) return JSON.parse(stored);
+      return ['PROVIDENT', 'GOLD'];
+    }
+    catch { return ['PROVIDENT', 'GOLD']; }
   });
   const [showAssetSettings, setShowAssetSettings] = useState(false);
 
   const ASSET_CATEGORIES = [
-    { id: 'EQUITY', label: 'Equity', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: '#6366f1', icon: '📈' },
+    { id: 'EQUITY', label: 'Stocks', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: '#6366f1', icon: '📈' },
     { id: 'MF', label: 'Mutual Funds', field_curr: 'curr_mf', field_inv: 'inv_mf', color: '#8b5cf6', icon: '🏦' },
-    { id: 'FIXED_INCOME', label: 'Fixed Income', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
-    { id: 'PROVIDENT', label: 'Provident', field_curr: 'curr_prov', field_inv: 'inv_prov', color: '#f59e0b', icon: '🛡️' },
+    { id: 'FIXED_INCOME', label: 'Fixed Deposits', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
+    { id: 'PROVIDENT', label: 'Retirement', field_curr: 'curr_prov', field_inv: 'inv_prov', color: '#f59e0b', icon: '🛡️' },
     { id: 'GOLD', label: 'Gold', field_curr: 'curr_gold', field_inv: 'inv_gold', color: '#eab308', icon: '🥇' },
   ];
 
@@ -4146,11 +4150,11 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
 
         {/* Allocation Donut Card - Mobile Wrapped */}
-        <div style={{ flex: '1.2 1 450px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-          <div style={{ width: '200px', height: '200px', position: 'relative', flexShrink: 0 }}>
+        <div style={{ flex: '1.2 1 450px', background: 'var(--card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          <div style={{ width: '220px', height: '220px', position: 'relative', flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={3} cornerRadius={6} stroke="none">
+                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={75} outerRadius={105} paddingAngle={3} cornerRadius={6} stroke="none">
                   {pieData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Pie>
                 <Tooltip 
@@ -4248,10 +4252,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
             {[
               { id: 'ALL', label: 'Overall' },
-              { id: 'EQUITY', label: 'Equity' },
+              { id: 'EQUITY', label: 'Stocks' },
               { id: 'MF', label: 'Mutual Funds' },
-              { id: 'PROVIDENT', label: 'Provident' },
-              { id: 'FIXED_INCOME', label: 'Fixed Income' },
+              { id: 'PROVIDENT', label: 'Retirement' },
+              { id: 'FIXED_INCOME', label: 'Fixed Deposits' },
               { id: 'GOLD', label: 'Gold' }
             ].map(cat => (
               <button
