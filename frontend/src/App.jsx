@@ -4200,10 +4200,15 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                           width: '140px', height: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
                           boxShadow: '0 4px 20px rgba(0,0,0,0.15)' 
                         }}>
-                          <div style={{ fontSize: '0.7rem', color: data.fill, fontWeight: 700, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px', padding: '0 10px' }}>
+                          <div style={{ 
+                            fontSize: '0.65rem', color: data.fill, fontWeight: 700, letterSpacing: '0.5px', 
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', 
+                            overflow: 'hidden', textOverflow: 'ellipsis', 
+                            maxWidth: '120px', padding: '0 8px', lineHeight: 1.2, marginBottom: '4px'
+                          }}>
                             {data.name.toUpperCase()}
                           </div>
-                          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.1rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: '2px' }}>
+                          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '0.9rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
                             {showBalances ? fmt(data.value) : '₹ ••••••'}
                           </div>
                         </div>
