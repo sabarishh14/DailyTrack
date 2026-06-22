@@ -2382,8 +2382,8 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
   const [loading, setLoading] = useState(false);
 
   // 🚀 Determine the Asset Bucket to lock/unlock fields
-  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
-  const isMath = ['FD', 'RD'].includes(form.category);
+  const isLedgerOrMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD', 'PPF'].includes(form.category);
 
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
@@ -2410,8 +2410,8 @@ function EditManualAssetModal({ asset, onClose, onRefresh }) {
           <CustomSelect
             value={form.category}
             onChange={val => {
-              const becomingMath = ['FD', 'RD'].includes(val);
-              const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+              const becomingMath = ['FD', 'RD', 'PPF'].includes(val);
+              const becomingMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
               setForm({
                 ...form, category: val,
                 interest_rate: becomingMarket ? '' : form.interest_rate,
@@ -2538,8 +2538,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
   const [loading, setLoading] = useState(false);
 
   // 🚀 Determine the Asset Bucket to lock/unlock fields
-  const isLedgerOrMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
-  const isMath = ['FD', 'RD'].includes(form.category);
+  const isLedgerOrMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(form.category);
+  const isMath = ['FD', 'RD', 'PPF'].includes(form.category);
 
   const submit = async () => {
     if (form.is_recurring && (!form.amount_to_add || !form.next_run_date)) {
@@ -2572,8 +2572,8 @@ function AddManualAssetModal({ onClose, onAdd }) {
             <CustomSelect
               value={form.category}
               onChange={val => {
-                const becomingMath = ['FD', 'RD'].includes(val);
-                const becomingMarket = ['EPF', 'PPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
+                const becomingMath = ['FD', 'RD', 'PPF'].includes(val);
+                const becomingMarket = ['EPF', 'NPS', 'SGB', 'RSU', 'RealEstate', 'Cash'].includes(val);
                 setForm({
                   ...form, category: val,
                   interest_rate: becomingMarket ? '' : form.interest_rate,
@@ -3496,7 +3496,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const ASSET_CATEGORIES = [
     { id: 'EQUITY', label: 'Stocks', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: '#6366f1', icon: '📈' },
     { id: 'MF', label: 'Mutual Funds', field_curr: 'curr_mf', field_inv: 'inv_mf', color: '#8b5cf6', icon: '🏦' },
-    { id: 'FIXED_INCOME', label: 'Fixed Deposits', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
+    { id: 'FIXED_INCOME', label: 'Fixed Income', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
     { id: 'PROVIDENT', label: 'Retirement', field_curr: 'curr_prov', field_inv: 'inv_prov', color: '#f59e0b', icon: '🛡️' },
     { id: 'GOLD', label: 'Gold', field_curr: 'curr_gold', field_inv: 'inv_gold', color: '#eab308', icon: '🥇' },
   ];
@@ -4310,7 +4310,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                 { id: 'EQUITY', label: 'Stocks' },
                 { id: 'MF', label: 'Mutual Funds' },
                 { id: 'PROVIDENT', label: 'Retirement' },
-                { id: 'FIXED_INCOME', label: 'Fixed Deposits' },
+                { id: 'FIXED_INCOME', label: 'Fixed Income' },
                 { id: 'GOLD', label: 'Gold' }
               ].map(cat => (
                 <button
@@ -4466,8 +4466,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {[
             { title: "Stocks & MFs (Brokerage)", id: "MARKET" },
-            { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'PPF', 'NPS'] },
-            { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'Cash'] },
+            { title: "Provident Funds & Retirement", id: "PROVIDENT", categories: ['EPF', 'NPS'] },
+            { title: "Fixed Income & Savings", id: "FIXED", categories: ['FD', 'RD', 'PPF', 'Cash'] },
             { title: "Gold & Real Estate", id: "GOLD", categories: ['SGB', 'RealEstate'] }
           ].map(section => {
 
@@ -4584,6 +4584,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                       <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{formatDate(inv.date)}</span>
                                       <span style={{ background: 'var(--bg3)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase' }}>Market Sync</span>
                                     </div>
+                                  </div>
                                   {/* Metrics Grid */}
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', rowGap: '1.25rem' }}>
                                     <div style={{ flex: '1 1 30%', minWidth: '85px' }}>
