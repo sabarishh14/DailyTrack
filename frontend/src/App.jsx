@@ -4678,7 +4678,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                       {!isMobile ? (
                         /* 🖥️ DESKTOP: Classic Data Table */
                         <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '8px' }}>
-                          <div className="data-table" style={{ minWidth: '1100px' }}>
+                          <div className="data-table" style={{ minWidth: '1500px' }}>
                             {sectionAssets.length > 0 ? (
                               <>
                                 <div className="table-header" style={{ gridTemplateColumns: '2.5fr 1fr 1.5fr 1.5fr 1.5fr 1.5fr 1.5fr 1fr' }}>
