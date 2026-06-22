@@ -3342,6 +3342,29 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     if (value !== '' && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
+
+    // Auto-submit when all 4 digits are filled
+    if (value !== '' && index === 3 && resultingPin.length === 4) {
+      setTimeout(() => {
+        // Inline the submit logic to use resultingPin directly
+        if (!savedPin) {
+          localStorage.setItem('dt_inv_pin', resultingPin);
+          sessionStorage.setItem('dt_inv_unlocked', 'true');
+          setSavedPin(resultingPin);
+          setIsUnlocked(true);
+        } else {
+          if (resultingPin === savedPin) {
+            sessionStorage.setItem('dt_inv_unlocked', 'true');
+            setIsUnlocked(true);
+            setPinError(false);
+          } else {
+            setPinError(true);
+            setPinInput('');
+            inputRefs.current[0]?.focus();
+          }
+        }
+      }, 150); // Small delay for visual feedback
+    }
   };
 
   const handlePinKeyDown = (index, e) => {
@@ -4269,7 +4292,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
                   <div className="analyser-header-title">{section.title}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                   {section.id === 'MARKET' && (
                     <button 
                       onClick={(e) => {
@@ -4288,10 +4311,10 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                          }
                       }}
                       className="action-btn secondary"
-                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}
                       title="Compare Snapshots"
                     >
-                      <span>⚖️</span>
+                      <span style={{ fontSize: '0.85rem' }}>⚖️</span>
                       <span className="manage-btn-text">Compare</span>
                     </button>
                   )}
@@ -4601,50 +4624,51 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
       {drillDownDate && (
         <div className="modal-backdrop" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>
           <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)' }}>
+            <div className="modal-header" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start', borderBottom: '1px solid var(--border)' }}>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>Snapshot:</span>
-                  <div style={{ minWidth: '140px' }}>
-                    <CustomSelect
-                       value={drillDownDate}
-                       onChange={(val) => {
-                         setDrillDownDate(val);
-                         setDrillDownCompareDate(null);
-                         fetchDrillDownData(val, drillDownType);
-                       }}
-                       options={[...investments].sort((a,b) => new Date(b.date) - new Date(a.date)).map(inv => ({ label: formatDate(inv.date), value: inv.date.split('T')[0] }))}
-                       width="100%"
-                    />
-                  </div>
-                  <div style={{ minWidth: '160px' }}>
-                    <CustomSelect 
-                      value={drillDownCompareDate || ""}
-                      onChange={(val) => fetchCompareData(val, drillDownType)}
-                      options={[
-                        { label: '🚫 No Comparison', value: '' }, 
-                        ...availableCompareDates.map(d => ({ label: `vs ${d.label}`, value: d.value }))
-                      ]}
-                      placeholder="⚖️ Compare Past"
-                      width="100%"
-                    />
-                  </div>
-                  {(isDrillDownLoading || isCompareLoading) && <span className="loader-spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', marginLeft: '0.2rem' }} />}
+                <div className="modal-title" style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>
+                  Portfolio Snapshot
+                  {(isDrillDownLoading || isCompareLoading) && <span className="loader-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', marginLeft: '0.5rem', display: 'inline-block', verticalAlign: 'middle' }} />}
                 </div>
                 <button className="modal-close" onClick={() => { setDrillDownDate(null); setDrillDownCompareDate(null); }}>×</button>
               </div>
               
-              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-                <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
+                  <CustomSelect
+                     value={drillDownDate}
+                     onChange={(val) => {
+                       setDrillDownDate(val);
+                       setDrillDownCompareDate(null);
+                       setDrillDownCompareData([]);
+                       fetchDrillDownData(val, drillDownType);
+                     }}
+                     options={[...investments].sort((a,b) => new Date(b.date) - new Date(a.date)).map(inv => ({ label: formatDate(inv.date), value: inv.date.split('T')[0] }))}
+                     width={isMobile ? '100%' : 'auto'}
+                     minWidth="130px"
+                  />
+                  <CustomSelect 
+                    value={drillDownCompareDate || ""}
+                    onChange={(val) => fetchCompareData(val, drillDownType)}
+                    options={[
+                      { label: 'No Compare', value: '' }, 
+                      ...availableCompareDates
+                    ]}
+                    placeholder="⚖️ vs..."
+                    width={isMobile ? '100%' : 'auto'}
+                    minWidth="130px"
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
                   <button 
                     onClick={() => { fetchDrillDownData(drillDownDate, 'EQUITY'); if(drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'EQUITY'); }}
-                    style={{ padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'EQUITY' ? 'var(--card)' : 'transparent', color: drillDownType === 'EQUITY' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'EQUITY' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'EQUITY' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none' }}
-                  >📈 Equity (Stocks)</button>
+                    style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'EQUITY' ? 'var(--card)' : 'transparent', color: drillDownType === 'EQUITY' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'EQUITY' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'EQUITY' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
+                  >📈 Stocks</button>
                   <button 
                     onClick={() => { fetchDrillDownData(drillDownDate, 'MF'); if(drillDownCompareDate) fetchCompareData(drillDownCompareDate, 'MF'); }}
-                    style={{ padding: '0.45rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'MF' ? 'var(--card)' : 'transparent', color: drillDownType === 'MF' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'MF' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'MF' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none' }}
-                  >🏦 Mutual Funds</button>
+                    style={{ padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: drillDownType === 'MF' ? 'var(--card)' : 'transparent', color: drillDownType === 'MF' ? 'var(--accent)' : 'var(--text2)', border: drillDownType === 'MF' ? '1px solid var(--accent)' : '1px solid transparent', boxShadow: drillDownType === 'MF' ? '0 4px 12px rgba(99,102,241,0.15)' : 'none', flex: isMobile ? 1 : 'none' }}
+                  >🏦 MFs</button>
                 </div>
               </div>
 
