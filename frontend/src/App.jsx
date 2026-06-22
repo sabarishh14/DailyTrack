@@ -3679,6 +3679,29 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
     }).sort((x, y) => y.sort_val - x.sort_val);
   }, [drillDownData, drillDownCompareData, drillDownCompareDate, drillDownType]);
 
+  // 🚀 COMPARISON SUMMARY TOTALS
+  const comparisonSummary = useMemo(() => {
+    if (!comparisonData || !drillDownCompareDate) return null;
+    const totals = comparisonData.reduce((acc, h) => {
+      acc.inv_A += h.inv_A;
+      acc.curr_A += h.curr_A;
+      acc.inv_B += (h.inv_A - h.inv_diff);  // B = A - diff
+      acc.curr_B += (h.curr_A - h.curr_diff);
+      return acc;
+    }, { inv_A: 0, curr_A: 0, inv_B: 0, curr_B: 0 });
+    totals.ret_A = totals.curr_A - totals.inv_A;
+    totals.ret_B = totals.curr_B - totals.inv_B;
+    totals.inv_diff = totals.inv_A - totals.inv_B;
+    totals.curr_diff = totals.curr_A - totals.curr_B;
+    totals.ret_diff = totals.ret_A - totals.ret_B;
+    totals.ret_pct_A = totals.inv_A > 0 ? (totals.ret_A / totals.inv_A) * 100 : 0;
+    totals.ret_pct_B = totals.inv_B > 0 ? (totals.ret_B / totals.inv_B) * 100 : 0;
+    totals.stocks_new = comparisonData.filter(h => h.is_new).length;
+    totals.stocks_exited = comparisonData.filter(h => h.is_exited).length;
+    totals.total_stocks = comparisonData.length;
+    return totals;
+  }, [comparisonData, drillDownCompareDate]);
+
   const availableCompareDates = useMemo(() => {
     if (!drillDownDate) return [];
     return investments.filter(inv => inv.date.split('T')[0] !== drillDownDate).map(inv => ({ 
@@ -4246,7 +4269,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                   <div className="analyser-header-icon">{section.id === 'MARKET' ? '📈' : section.id === 'PROVIDENT' ? '🛡️' : section.id === 'FIXED' ? '🏦' : '🥇'}</div>
                   <div className="analyser-header-title">{section.title}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   {section.id === 'MARKET' && (
                     <button 
                       onClick={(e) => {
@@ -4264,11 +4287,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                            fetchDrillDownData(latestDate, 'EQUITY');
                          }
                       }}
-                      style={{ padding: '0.35rem 0.8rem', borderRadius: '20px', background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', border: 'none', fontSize: '0.8rem', fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(99,102,241,0.25)' }}
-                      onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(99,102,241,0.4)'; e.currentTarget.style.background = 'linear-gradient(135deg, #4f46e5, #7c3aed)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.25)'; e.currentTarget.style.background = 'linear-gradient(135deg, var(--accent), #8b5cf6)'; }}
+                      className="action-btn secondary"
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      title="Compare Snapshots"
                     >
-                      ⚡ Compare
+                      <span>⚖️</span>
+                      <span className="manage-btn-text">Compare</span>
                     </button>
                   )}
                   <span className={`analyser-chevron ${expandedSection === section.id ? 'open' : ''}`}>▼</span>
@@ -4634,7 +4658,50 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                 </div>
               ) : drillDownCompareDate && comparisonData ? (
                 /* 🚀 COMPARISON VIEW 🚀 */
-                !isMobile ? (
+                <>
+                {/* Summary Banner */}
+                {comparisonSummary && (
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                    {[
+                      { label: 'Invested', valA: comparisonSummary.inv_A, valB: comparisonSummary.inv_B, diff: comparisonSummary.inv_diff },
+                      { label: 'Current Value', valA: comparisonSummary.curr_A, valB: comparisonSummary.curr_B, diff: comparisonSummary.curr_diff },
+                      { label: 'Returns', valA: comparisonSummary.ret_A, valB: comparisonSummary.ret_B, diff: comparisonSummary.ret_diff, pctA: comparisonSummary.ret_pct_A, pctB: comparisonSummary.ret_pct_B },
+                    ].map((card, ci) => (
+                      <div key={ci} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem 1.25rem' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '0.6rem' }}>{card.label}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.5rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownDate)}</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: card.label === 'Returns' ? (card.valA >= 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--text)', fontFamily: "'DM Sans', sans-serif" }}>
+                              {card.label === 'Returns' && (card.valA >= 0 ? '+' : '-')}₹{Math.abs(card.valA).toLocaleString('en-IN', {maximumFractionDigits:0})}
+                              {card.pctA !== undefined && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '4px' }}>({card.pctA >= 0 ? '+' : ''}{card.pctA.toFixed(1)}%)</span>}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', marginBottom: '2px' }}>{formatDate(drillDownCompareDate)}</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text2)', fontFamily: "'DM Sans', sans-serif" }}>
+                              {card.label === 'Returns' && (card.valB >= 0 ? '+' : '-')}₹{Math.abs(card.valB).toLocaleString('en-IN', {maximumFractionDigits:0})}
+                              {card.pctB !== undefined && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: '3px' }}>({card.pctB >= 0 ? '+' : ''}{card.pctB.toFixed(1)}%)</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                          <DiffBadge diff={card.diff} isCurrency={true} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {comparisonSummary && (
+                  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+                      {comparisonSummary.total_stocks} {drillDownType === 'EQUITY' ? 'stocks' : 'funds'}
+                    </span>
+                    {comparisonSummary.stocks_new > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(52,211,153,0.1)', color: 'var(--pos)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>+{comparisonSummary.stocks_new} New</span>}
+                    {comparisonSummary.stocks_exited > 0 && <span style={{ fontSize: '0.7rem', background: 'rgba(248,113,113,0.1)', color: 'var(--neg)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{comparisonSummary.stocks_exited} Exited</span>}
+                  </div>
+                )}
+                {!isMobile ? (
                   <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <div className="data-table" style={{ minWidth: '850px' }}>
                       <div className="table-header" style={{ gridTemplateColumns: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr', userSelect: 'none' }}>
@@ -4722,6 +4789,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                     })}
                   </div>
                 )
+                </>
               ) : (
                 /* 🚀 STANDARD VIEW (Original Logic) 🚀 */
                 !isMobile ? (
