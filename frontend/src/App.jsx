@@ -5259,7 +5259,7 @@ export default function App() {
   // --- Theme Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
 
-  const logout = () => {
+  const logout = useCallback(() => {
     signOut(auth);
     localStorage.removeItem('dt_token');
     localStorage.removeItem('dt_is_admin'); // <-- ADD THIS LINE
@@ -5269,7 +5269,7 @@ export default function App() {
     setAccounts([]);
     setPhysical([]);
     setInvestments([]);
-  };
+  }, []);
 
   useEffect(() => {
     // This injects the theme directly into the HTML tag so CSS can read it
@@ -5335,9 +5335,11 @@ export default function App() {
 
       while (hasMore) {
         if (!getToken()) break; // stop mid-loop if logged out
-        const res = await fetch(`${API}/transactions?limit=500&offset=${offset}`, {
+        const r = await fetch(`${API}/transactions?limit=500&offset=${offset}`, {
           headers: { 'Authorization': `Bearer ${getToken()}` }
-        }).then(r => r.json());
+        });
+        if (r.status === 401) { logout(); break; }
+        const res = await r.json();
 
         if (!res.transactions || res.transactions.length === 0) break;
 
@@ -5361,7 +5363,7 @@ export default function App() {
     } catch (e) {
       console.error("Failed to load all transactions", e);
     }
-  }, [allTransactionsLoaded]);
+  }, [allTransactionsLoaded, logout]);
 
   const fetchAll = useCallback(async (showLoading = false) => {
     if (showLoading) setAppLoading(true);
@@ -5374,6 +5376,10 @@ export default function App() {
       // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
       const fetchWithCheck = async (url) => {
         const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+        if (r.status === 401) {
+          logout();
+          throw new Error("UNAUTHORIZED");
+        }
         if (!r.ok) throw new Error(`Server waking up: ${r.status}`);
         return r.json();
       };
@@ -5400,11 +5406,15 @@ export default function App() {
 
       if (showLoading) setAppLoading(false);
     } catch (e) {
+      if (e.message === "UNAUTHORIZED") {
+        setAppLoading(false);
+        return;
+      }
       console.warn("Server is asleep or database is booting. Retrying in 3 seconds...", e.message);
       // The loading screen stays up, and we try again automatically!
       setTimeout(() => fetchAll(showLoading), 3000);
     }
-  }, []);
+  }, [logout]);
 
   useEffect(() => { if (isLoggedIn) fetchAll(true); }, [fetchAll, isLoggedIn]);
 
