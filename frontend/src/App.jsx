@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { initializeApp } from 'firebase/app';
@@ -5219,11 +5219,11 @@ function SecretAdminModal({ onClose }) {
 }
 
 // ─── MEMOIZED TABS ────────────────────────────────────────────────────────
-const MemoizedHomeTab = React.memo(HomeTab);
-const MemoizedMoneyTab = React.memo(MoneyTab);
-const MemoizedAddTab = React.memo(AddTab);
-const MemoizedGymTab = React.memo(GymTab);
-const MemoizedInvestTab = React.memo(InvestTab);
+const MemoizedHomeTab = memo(HomeTab);
+const MemoizedMoneyTab = memo(MoneyTab);
+const MemoizedAddTab = memo(AddTab);
+const MemoizedGymTab = memo(GymTab);
+const MemoizedInvestTab = memo(InvestTab);
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
