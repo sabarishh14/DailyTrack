@@ -534,7 +534,7 @@ function CustomPieTooltip({ active, payload, pieData }) {
   return (
     <div style={{
       background: 'linear-gradient(135deg, #1a2235 0%, #0d1117 100%)',
-      border: '1px solid rgba(99, 102, 241, 0.6)',
+      border: '1px solid rgba(var(--accent-rgb), 0.6)',
       borderRadius: '10px',
       padding: '12px 16px',
       boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
@@ -545,7 +545,7 @@ function CustomPieTooltip({ active, payload, pieData }) {
         {name}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-        <span style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1', fontFamily: 'Syne, sans-serif' }}>
+        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent)', fontFamily: 'Syne, sans-serif' }}>
           ₹{Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
         </span>
         <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
@@ -944,7 +944,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     setCurrentPage(0);
   }, [filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterTypes, filterHeadings, filterDescDebounced]);
 
-  const PIE_COLORS = ["#6366f1", "#8b5cf6", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#84cc16", "#22c55e", "#10b981", "#14b8a6", "#06b6d4"];
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
+  const PIE_COLORS = [accentColor, "#8b5cf6", "#d946ef", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#84cc16", "#22c55e", "#10b981", "#14b8a6", "#06b6d4"];
 
   // Handle column resize
   const handleStartResize = (col, e) => {
@@ -1305,7 +1306,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               <div className="pie-grid">
                 {/* Pie Chart */}
                 {/* 3D Modern Donut Chart */}
-                <div style={{ position: 'relative', background: 'rgba(99, 102, 241, 0.04)', borderRadius: '16px', padding: '1.5rem', border: '1px solid rgba(99, 102, 241, 0.1)', height: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'relative', background: 'rgba(var(--accent-rgb), 0.04)', borderRadius: '16px', padding: '1.5rem', border: '1px solid rgba(var(--accent-rgb), 0.1)', height: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       {/* 1. The 3D "Depth" Base Layer (Shifted down and darkened) */}
@@ -1380,8 +1381,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     display: 'flex',
                     flexDirection: 'column',
                     height: '380px',
-                    background: 'rgba(99, 102, 241, 0.04)',
-                    border: '1px solid rgba(99, 102, 241, 0.1)',
+                    background: 'rgba(var(--accent-rgb), 0.04)',
+                    border: '1px solid rgba(var(--accent-rgb), 0.1)',
                     borderRadius: '16px',
                     padding: '1.5rem 1rem',
                     position: 'relative',
@@ -1395,7 +1396,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     left: 0,
                     right: 0,
                     height: '20px',
-                    background: 'linear-gradient(to bottom, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0))',
+                    background: 'linear-gradient(to bottom, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0))',
                     borderRadius: '16px 16px 0 0',
                     pointerEvents: 'none',
                     zIndex: 5
@@ -1433,7 +1434,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                             justifyContent: 'space-between',
                             padding: '0.75rem 0.9rem',
                             borderRadius: '10px',
-                            background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                            background: isSelected ? 'rgba(var(--accent-rgb), 0.15)' : 'rgba(255, 255, 255, 0.02)',
                             border: `1px solid ${isSelected ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)'}`,
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                             cursor: 'pointer',
@@ -1441,8 +1442,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                           }}
                           onMouseEnter={(e) => {
                             if (!isSelected) {
-                              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-                              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                              e.currentTarget.style.background = 'rgba(var(--accent-rgb), 0.1)';
+                              e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.3)';
                               e.currentTarget.style.transform = 'translateX(4px)';
                             }
                           }}
@@ -1506,7 +1507,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     left: 0,
                     right: 0,
                     height: '30px',
-                    background: 'linear-gradient(to top, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0))',
+                    background: 'linear-gradient(to top, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0))',
                     borderRadius: '0 0 16px 16px',
                     pointerEvents: 'none',
                     zIndex: 5
@@ -1711,7 +1712,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                           padding: '0.35rem 0.65rem',
                           borderRadius: '6px',
                           border: pageNum === currentPage ? '1px solid var(--accent)' : '1px solid var(--border)',
-                          background: pageNum === currentPage ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-input)',
+                          background: pageNum === currentPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
                           color: pageNum === currentPage ? 'var(--accent)' : 'var(--text2)',
                           cursor: 'pointer',
                           fontSize: '0.8rem',
@@ -3327,6 +3328,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [pinError, setPinError] = useState(false);
   const [editingAsset, setEditingAsset] = useState(null);
 
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
+
   const [showPin, setShowPin] = useState(false);
   const inputRefs = useRef([]);
 
@@ -3494,7 +3497,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [showAssetSettings, setShowAssetSettings] = useState(false);
 
   const ASSET_CATEGORIES = [
-    { id: 'EQUITY', label: 'Stocks', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: '#6366f1', icon: '📈' },
+    { id: 'EQUITY', label: 'Stocks', field_curr: 'curr_stocks', field_inv: 'inv_stocks', color: 'var(--accent)', icon: '📈' },
     { id: 'MF', label: 'Mutual Funds', field_curr: 'curr_mf', field_inv: 'inv_mf', color: '#8b5cf6', icon: '🏦' },
     { id: 'FIXED_INCOME', label: 'Fixed Income', field_curr: 'curr_fixed', field_inv: 'inv_fixed', color: '#10b981', icon: '💰' },
     { id: 'PROVIDENT', label: 'Retirement', field_curr: 'curr_prov', field_inv: 'inv_prov', color: '#f59e0b', icon: '🛡️' },
@@ -3602,7 +3605,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
   // 🚀 HIGH-CONTRAST PALETTE FOR MULTI-LINES
   const PIE_COLORS = [
-    "#6366f1", // Indigo
+    accentColor, // Dynamic accent
     "#f59e0b", // Amber
     "#10b981", // Emerald
     "#ec4899", // Pink
@@ -5161,7 +5164,7 @@ function SecretAdminModal({ onClose }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', border: '1px solid var(--accent)' }}>
-        <div className="modal-header" style={{ background: 'rgba(99, 102, 241, 0.1)', borderBottom: '1px solid rgba(99, 102, 241, 0.2)' }}>
+        <div className="modal-header" style={{ background: 'rgba(var(--accent-rgb), 0.1)', borderBottom: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
           <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '1.2rem' }}>🧑‍💻</span> Developer Access Control
           </div>
@@ -5256,8 +5259,17 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(70);
   const [isResizing, setIsResizing] = useState(false);
 
-  // --- Theme Logic ---
+  // --- Theme & Accent Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [accent, setAccent] = useState(localStorage.getItem('dt_accent') || 'indigo');
+
+  const ACCENT_PALETTES = [
+    { id: 'indigo',  color: '#6366f1', label: 'Indigo' },
+    { id: 'ocean',   color: '#0ea5e9', label: 'Ocean' },
+    { id: 'rose',    color: '#f43f5e', label: 'Rose' },
+    { id: 'emerald', color: '#10b981', label: 'Emerald' },
+    { id: 'amber',   color: '#f59e0b', label: 'Amber' },
+  ];
 
   const logout = useCallback(() => {
     signOut(auth);
@@ -5272,10 +5284,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // This injects the theme directly into the HTML tag so CSS can read it
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-accent', accent);
+    localStorage.setItem('dt_accent', accent);
+  }, [accent]);
 
   // Keep Hugging Face Space awake while the tab is open!
   useEffect(() => {
@@ -5614,20 +5630,17 @@ export default function App() {
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
 
-            {/* 1. Theme Toggle (Icons Only) */}
+            {/* 1. Theme Toggle (Animated Pill) */}
             <button
+              className={`theme-toggle ${theme === 'light' ? 'light' : ''}`}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
-              title="Toggle Theme"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label="Toggle theme"
             >
-              {theme === 'dark' ? (
-                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-              ) : (
-                <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-              )}
+              <span className="theme-toggle-thumb" />
             </button>
 
-            {/* 2. Hamburger Menu */}
+            {/* 2. Menu Button */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -5637,23 +5650,38 @@ export default function App() {
               </button>
 
               {isMenuOpen && (
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%', marginTop: '0.5rem',
-                  background: 'var(--card)', border: '1px solid var(--border)',
-                  borderRadius: '12px', padding: '0.5rem', zIndex: 100,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)', minWidth: '150px'
-                }}>
-                  <button
-                    onClick={() => { setIsMenuOpen(false); logout(); }}
-                    style={{
-                      width: '100%', background: 'rgba(239, 68, 68, 0.1)',
-                      border: 'none', borderRadius: '8px', padding: '0.6rem 1rem',
-                      color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem',
-                      fontWeight: 600, textAlign: 'left', display: 'flex', gap: '8px'
-                    }}
-                  >
-                    🚪 Logout
-                  </button>
+                <div className="menu-dropdown">
+                  {/* Accent Picker */}
+                  <div className="menu-section">
+                    <div className="menu-section-title">Accent Color</div>
+                    <div className="accent-picker">
+                      {ACCENT_PALETTES.map(p => (
+                        <div
+                          key={p.id}
+                          className={`accent-dot ${accent === p.id ? 'active' : ''}`}
+                          style={{ background: p.color }}
+                          title={p.label}
+                          onClick={() => setAccent(p.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="menu-section">
+                    <button
+                      onClick={() => { setIsMenuOpen(false); logout(); }}
+                      style={{
+                        width: '100%', background: 'rgba(239, 68, 68, 0.1)',
+                        border: 'none', borderRadius: '8px', padding: '0.6rem 1rem',
+                        color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem',
+                        fontWeight: 600, textAlign: 'left', display: 'flex', gap: '8px',
+                        fontFamily: "'DM Sans', sans-serif"
+                      }}
+                    >
+                      🚪 Logout
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
