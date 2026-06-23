@@ -23,4 +23,4 @@ USER user
 
 # Run the app with Gunicorn
 # Note: If your main Python file is named something other than app.py, change "app:app" to "filename:app"
-CMD ["gunicorn", "-b", "0.0.0.0:7860", "app:app", "--timeout", "120", "--workers", "1", "--threads", "4"]
+CMD ["gunicorn", "-b", "0.0.0.0:7860", "app:app", "--timeout", "120", "--workers", "4", "--threads", "4", "--preload"]

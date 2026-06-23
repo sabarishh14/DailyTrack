@@ -5218,6 +5218,13 @@ function SecretAdminModal({ onClose }) {
   );
 }
 
+// ─── MEMOIZED TABS ────────────────────────────────────────────────────────
+const MemoizedHomeTab = React.memo(HomeTab);
+const MemoizedMoneyTab = React.memo(MoneyTab);
+const MemoizedAddTab = React.memo(AddTab);
+const MemoizedGymTab = React.memo(GymTab);
+const MemoizedInvestTab = React.memo(InvestTab);
+
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
@@ -5470,11 +5477,11 @@ export default function App() {
 
   const renderTab = () => {
     switch (tab) {
-      case 0: return <HomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
-      case 1: return <MoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />;
-      case 2: return <AddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />;
-      case 3: return <GymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;
-      case 4: return <InvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
+      case 0: return <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
+      case 1: return <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />;
+      case 2: return <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />;
+      case 3: return <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;
+      case 4: return <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
       default: return null;
     }
   };
