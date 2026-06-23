@@ -1436,33 +1436,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                       return (
                         <div
                           key={d.name}
-                          className="pie-legend-item"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '0.75rem 0.9rem',
-                            borderRadius: '10px',
-                            background: isSelected ? 'rgba(var(--accent-rgb), 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                            border: `1px solid ${isSelected ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)'}`,
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                            cursor: 'pointer',
-                            flexShrink: 0
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSelected) {
-                              e.currentTarget.style.background = 'rgba(var(--accent-rgb), 0.1)';
-                              e.currentTarget.style.borderColor = 'rgba(var(--accent-rgb), 0.3)';
-                              e.currentTarget.style.transform = 'translateX(4px)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isSelected) {
-                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-                              e.currentTarget.style.transform = 'translateX(0)';
-                            }
-                          }}
+                          className={`pie-legend-item ${isSelected ? 'selected' : ''}`}
+                          style={{ flexShrink: 0 }}
                           onClick={() => {
                             if (isShowingDescriptions) {
                               // Toggles the description filter for the table below
