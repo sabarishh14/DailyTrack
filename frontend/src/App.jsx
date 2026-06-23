@@ -574,13 +574,22 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         setIsOpen(false);
       }
     };
+    
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
 
     // 🚨 REMOVED the window.addEventListener('scroll') because it instantly 
     // closes the dropdown on mobile when trying to swipe through the options!
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
     };
   }, []);
 
@@ -5228,6 +5237,7 @@ export default function App() {
   const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
   const isAdmin = localStorage.getItem('dt_is_admin') === 'true';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   // 🚀 GLOBAL ESCAPE: Closes App-level Modals
   useEffect(() => {
@@ -5235,11 +5245,25 @@ export default function App() {
       if (e.key === 'Escape') {
         setIsActivityModalOpen(false);
         setIsSecretMenuOpen(false);
+        setIsMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
+
+  // Close hamburger menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
 
   // The hidden trigger function
   const handleLogoClick = () => {
@@ -5641,7 +5665,7 @@ export default function App() {
             </button>
 
             {/* 2. Menu Button */}
-            <div style={{ position: 'relative' }}>
+            <div ref={menuRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
