@@ -735,7 +735,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
-  const [isCapturingSnapshot, setIsCapturingSnapshot] = useState(false);
+  const [captureMode, setCaptureMode] = useState(null);
   const posterRef = useRef(null);
 
   /// Change actions: 90 to actions: 130
@@ -910,8 +910,9 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const handleExportPDF = async (e) => {
     if (e) e.stopPropagation();
     
-    setIsCapturingSnapshot(true);
+    setCaptureMode('pdf');
     try {
+      await new Promise(r => setTimeout(r, 100)); // wait for DOM resize
       const { toPng } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
       
@@ -932,10 +933,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const dataUrl = await toPng(node, {
           cacheBust: true,
           backgroundColor: '#080b12',
-          canvasWidth: 1080,
+          canvasWidth: 1358,
           canvasHeight: 1920,
           style: {
-            width: '1080px',
+            width: '1358px',
             height: '1920px',
             left: '0',
             top: '0',
@@ -950,8 +951,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         pdf.setFillColor('#080b12');
         pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
         
-        // Center the 1080x1920 image on A4
-        const imgRatio = 1080 / 1920;
+        // Center the 1358x1920 image on A4
+        const imgRatio = 1358 / 1920;
         const finalH = pdfHeight;
         const finalW = finalH * imgRatio;
         const xOffset = (pdfWidth - finalW) / 2;
@@ -965,7 +966,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       console.error(err);
       alert("Failed to capture PDF.");
     }
-    setIsCapturingSnapshot(false);
+    setCaptureMode(null);
   };
 
   const handleShareSnapshot = async (e) => {
@@ -975,11 +976,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       return handleExportPDF(e);
     }
 
-    const node = document.getElementById('pdf-poster-0');
-    if (!node) return;
-
-    setIsCapturingSnapshot(true);
+    setCaptureMode('snapshot');
     try {
+      await new Promise(r => setTimeout(r, 100)); // wait for DOM resize
+      const node = document.getElementById('pdf-poster-0');
+      if (!node) return;
+
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(node, {
         cacheBust: true,
@@ -1014,7 +1016,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       console.error('Failed to capture snapshot', err);
       alert('Failed to generate snapshot.');
     }
-    setIsCapturingSnapshot(false);
+    setCaptureMode(null);
   };
 
   // Memoize table filtered and sorted results
@@ -1378,11 +1380,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             <button
               onClick={handleShareSnapshot}
               className="action-btn secondary"
-              disabled={isCapturingSnapshot}
+              disabled={!!captureMode}
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
               title="Share Snapshot"
             >
-              {isCapturingSnapshot ? (
+              {captureMode ? (
                 <span>⏳</span>
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1394,11 +1396,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             <button
               onClick={handleExportPDF}
               className="action-btn secondary"
-              disabled={isCapturingSnapshot}
+              disabled={!!captureMode}
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
               title="Save PDF"
             >
-              {isCapturingSnapshot ? (
+              {captureMode ? (
                 <span>⏳</span>
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2138,9 +2140,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const chunk = pieArr.slice(pageIndex * 30, (pageIndex + 1) * 30);
         const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
 
+        const posterWidth = captureMode === 'pdf' ? 1358 : 1080;
         return (
           <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 1, pointerEvents: 'none', overflow: 'hidden' }}>
-            <div style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
+            <div style={{ width: `${posterWidth}px`, height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
               
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -2209,7 +2212,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     <div key={actualIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
                         <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[actualIndex % PIE_COLORS.length], flexShrink: 0 }}></div>
-                        <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
+                        <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', wordBreak: 'break-word' }}>{d.name}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
                         <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
