@@ -76,6 +76,19 @@ function fmtPct(n) {
   return (n >= 0 ? "+" : "") + Number(n).toFixed(2) + "%";
 }
 
+function evaluateMath(expr) {
+  if (expr === null || expr === undefined || expr === '') return '';
+  const str = String(expr).replace(/\s+/g, '');
+  if (!/^[0-9+\-*/().]+$/.test(str)) return null;
+  try {
+    const result = new Function(`return ${str}`)();
+    if (!isFinite(result) || isNaN(result)) return null;
+    return Number.isInteger(result) ? result.toString() : result.toFixed(2);
+  } catch (e) {
+    return null;
+  }
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -2077,15 +2090,21 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   };
 
   const submit = async () => {
-    for (let i = 0; i < rows.length; i++) {
-      if (!rows[i].amount || isNaN(rows[i].amount) || !rows[i].heading.trim()) {
+    const evaluatedRows = rows.map(r => {
+      const eAmt = evaluateMath(r.amount);
+      return { ...r, amount: eAmt !== null ? eAmt : r.amount };
+    });
+    setRows(evaluatedRows);
+
+    for (let i = 0; i < evaluatedRows.length; i++) {
+      if (!evaluatedRows[i].amount || isNaN(evaluatedRows[i].amount) || !evaluatedRows[i].heading.trim()) {
         return alert(`Row ${i + 1} is missing a valid amount or category.`);
       }
     }
 
     setLoading(true);
     try {
-      const payload = rows.map(r => {
+      const payload = evaluatedRows.map(r => {
         const catName = r.heading.trim();
         const catTxs = transactions.filter(t => t.heading === catName);
 
@@ -2187,8 +2206,17 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
 
               <input
-                type="number" className="bulk-inp" placeholder="0.00"
-                value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)}
+                type="text" className="bulk-inp" placeholder="0.00"
+                value={row.amount}
+                onChange={e => updateRow(row.id, 'amount', e.target.value)}
+                onBlur={e => {
+                  const evalAmt = evaluateMath(e.target.value);
+                  if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
+                }}
+                style={{
+                  borderColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined,
+                  outlineColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined
+                }}
               />
 
               <AutocompleteInput
@@ -2244,7 +2272,11 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const submit = async () => {
-    if (!form.amount || isNaN(form.amount) || !form.heading.trim()) {
+    const eAmt = evaluateMath(form.amount);
+    const finalForm = { ...form, amount: eAmt !== null ? eAmt : form.amount };
+    setForm(finalForm);
+
+    if (!finalForm.amount || isNaN(finalForm.amount) || !finalForm.heading.trim()) {
       return alert("Missing a valid amount or category.");
     }
     setLoading(true);
@@ -2252,7 +2284,7 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
       const res = await fetch(`${API}/transactions/${tx.id}`, {
         method: "PUT",
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify({ ...form, amount: parseFloat(form.amount) }),
+        body: JSON.stringify({ ...finalForm, amount: parseFloat(finalForm.amount) }),
       });
       if (res.ok) {
         onRefresh();
@@ -2310,7 +2342,10 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
 
             <div className="form-group">
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Amount (₹)</label>
-              <input type="number" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} />
+              <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem', borderColor: (form.amount && evaluateMath(form.amount) === null) ? 'var(--neg)' : undefined, outlineColor: (form.amount && evaluateMath(form.amount) === null) ? 'var(--neg)' : undefined }} value={form.amount} onChange={e => updateField('amount', e.target.value)} onBlur={e => {
+                const evalAmt = evaluateMath(e.target.value);
+                if (evalAmt !== null && evalAmt !== '') updateField('amount', evalAmt);
+              }} />
             </div>
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -2804,14 +2839,20 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
   };
 
   const submit = async () => {
-    for (let i = 0; i < rows.length; i++) {
-      if (!rows[i].amount || isNaN(rows[i].amount) || !rows[i].heading.trim()) {
+    const evaluatedRows = rows.map(r => {
+      const eAmt = evaluateMath(r.amount);
+      return { ...r, amount: eAmt !== null ? eAmt : r.amount };
+    });
+    setRows(evaluatedRows);
+
+    for (let i = 0; i < evaluatedRows.length; i++) {
+      if (!evaluatedRows[i].amount || isNaN(evaluatedRows[i].amount) || !evaluatedRows[i].heading.trim()) {
         return alert(`Row ${i + 1} is missing a valid amount or category.`);
       }
     }
     setLoading(true);
     try {
-      const payload = rows.map(r => ({ ...r, amount: parseFloat(r.amount), exclude_analytics: r.exclude_analytics }))
+      const payload = evaluatedRows.map(r => ({ ...r, amount: parseFloat(r.amount), exclude_analytics: r.exclude_analytics }))
       const res = await fetch(`${API}/transactions/bulk-edit`, {
         method: "PUT",
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
@@ -2864,7 +2905,10 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
                 ]}
                 minWidth="130px"
               />
-              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="number" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} />
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="text" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} onBlur={e => {
+                const evalAmt = evaluateMath(e.target.value);
+                if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
+              }} style={{ borderColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined, outlineColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined }} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
 
               <button
