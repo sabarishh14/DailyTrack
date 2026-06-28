@@ -2188,10 +2188,22 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>
-                  <span style={{ color: c.text }}>Daily</span>
-                  <span style={{ color: c.accent }}>Track</span>
-                </div>
+                <svg width="300" height="60" viewBox="0 0 300 60" style={{ display: 'block', margin: '0 auto' }}>
+                  <defs>
+                    <linearGradient id={`logo-grad-${pageIndex}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={c.accent} />
+                      <stop offset="100%" stopColor={c.accent2} />
+                    </linearGradient>
+                  </defs>
+                  <text 
+                    x="150" y="46" 
+                    textAnchor="middle" 
+                    fill={`url(#logo-grad-${pageIndex})`}
+                    style={{ fontSize: '48px', fontWeight: 800, fontFamily: "'Syne', sans-serif", letterSpacing: '-1px' }}
+                  >
+                    DailyTrack
+                  </text>
+                </svg>
                 <div style={{ fontSize: '20px', color: c.text2, marginTop: '4px' }}>Spending Analyser</div>
               </div>
 
