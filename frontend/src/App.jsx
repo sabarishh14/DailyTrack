@@ -1062,7 +1062,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const to = filterDateToDebounced ? new Date(filterDateToDebounced) : from;
         return txDate >= from && txDate <= to;
       })();
-      const monthMatch = checkMatch(filterMonths, ml);
+      const monthMatch = checkMatch(filterMonths, month);
 
       const yearStr = d.getFullYear().toString();
       const yearMatch = checkMatch(filterYears, yearStr);
