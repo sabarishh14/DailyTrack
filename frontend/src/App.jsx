@@ -693,7 +693,8 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
 function MoneyTab({ accounts, transactions, categories, onRefresh }) {
-  const currentMonthLabel = `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`;
+  const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
+  const currentYearLabel = new Date().getFullYear().toString();
 
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
@@ -706,11 +707,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [chartAccounts, setChartAccounts] = useState({ included: new Set(), excluded: new Set() });
   const [chartTypes, setChartTypes] = useState({ included: new Set(['Debit']), excluded: new Set() }); // Defaults to Debit
   const [chartMonths, setChartMonths] = useState({ included: new Set([currentMonthLabel]), excluded: new Set() });
-  const [chartYears, setChartYears] = useState({ included: new Set(), excluded: new Set() });
+  const [chartYears, setChartYears] = useState({ included: new Set([currentYearLabel]), excluded: new Set() });
   const [chartHeadings, setChartHeadings] = useState({ included: new Set(), excluded: new Set() });
 
   // Table filters - 3-State Multi-select
-  const [filterYears, setFilterYears] = useState({ included: new Set(), excluded: new Set() });
+  const [filterYears, setFilterYears] = useState({ included: new Set([currentYearLabel]), excluded: new Set() });
   const [filterAccounts, setFilterAccounts] = useState({ included: new Set(), excluded: new Set() });
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
@@ -794,7 +795,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
     const end = new Date(to.getFullYear(), to.getMonth(), 1);
     while (cursor <= end) {
-      const label = `${cursor.toLocaleString('default', { month: 'long' })} ${cursor.getFullYear()}`;
+      const label = cursor.toLocaleString('default', { month: 'long' });
       months.add(label);
       cursor.setMonth(cursor.getMonth() + 1);
     }
@@ -809,19 +810,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   // Memoize expensive computations
   const { allMonths, allYears, allHeadings, allAccountsList, allTypes } = useMemo(() => { // <-- Destructure allYears
     return {
-      allMonths: [...new Set(transactions.map(t => {
-        if (!t.date) return null;
-        const d = new Date(t.date);
-        if (isNaN(d.getTime())) return null;
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      }))]
-        .filter(Boolean)
-        .sort().reverse()
-        .map(ym => {
-          const [y, m] = ym.split('-');
-          const d = new Date(y, m - 1, 1);
-          return `${d.toLocaleString('default', { month: 'long' })} ${y}`;
-        }),
+      allMonths: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
       // --- ADD THIS BLOCK FOR YEARS ---
       allYears: [...new Set(transactions.map(t => {
         if (!t.date) return null;
@@ -855,14 +844,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       const d = new Date(t.date);
       if (isNaN(d.getTime())) return false;
       const month = d.toLocaleString('default', { month: 'long' });
-      const year = d.getFullYear();
-      const ml = `${month} ${year}`;
+      const year = d.getFullYear().toString();
       const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
       const accountMatch = checkMatch(chartAccounts, t.account);
       const typeMatch = checkMatch(chartTypes, capitalizedType);
-      const monthMatch = checkMatch(chartMonths, ml);
-      const yearStr = d.getFullYear().toString();
-      const yearMatch = checkMatch(chartYears, yearStr);
+      const monthMatch = checkMatch(chartMonths, month);
+      const yearMatch = checkMatch(chartYears, year);
       const headingMatch = checkMatch(chartHeadings, t.heading);
       return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch;
     });
@@ -1064,8 +1051,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       const d = new Date(t.date);
       if (isNaN(d.getTime())) return false;
       const month = d.toLocaleString('default', { month: 'long' });
-      const year = d.getFullYear();
-      const ml = `${month} ${year}`;
+      const year = d.getFullYear().toString();
       const dateStr = t.date || '';
       const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
       const accountMatch = checkMatch(filterAccounts, t.account);
@@ -2001,7 +1987,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           {tableFiltered.length > 0 ? (
             paginatedRows.map((t, i) => {
               const d = new Date(t.date);
-              const monthLabel = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+              const monthLabel = d.toLocaleString('default', { month: 'long' });
               return (
                 <div
                   key={i}
