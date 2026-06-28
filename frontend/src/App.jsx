@@ -933,7 +933,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     setCaptureMode('pdf');
     try {
       await new Promise(r => setTimeout(r, 150)); // wait for DOM resize
-      const { toPng } = await import('html-to-image');
+      const { toJpeg } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
       
       const pdf = new jsPDF({
@@ -950,7 +950,9 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const node = document.getElementById(`pdf-poster-${i}`);
         if (!node) continue;
         
-        const dataUrl = await toPng(node, {
+        const dataUrl = await toJpeg(node, {
+          quality: 0.95,
+          pixelRatio: 1,
           cacheBust: true,
           backgroundColor: tColors.bg,
           canvasWidth: 1358,
@@ -978,7 +980,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const xOffset = (pdfWidth - finalW) / 2;
         const yOffset = (pdfHeight - finalH) / 2;
         
-        pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalW, finalH);
+        pdf.addImage(dataUrl, 'JPEG', xOffset, yOffset, finalW, finalH, undefined, 'FAST');
       }
       
       pdf.save(`DailyTrack-Report-${new Date().getTime()}.pdf`);
@@ -1019,6 +1021,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(node, {
+        pixelRatio: 2,
         cacheBust: true,
         backgroundColor: tColors.bg,
         canvasWidth: 1080,
