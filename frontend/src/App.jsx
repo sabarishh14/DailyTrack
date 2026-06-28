@@ -907,19 +907,67 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     );
   };
 
+  const handleExportPDF = async (e) => {
+    if (e) e.stopPropagation();
+    
+    setIsCapturingSnapshot(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const { jsPDF } = await import('jspdf');
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [1080, 1920]
+      });
+
+      const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
+
+      for (let i = 0; i < totalPages; i++) {
+        const node = document.getElementById(`pdf-poster-${i}`);
+        if (!node) continue;
+        
+        const dataUrl = await toPng(node, {
+          cacheBust: true,
+          backgroundColor: '#080b12',
+          canvasWidth: 1080,
+          canvasHeight: 1920,
+          style: {
+            width: '1080px',
+            height: '1920px',
+            left: '0',
+            top: '0',
+            position: 'static',
+            transform: 'none'
+          }
+        });
+        
+        if (i > 0) pdf.addPage([1080, 1920], 'portrait');
+        pdf.addImage(dataUrl, 'PNG', 0, 0, 1080, 1920);
+      }
+      
+      pdf.save(`DailyTrack-Report-${new Date().getTime()}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to capture PDF.");
+    }
+    setIsCapturingSnapshot(false);
+  };
+
   const handleShareSnapshot = async (e) => {
     if (e) e.stopPropagation();
-    if (!posterRef.current) return;
     
     if (pieArr.length > 30) {
-      alert("Cannot generate an image for more than 30 categories. PDF export coming soon!");
-      return;
+      return handleExportPDF(e);
     }
+
+    const node = document.getElementById('pdf-poster-0');
+    if (!node) return;
 
     setIsCapturingSnapshot(true);
     try {
       const { toPng } = await import('html-to-image');
-      const dataUrl = await toPng(posterRef.current, {
+      const dataUrl = await toPng(node, {
         cacheBust: true,
         backgroundColor: '#080b12',
         canvasWidth: 1080,
@@ -1328,6 +1376,22 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 </svg>
               )}
               <span className="manage-btn-text">Share</span>
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="action-btn secondary"
+              disabled={isCapturingSnapshot}
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Save PDF"
+            >
+              {isCapturingSnapshot ? (
+                <span>⏳</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+              )}
+              <span className="manage-btn-text">PDF</span>
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
@@ -2050,83 +2114,103 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         </div>
       )}
 
-      {/* 📸 HIDDEN SNAPSHOT POSTER 📸 */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        <div ref={posterRef} style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
-          
-          {/* Header */}
-          <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
-            <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
-          </div>
+      {/* 📸 HIDDEN SNAPSHOT POSTER CHUNKS 📸 */}
+      {Array.from({ length: Math.max(1, Math.ceil(pieArr.length / 30)) }).map((_, pageIndex) => {
+        const chunk = pieArr.slice(pageIndex * 30, (pageIndex + 1) * 30);
+        const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
 
-          {/* Filters Info */}
-          <div style={{ padding: '24px 60px 10px', fontSize: '20px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textAlign: 'center' }}>
-            {isShowingDescriptions && filterDesc ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                <span style={{ color: 'rgba(255,255,255,0.4)', marginRight: '8px' }}>Filtered by:</span>
-                <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>Breakdown:</span>
-                <span style={{ color: '#818cf8' }}>{filterDesc}</span>
-              </span>
-            ) : (
-              renderActiveFilters()
-            )}
-          </div>
-
-          {/* Chart Container */}
-          <div style={{ padding: '10px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '480px', position: 'relative' }}>
-            <PieChart width={460} height={460}>
-              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={145} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
-                {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-            </PieChart>
-            
-            {/* Centered Total */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
-              <div style={{ fontSize: '38px', fontWeight: 800, color: 'white' }}>
-                ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-              </div>
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignContent: 'start' }}>
-            {pieArr.map((d, i) => {
-              const total = pieArr.reduce((s, x) => s + x.value, 0);
-              const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
+        return (
+          <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+            <div style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
               
-              // Smart Hybrid Layout Algorithm: Guarantees ~15 rows of content!
-              const TARGET_ROWS = 15;
-              const N = pieArr.length;
-              let doubleCols = 0;
-              if (N > TARGET_ROWS) {
-                  doubleCols = (N - TARGET_ROWS) * 2;
-              }
-              const isFullWidth = i >= doubleCols;
+              {/* Header */}
+              <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
+                <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
+              </div>
 
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }}></div>
-                    <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
-                    <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                    <span style={{ fontSize: '16px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '50px', textAlign: 'right' }}>{pct}%</span>
+              {/* Filters Info */}
+              <div style={{ padding: '24px 60px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textAlign: 'center' }}>
+                  {isShowingDescriptions && filterDesc ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.4)', marginRight: '8px' }}>Filtered by:</span>
+                      <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>Breakdown:</span>
+                      <span style={{ color: '#818cf8' }}>{filterDesc}</span>
+                    </span>
+                  ) : (
+                    renderActiveFilters()
+                  )}
+                </div>
+                <div style={{ fontSize: '18px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                  {isShowingDescriptions || chartHeadings.included.size === 1
+                    ? `Transactions: ${analyzerFiltered.length}`
+                    : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
+                </div>
+              </div>
+
+              {/* Chart Container */}
+              <div style={{ padding: '10px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '480px', position: 'relative' }}>
+                <PieChart width={460} height={460}>
+                  <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={145} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
+                    {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                </PieChart>
+                
+                {/* Centered Total */}
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
+                  <div style={{ fontSize: '38px', fontWeight: 800, color: 'white' }}>
+                    ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
 
-          {/* Watermark */}
-          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '20px', fontWeight: 600, letterSpacing: '1px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            © SB Creations
-          </div>
+              {/* Legend */}
+              <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: chunk.length > 14 ? '1fr 1fr' : '1fr', gap: '16px', alignContent: 'start' }}>
+                {chunk.map((d, i) => {
+                  const total = pieArr.reduce((s, x) => s + x.value, 0);
+                  const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
+                  
+                  const TARGET_ROWS = 15;
+                  const N = chunk.length;
+                  let doubleCols = 0;
+                  if (N > TARGET_ROWS) doubleCols = (N - TARGET_ROWS) * 2;
+                  const isFullWidth = i >= doubleCols;
+                  
+                  // Keep color synced with actual item index from pieArr
+                  const actualIndex = pageIndex * 30 + i;
 
-        </div>
-      </div>
+                  return (
+                    <div key={actualIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
+                        <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[actualIndex % PIE_COLORS.length], flexShrink: 0 }}></div>
+                        <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: PIE_COLORS[actualIndex % PIE_COLORS.length], width: '50px', textAlign: 'right' }}>{pct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Watermark & Page Indicator */}
+              <div style={{ padding: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 'auto' }}>
+                <div style={{ width: '120px' }}></div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '20px', fontWeight: 600, letterSpacing: '1px' }}>
+                  © SB Creations
+                </div>
+                <div style={{ width: '120px', textAlign: 'right', color: 'rgba(255,255,255,0.3)', fontSize: '18px', fontWeight: 600 }}>
+                  Page {pageIndex + 1} of {totalPages}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })}
 
     </div>
   );
