@@ -2097,6 +2097,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     setRows(evaluatedRows);
 
     for (let i = 0; i < evaluatedRows.length; i++) {
+      if (rows[i].amount && evaluateMath(rows[i].amount) === null) {
+        return alert(`Row ${i + 1} has an invalid math calculation in the amount field.`);
+      }
       if (!evaluatedRows[i].amount || isNaN(evaluatedRows[i].amount) || !evaluatedRows[i].heading.trim()) {
         return alert(`Row ${i + 1} is missing a valid amount or category.`);
       }
@@ -2276,6 +2279,9 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
     const finalForm = { ...form, amount: eAmt !== null ? eAmt : form.amount };
     setForm(finalForm);
 
+    if (form.amount && evaluateMath(form.amount) === null) {
+      return alert("The amount field contains an invalid math calculation.");
+    }
     if (!finalForm.amount || isNaN(finalForm.amount) || !finalForm.heading.trim()) {
       return alert("Missing a valid amount or category.");
     }
@@ -2846,6 +2852,9 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
     setRows(evaluatedRows);
 
     for (let i = 0; i < evaluatedRows.length; i++) {
+      if (rows[i].amount && evaluateMath(rows[i].amount) === null) {
+        return alert(`Row ${i + 1} has an invalid math calculation in the amount field.`);
+      }
       if (!evaluatedRows[i].amount || isNaN(evaluatedRows[i].amount) || !evaluatedRows[i].heading.trim()) {
         return alert(`Row ${i + 1} is missing a valid amount or category.`);
       }
