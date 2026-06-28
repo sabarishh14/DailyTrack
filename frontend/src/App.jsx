@@ -885,14 +885,26 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   const renderActiveFilters = () => {
     const filters = [];
-    if (chartMonths.included.size > 0) filters.push(`Month: ${Array.from(chartMonths.included).join(', ')}`);
-    if (chartYears.included.size > 0) filters.push(`Year: ${Array.from(chartYears.included).join(', ')}`);
-    if (chartAccounts.included.size > 0) filters.push(`Account: ${Array.from(chartAccounts.included).join(', ')}`);
-    if (chartTypes.included.size > 0) filters.push(`Type: ${Array.from(chartTypes.included).join(', ')}`);
-    if (chartHeadings.included.size > 0) filters.push(`Category: ${Array.from(chartHeadings.included).join(', ')}`);
+    if (chartMonths.included.size > 0) filters.push({ label: 'Month', val: Array.from(chartMonths.included).join(', ') });
+    if (chartYears.included.size > 0) filters.push({ label: 'Year', val: Array.from(chartYears.included).join(', ') });
+    if (chartAccounts.included.size > 0) filters.push({ label: 'Account', val: Array.from(chartAccounts.included).join(', ') });
+    if (chartTypes.included.size > 0) filters.push({ label: 'Type', val: Array.from(chartTypes.included).join(', ') });
+    if (chartHeadings.included.size > 0) filters.push({ label: 'Category', val: Array.from(chartHeadings.included).join(', ') });
     
-    if (filters.length === 0) return null;
-    return `Filtered by: ${filters.join(' | ')}`;
+    if (filters.length === 0) return 'All Transactions';
+    
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
+        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Filtered by:</span>
+        {filters.map((f, i) => (
+          <span key={f.label} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>{f.label}:</span>
+            <span style={{ color: '#818cf8' }}>{f.val}</span>
+            {i < filters.length - 1 && <span style={{ color: 'rgba(255,255,255,0.2)', marginLeft: '8px' }}>|</span>}
+          </span>
+        ))}
+      </span>
+    );
   };
 
   const handleShareSnapshot = async (e) => {
@@ -2051,16 +2063,20 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           {/* Filters Info */}
           <div style={{ padding: '24px 60px 10px', fontSize: '20px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textAlign: 'center' }}>
             {isShowingDescriptions && filterDesc ? (
-              <span style={{ color: 'var(--accent)' }}>Breakdown: {filterDesc}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)', marginRight: '8px' }}>Filtered by:</span>
+                <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>Breakdown:</span>
+                <span style={{ color: '#818cf8' }}>{filterDesc}</span>
+              </span>
             ) : (
-              renderActiveFilters() || 'All Transactions'
+              renderActiveFilters()
             )}
           </div>
 
           {/* Chart Container */}
           <div style={{ padding: '10px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '480px', position: 'relative' }}>
             <PieChart width={460} height={460}>
-              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={125} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
+              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={145} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
                 {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
             </PieChart>
@@ -2068,7 +2084,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             {/* Centered Total */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
-              <div style={{ fontSize: '46px', fontWeight: 800, color: 'white' }}>
+              <div style={{ fontSize: '38px', fontWeight: 800, color: 'white' }}>
                 ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
@@ -2080,14 +2096,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               const total = pieArr.reduce((s, x) => s + x.value, 0);
               const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'hidden' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
                     <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }}></div>
                     <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexShrink: 0, marginLeft: '10px' }}>
-                    <span style={{ fontSize: '24px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                    <span style={{ fontSize: '18px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '55px', textAlign: 'right' }}>{pct}%</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
+                    <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '50px', textAlign: 'right' }}>{pct}%</span>
                   </div>
                 </div>
               );
