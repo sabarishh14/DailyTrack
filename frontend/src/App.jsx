@@ -2091,12 +2091,22 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
 
           {/* Legend */}
-          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: pieArr.length > 14 ? '1fr 1fr' : '1fr', gap: '16px', alignContent: 'start' }}>
+          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignContent: 'start' }}>
             {pieArr.map((d, i) => {
               const total = pieArr.reduce((s, x) => s + x.value, 0);
               const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
+              
+              // Smart Hybrid Layout Algorithm: Guarantees ~15 rows of content!
+              const TARGET_ROWS = 15;
+              const N = pieArr.length;
+              let doubleCols = 0;
+              if (N > TARGET_ROWS) {
+                  doubleCols = (N - TARGET_ROWS) * 2;
+              }
+              const isFullWidth = i >= doubleCols;
+
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
                     <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }}></div>
                     <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
