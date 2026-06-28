@@ -1492,13 +1492,6 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 )}
             </div>
 
-            {/* Overall Stats */}
-            <div style={{ textAlign: 'center', color: 'var(--text2)', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 600 }}>
-              {isShowingDescriptions || chartHeadings.included.size === 1
-                ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
-                : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
-            </div>
-
             {/* Pie Chart + Legend Grid */}
             {pieArr.length > 0 ? (
               <div className="pie-grid">
@@ -1569,7 +1562,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     {(() => {
                       const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
                       return (
-                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: sumStr.length > 9 ? '1rem' : '1.3rem', fontWeight: 800, color: 'var(--text)' }}>
+                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: sumStr.length > 7 ? '1rem' : '1.3rem', fontWeight: 800, color: 'var(--text)' }}>
                           {sumStr}
                         </div>
                       );
@@ -2189,7 +2182,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   {(() => {
                     const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
                     return (
-                      <div style={{ fontSize: sumStr.length > 9 ? '30px' : '38px', fontWeight: 800, color: 'white' }}>
+                      <div style={{ fontSize: sumStr.length > 7 ? '30px' : '38px', fontWeight: 800, color: 'white' }}>
                         {sumStr}
                       </div>
                     );
