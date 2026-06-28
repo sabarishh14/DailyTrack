@@ -884,7 +884,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
   }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
 
-  const renderActiveFilters = () => {
+  const renderActiveFilters = (c) => {
     const filters = [];
     if (chartMonths.included.size > 0) filters.push({ label: 'Month', val: Array.from(chartMonths.included).join(', ') });
     if (chartYears.included.size > 0) filters.push({ label: 'Year', val: Array.from(chartYears.included).join(', ') });
@@ -894,14 +894,18 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     
     if (filters.length === 0) return 'All Transactions';
     
+    const color2 = c ? c.text2 : 'rgba(255,255,255,0.6)';
+    const color3 = c ? c.text3 : 'rgba(255,255,255,0.4)';
+    const accent = c ? c.accent : '#818cf8';
+    
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.4)' }}>Filtered by:</span>
+        <span style={{ color: color3 }}>Filtered by:</span>
         {filters.map((f, i) => (
           <span key={f.label} style={{ display: 'inline-flex', alignItems: 'center' }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>{f.label}:</span>
-            <span style={{ color: '#818cf8' }}>{f.val}</span>
-            {i < filters.length - 1 && <span style={{ color: 'rgba(255,255,255,0.2)', marginLeft: '8px' }}>|</span>}
+            <span style={{ color: color2, marginRight: '4px' }}>{f.label}:</span>
+            <span style={{ color: accent }}>{f.val}</span>
+            {i < filters.length - 1 && <span style={{ color: color3, marginLeft: '8px' }}>|</span>}
           </span>
         ))}
       </span>
@@ -2196,7 +2200,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                       <span style={{ color: c.accent }}>{filterDesc}</span>
                     </span>
                   ) : (
-                    renderActiveFilters()
+                    renderActiveFilters(c)
                   )}
                 </div>
                 <div style={{ fontSize: '18px', color: c.text2, fontWeight: 500 }}>
