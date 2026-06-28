@@ -2091,7 +2091,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
 
           {/* Legend */}
-          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignContent: 'start' }}>
+          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: pieArr.length > 14 ? '1fr 1fr' : '1fr', gap: '16px', alignContent: 'start' }}>
             {pieArr.map((d, i) => {
               const total = pieArr.reduce((s, x) => s + x.value, 0);
               const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
