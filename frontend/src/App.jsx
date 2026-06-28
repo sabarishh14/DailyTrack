@@ -1492,6 +1492,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 )}
             </div>
 
+            {/* Overall Stats */}
+            <div style={{ textAlign: 'center', color: 'var(--text2)', fontSize: '0.9rem', marginBottom: '1rem', fontWeight: 600 }}>
+              {isShowingDescriptions || chartHeadings.included.size === 1
+                ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
+                : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
+            </div>
+
             {/* Pie Chart + Legend Grid */}
             {pieArr.length > 0 ? (
               <div className="pie-grid">
@@ -1559,9 +1566,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   {/* Floating Total Label perfectly centered in the Donut hole */}
                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Total</div>
-                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text)' }}>
-                      ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                    </div>
+                    {(() => {
+                      const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                      return (
+                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: sumStr.length > 9 ? '1rem' : '1.3rem', fontWeight: 800, color: 'var(--text)' }}>
+                          {sumStr}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -2158,7 +2170,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 </div>
                 <div style={{ fontSize: '18px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
                   {isShowingDescriptions || chartHeadings.included.size === 1
-                    ? `Transactions: ${analyzerFiltered.length}`
+                    ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
                     : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
                 </div>
               </div>
@@ -2174,9 +2186,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 {/* Centered Total */}
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
-                  <div style={{ fontSize: '38px', fontWeight: 800, color: 'white' }}>
-                    ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </div>
+                  {(() => {
+                    const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                    return (
+                      <div style={{ fontSize: sumStr.length > 9 ? '30px' : '38px', fontWeight: 800, color: 'white' }}>
+                        {sumStr}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
