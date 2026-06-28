@@ -736,6 +736,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
   const [captureMode, setCaptureMode] = useState(null);
+  const [captureColors, setCaptureColors] = useState(null);
   const posterRef = useRef(null);
 
   /// Change actions: 90 to actions: 130
@@ -910,9 +911,23 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const handleExportPDF = async (e) => {
     if (e) e.stopPropagation();
     
+    const rs = getComputedStyle(document.body);
+    const tColors = {
+      bg: rs.getPropertyValue('--bg').trim() || '#080b12',
+      card: rs.getPropertyValue('--bg2').trim() || '#0d1117',
+      border: rs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.07)',
+      text: rs.getPropertyValue('--text').trim() || '#e2e8f0',
+      text2: rs.getPropertyValue('--text2').trim() || '#94a3b8',
+      text3: rs.getPropertyValue('--text3').trim() || 'rgba(255,255,255,0.3)',
+      accent: rs.getPropertyValue('--accent').trim() || '#6366f1',
+      accentRgb: rs.getPropertyValue('--accent-rgb').trim() || '99, 102, 241',
+      accent2Rgb: rs.getPropertyValue('--accent2-rgb').trim() || '6, 182, 212',
+    };
+    
+    setCaptureColors(tColors);
     setCaptureMode('pdf');
     try {
-      await new Promise(r => setTimeout(r, 100)); // wait for DOM resize
+      await new Promise(r => setTimeout(r, 150)); // wait for DOM resize
       const { toPng } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
       
@@ -932,7 +947,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         
         const dataUrl = await toPng(node, {
           cacheBust: true,
-          backgroundColor: '#080b12',
+          backgroundColor: tColors.bg,
           canvasWidth: 1358,
           canvasHeight: 1920,
           style: {
@@ -948,7 +963,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         if (i > 0) pdf.addPage('a4', 'portrait');
         
         // Draw dark background to fill A4 page
-        pdf.setFillColor('#080b12');
+        pdf.setFillColor(tColors.bg);
         pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
         
         // Center the 1358x1920 image on A4
@@ -976,16 +991,30 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       return handleExportPDF(e);
     }
 
+    const rs = getComputedStyle(document.body);
+    const tColors = {
+      bg: rs.getPropertyValue('--bg').trim() || '#080b12',
+      card: rs.getPropertyValue('--bg2').trim() || '#0d1117',
+      border: rs.getPropertyValue('--border').trim() || 'rgba(255,255,255,0.07)',
+      text: rs.getPropertyValue('--text').trim() || '#e2e8f0',
+      text2: rs.getPropertyValue('--text2').trim() || '#94a3b8',
+      text3: rs.getPropertyValue('--text3').trim() || 'rgba(255,255,255,0.3)',
+      accent: rs.getPropertyValue('--accent').trim() || '#6366f1',
+      accentRgb: rs.getPropertyValue('--accent-rgb').trim() || '99, 102, 241',
+      accent2Rgb: rs.getPropertyValue('--accent2-rgb').trim() || '6, 182, 212',
+    };
+    setCaptureColors(tColors);
+
     setCaptureMode('snapshot');
     try {
-      await new Promise(r => setTimeout(r, 100)); // wait for DOM resize
+      await new Promise(r => setTimeout(r, 150)); // wait for DOM resize
       const node = document.getElementById('pdf-poster-0');
       if (!node) return;
 
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(node, {
         cacheBust: true,
-        backgroundColor: '#080b12',
+        backgroundColor: tColors.bg,
         canvasWidth: 1080,
         canvasHeight: 1920,
         style: {
@@ -995,7 +1024,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           top: '0',
           position: 'static',
           transform: 'none',
-          backgroundImage: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 400px), radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.1), transparent 400px)'
+          backgroundImage: `radial-gradient(circle at top right, rgba(${tColors.accentRgb}, 0.15), transparent 400px), radial-gradient(circle at bottom left, rgba(${tColors.accent2Rgb}, 0.1), transparent 400px)`
         }
       });
       
@@ -2140,31 +2169,37 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const chunk = pieArr.slice(pageIndex * 30, (pageIndex + 1) * 30);
         const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
 
+        const c = captureColors || {
+          bg: '#080b12', card: '#0d1117', border: 'rgba(255,255,255,0.05)',
+          text: 'white', text2: 'rgba(255,255,255,0.5)', text3: 'rgba(255,255,255,0.3)',
+          accent: '#818cf8', accentRgb: '99, 102, 241', accent2Rgb: '6, 182, 212'
+        };
+
         const posterWidth = captureMode === 'pdf' ? 1358 : 1080;
         return (
           <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 1, pointerEvents: 'none', overflow: 'hidden' }}>
-            <div style={{ width: `${posterWidth}px`, height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
+            <div style={{ width: `${posterWidth}px`, height: '1920px', background: c.bg, display: 'flex', flexDirection: 'column', color: c.text, fontFamily: "'Syne', sans-serif" }}>
               
               {/* Header */}
-              <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
-                <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
+              <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
+                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px', color: c.text }}>DailyTrack</div>
+                <div style={{ fontSize: '20px', color: c.text2, marginTop: '4px' }}>Spending Analyser</div>
               </div>
 
               {/* Filters Info */}
               <div style={{ padding: '24px 60px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', color: c.text, fontWeight: 600, textAlign: 'center' }}>
                   {isShowingDescriptions && filterDesc ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.4)', marginRight: '8px' }}>Filtered by:</span>
-                      <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: '4px' }}>Breakdown:</span>
-                      <span style={{ color: '#818cf8' }}>{filterDesc}</span>
+                      <span style={{ color: c.text2, marginRight: '8px' }}>Filtered by:</span>
+                      <span style={{ color: c.text2, marginRight: '4px' }}>Breakdown:</span>
+                      <span style={{ color: c.accent }}>{filterDesc}</span>
                     </span>
                   ) : (
                     renderActiveFilters()
                   )}
                 </div>
-                <div style={{ fontSize: '18px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                <div style={{ fontSize: '18px', color: c.text2, fontWeight: 500 }}>
                   {isShowingDescriptions || chartHeadings.included.size === 1
                     ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
                     : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
@@ -2181,11 +2216,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 
                 {/* Centered Total */}
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
+                  <div style={{ fontSize: '20px', color: c.text2, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
                   {(() => {
                     const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
                     return (
-                      <div style={{ fontSize: sumStr.length > 7 ? '30px' : '38px', fontWeight: 800, color: 'white' }}>
+                      <div style={{ fontSize: sumStr.length > 7 ? '30px' : '38px', fontWeight: 800, color: c.text }}>
                         {sumStr}
                       </div>
                     );
@@ -2209,13 +2244,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                   const actualIndex = pageIndex * 30 + i;
 
                   return (
-                    <div key={actualIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
+                    <div key={actualIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: c.card, border: `1px solid ${c.border}`, borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
                         <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[actualIndex % PIE_COLORS.length], flexShrink: 0 }}></div>
-                        <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', wordBreak: 'break-word' }}>{d.name}</span>
+                        <span style={{ fontSize: '20px', fontWeight: 600, color: c.text, wordBreak: 'break-word' }}>{d.name}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '22px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                        <span style={{ fontSize: '22px', fontWeight: 800, color: c.text }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                         <span style={{ fontSize: '16px', fontWeight: 700, color: PIE_COLORS[actualIndex % PIE_COLORS.length], width: '50px', textAlign: 'right' }}>{pct}%</span>
                       </div>
                     </div>
@@ -2224,12 +2259,12 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               </div>
 
               {/* Watermark & Page Indicator */}
-              <div style={{ padding: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 'auto' }}>
+              <div style={{ padding: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${c.border}`, marginTop: 'auto' }}>
                 <div style={{ width: '120px' }}></div>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '20px', fontWeight: 600, letterSpacing: '1px' }}>
+                <div style={{ color: c.text3, fontSize: '20px', fontWeight: 600, letterSpacing: '1px' }}>
                   © SB Creations
                 </div>
-                <div style={{ width: '120px', textAlign: 'right', color: 'rgba(255,255,255,0.3)', fontSize: '18px', fontWeight: 600 }}>
+                <div style={{ width: '120px', textAlign: 'right', color: c.text3, fontSize: '18px', fontWeight: 600 }}>
                   Page {pageIndex + 1} of {totalPages}
                 </div>
               </div>
