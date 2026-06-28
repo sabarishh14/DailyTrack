@@ -1302,6 +1302,22 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
+              onClick={handleShareSnapshot}
+              className="action-btn secondary"
+              disabled={isCapturingSnapshot}
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Share Snapshot"
+            >
+              {isCapturingSnapshot ? (
+                <span>⏳</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              )}
+              <span className="manage-btn-text">Share</span>
+            </button>
+            <button
               onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
               className="action-btn secondary"
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -1315,41 +1331,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         </div>
 
         {expanded && (
-          <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem', position: 'relative' }}>
+          <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
             
-            {/* Floating Share Button */}
-            <button
-              onClick={handleShareSnapshot}
-              disabled={isCapturingSnapshot}
-              style={{
-                position: 'absolute',
-                top: '1.5rem',
-                right: '1.5rem',
-                zIndex: 10,
-                background: 'linear-gradient(135deg, var(--accent) 0%, rgba(99,102,241,0.8) 100%)',
-                color: 'white',
-                border: 'none',
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              title="Share Snapshot"
-            >
-              {isCapturingSnapshot ? (
-                <span style={{ fontSize: '1rem', animation: 'pulse 1s infinite' }}>⏳</span>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                </svg>
-              )}
-            </button>
-
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
               <MultiSelectDropdown
@@ -2056,7 +2039,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       )}
 
       {/* 📸 HIDDEN SNAPSHOT POSTER 📸 */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
         <div ref={posterRef} style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
           
           {/* Header */}
@@ -2081,16 +2064,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
           {/* Chart Container */}
           <div style={{ padding: '40px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', position: 'relative' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={220} innerRadius={140} stroke="none" isAnimationActive={false}>
-                  {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} style={{ filter: 'brightness(0.45)' }} />)}
-                </Pie>
-                <Pie data={pieArr.slice(0, 10)} dataKey="value" cx="50%" cy="54%" outerRadius={230} innerRadius={140} paddingAngle={5} cornerRadius={12} stroke="none" isAnimationActive={false}>
-                  {pieArr.slice(0, 10).map((_, i) => <Cell key={`t-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} style={{ filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.5))' }} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <PieChart width={600} height={600}>
+              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={220} innerRadius={140} stroke="none" isAnimationActive={false}>
+                {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+              <Pie data={pieArr.slice(0, 10)} dataKey="value" cx="50%" cy="54%" outerRadius={230} innerRadius={140} paddingAngle={5} cornerRadius={12} stroke="none" isAnimationActive={false}>
+                {pieArr.slice(0, 10).map((_, i) => <Cell key={`t-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+            </PieChart>
             
             {/* Centered Total */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
