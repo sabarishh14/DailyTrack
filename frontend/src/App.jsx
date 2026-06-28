@@ -2188,15 +2188,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  fontWeight: 800, 
-                  letterSpacing: '-1px', 
-                  background: `linear-gradient(135deg, ${c.accent}, ${c.accent2})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}>DailyTrack</div>
+                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>
+                  <span style={{ color: c.text }}>Daily</span>
+                  <span style={{ color: c.accent }}>Track</span>
+                </div>
                 <div style={{ fontSize: '20px', color: c.text2, marginTop: '4px' }}>Spending Analyser</div>
               </div>
 
