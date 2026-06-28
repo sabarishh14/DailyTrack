@@ -918,8 +918,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
-        format: [1080, 1920]
+        format: 'a4'
       });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
 
@@ -942,8 +944,20 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           }
         });
         
-        if (i > 0) pdf.addPage([1080, 1920], 'portrait');
-        pdf.addImage(dataUrl, 'PNG', 0, 0, 1080, 1920);
+        if (i > 0) pdf.addPage('a4', 'portrait');
+        
+        // Draw dark background to fill A4 page
+        pdf.setFillColor('#080b12');
+        pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
+        
+        // Center the 1080x1920 image on A4
+        const imgRatio = 1080 / 1920;
+        const finalH = pdfHeight;
+        const finalW = finalH * imgRatio;
+        const xOffset = (pdfWidth - finalW) / 2;
+        const yOffset = (pdfHeight - finalH) / 2;
+        
+        pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalW, finalH);
       }
       
       pdf.save(`DailyTrack-Report-${new Date().getTime()}.pdf`);
@@ -2120,7 +2134,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
 
         return (
-          <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 1, pointerEvents: 'none', overflow: 'hidden' }}>
             <div style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
               
               {/* Header */}
