@@ -924,6 +924,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       text2: rs.getPropertyValue('--text2').trim() || '#94a3b8',
       text3: rs.getPropertyValue('--text3').trim() || 'rgba(255,255,255,0.3)',
       accent: rs.getPropertyValue('--accent').trim() || '#6366f1',
+      accent2: rs.getPropertyValue('--accent2').trim() || '#06b6d4',
       accentRgb: rs.getPropertyValue('--accent-rgb').trim() || '99, 102, 241',
       accent2Rgb: rs.getPropertyValue('--accent2-rgb').trim() || '6, 182, 212',
     };
@@ -1004,6 +1005,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       text2: rs.getPropertyValue('--text2').trim() || '#94a3b8',
       text3: rs.getPropertyValue('--text3').trim() || 'rgba(255,255,255,0.3)',
       accent: rs.getPropertyValue('--accent').trim() || '#6366f1',
+      accent2: rs.getPropertyValue('--accent2').trim() || '#06b6d4',
       accentRgb: rs.getPropertyValue('--accent-rgb').trim() || '99, 102, 241',
       accent2Rgb: rs.getPropertyValue('--accent2-rgb').trim() || '6, 182, 212',
     };
@@ -2176,7 +2178,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         const c = captureColors || {
           bg: '#080b12', card: '#0d1117', border: 'rgba(255,255,255,0.05)',
           text: 'white', text2: 'rgba(255,255,255,0.5)', text3: 'rgba(255,255,255,0.3)',
-          accent: '#818cf8', accentRgb: '99, 102, 241', accent2Rgb: '6, 182, 212'
+          accent: '#818cf8', accent2: '#22d3ee', accentRgb: '99, 102, 241', accent2Rgb: '6, 182, 212'
         };
 
         const posterWidth = captureMode === 'pdf' ? 1358 : 1080;
@@ -2186,7 +2188,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
-                <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px', color: c.text }}>DailyTrack</div>
+                <div style={{ 
+                  fontSize: '48px', 
+                  fontWeight: 800, 
+                  letterSpacing: '-1px', 
+                  background: `linear-gradient(135deg, ${c.accent}, ${c.accent2})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>DailyTrack</div>
                 <div style={{ fontSize: '20px', color: c.text2, marginTop: '4px' }}>Spending Analyser</div>
               </div>
 
