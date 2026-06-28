@@ -899,8 +899,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     if (e) e.stopPropagation();
     if (!posterRef.current) return;
     
-    if (pieArr.length > 20) {
-      alert("Cannot generate an image for more than 20 categories. PDF export coming soon!");
+    if (pieArr.length > 30) {
+      alert("Cannot generate an image for more than 30 categories. PDF export coming soon!");
       return;
     }
 
