@@ -2188,7 +2188,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
-                <svg width="300" height="60" viewBox="0 0 300 60" style={{ display: 'block', margin: '0 auto' }}>
+                <svg width="400" height="70" viewBox="0 0 400 70" style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
                   <defs>
                     <linearGradient id={`logo-grad-${pageIndex}`} x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor={c.accent} />
@@ -2196,7 +2196,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     </linearGradient>
                   </defs>
                   <text 
-                    x="150" y="46" 
+                    x="200" y="52" 
                     textAnchor="middle" 
                     fill={`url(#logo-grad-${pageIndex})`}
                     style={{ fontSize: '48px', fontWeight: 800, fontFamily: "'Syne', sans-serif", letterSpacing: '-1px' }}
