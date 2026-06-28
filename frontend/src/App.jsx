@@ -2043,18 +2043,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         <div ref={posterRef} style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
           
           {/* Header */}
-          <div style={{ padding: '60px 80px 40px', display: 'flex', alignItems: 'center', gap: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, var(--accent) 0%, rgba(99,102,241,0.6) 100%)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '32px', color: 'white', fontWeight: 800 }}>DT</span>
-            </div>
-            <div>
-              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
-              <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
-            </div>
+          <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
+            <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
           </div>
 
           {/* Filters Info */}
-          <div style={{ padding: '40px 80px', fontSize: '24px', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+          <div style={{ padding: '24px 60px 10px', fontSize: '20px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textAlign: 'center' }}>
             {isShowingDescriptions && filterDesc ? (
               <span style={{ color: 'var(--accent)' }}>Breakdown: {filterDesc}</span>
             ) : (
@@ -2063,39 +2058,36 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
 
           {/* Chart Container */}
-          <div style={{ padding: '40px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', position: 'relative' }}>
-            <PieChart width={600} height={600}>
-              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={220} innerRadius={140} stroke="none" isAnimationActive={false}>
+          <div style={{ padding: '10px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '480px', position: 'relative' }}>
+            <PieChart width={460} height={460}>
+              <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={125} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
                 {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Pie data={pieArr.slice(0, 10)} dataKey="value" cx="50%" cy="54%" outerRadius={230} innerRadius={140} paddingAngle={5} cornerRadius={12} stroke="none" isAnimationActive={false}>
-                {pieArr.slice(0, 10).map((_, i) => <Cell key={`t-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
             </PieChart>
             
             {/* Centered Total */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '24px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
-              <div style={{ fontSize: '56px', fontWeight: 800, color: 'white' }}>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
+              <div style={{ fontSize: '46px', fontWeight: 800, color: 'white' }}>
                 ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
           </div>
 
           {/* Legend */}
-          <div style={{ flex: 1, padding: '20px 80px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignContent: 'start' }}>
             {pieArr.map((d, i) => {
               const total = pieArr.reduce((s, x) => s + x.value, 0);
               const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 30px', background: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.05)', borderRadius: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: PIE_COLORS[i % PIE_COLORS.length] }}></div>
-                    <span style={{ fontSize: '28px', fontWeight: 600, color: 'white' }}>{d.name}</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'hidden' }}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }}></div>
+                    <span style={{ fontSize: '20px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{d.name}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '24px' }}>
-                    <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                    <span style={{ fontSize: '24px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '90px', textAlign: 'right' }}>{pct}%</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', flexShrink: 0, marginLeft: '10px' }}>
+                    <span style={{ fontSize: '24px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    <span style={{ fontSize: '18px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '55px', textAlign: 'right' }}>{pct}%</span>
                   </div>
                 </div>
               );
