@@ -735,6 +735,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
+  const [isCapturingSnapshot, setIsCapturingSnapshot] = useState(false);
+  const posterRef = useRef(null);
 
   /// Change actions: 90 to actions: 130
   const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
@@ -880,6 +882,66 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
   }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
+
+  const renderActiveFilters = () => {
+    const filters = [];
+    if (chartMonths.included.size > 0) filters.push(`Month: ${Array.from(chartMonths.included).join(', ')}`);
+    if (chartYears.included.size > 0) filters.push(`Year: ${Array.from(chartYears.included).join(', ')}`);
+    if (chartAccounts.included.size > 0) filters.push(`Account: ${Array.from(chartAccounts.included).join(', ')}`);
+    if (chartTypes.included.size > 0) filters.push(`Type: ${Array.from(chartTypes.included).join(', ')}`);
+    if (chartHeadings.included.size > 0) filters.push(`Category: ${Array.from(chartHeadings.included).join(', ')}`);
+    
+    if (filters.length === 0) return null;
+    return `Filtered by: ${filters.join(' | ')}`;
+  };
+
+  const handleShareSnapshot = async (e) => {
+    if (e) e.stopPropagation();
+    if (!posterRef.current) return;
+    
+    if (pieArr.length > 20) {
+      alert("Cannot generate an image for more than 20 categories. PDF export coming soon!");
+      return;
+    }
+
+    setIsCapturingSnapshot(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(posterRef.current, {
+        cacheBust: true,
+        backgroundColor: '#080b12',
+        canvasWidth: 1080,
+        canvasHeight: 1920,
+        style: {
+          width: '1080px',
+          height: '1920px',
+          left: '0',
+          top: '0',
+          position: 'static',
+          transform: 'none',
+          backgroundImage: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 400px), radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.1), transparent 400px)'
+        }
+      });
+      
+      const filename = `DailyTrack-Snapshot-${new Date().getTime()}.png`;
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ title: `Spending Snapshot`, files: [file] }) } 
+        catch (shareErr) { console.log('User canceled share') }
+      } else {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch (err) {
+      console.error('Failed to capture snapshot', err);
+      alert('Failed to generate snapshot.');
+    }
+    setIsCapturingSnapshot(false);
+  };
 
   // Memoize table filtered and sorted results
   const tableFiltered = useMemo(() => {
@@ -1253,7 +1315,41 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         </div>
 
         {expanded && (
-          <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
+          <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem', position: 'relative' }}>
+            
+            {/* Floating Share Button */}
+            <button
+              onClick={handleShareSnapshot}
+              disabled={isCapturingSnapshot}
+              style={{
+                position: 'absolute',
+                top: '1.5rem',
+                right: '1.5rem',
+                zIndex: 10,
+                background: 'linear-gradient(135deg, var(--accent) 0%, rgba(99,102,241,0.8) 100%)',
+                color: 'white',
+                border: 'none',
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 15px rgba(99,102,241,0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              title="Share Snapshot"
+            >
+              {isCapturingSnapshot ? (
+                <span style={{ fontSize: '1rem', animation: 'pulse 1s infinite' }}>⏳</span>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              )}
+            </button>
+
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
               <MultiSelectDropdown
@@ -1958,6 +2054,80 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           </div>
         </div>
       )}
+
+      {/* 📸 HIDDEN SNAPSHOT POSTER 📸 */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden', overflow: 'hidden' }}>
+        <div ref={posterRef} style={{ width: '1080px', height: '1920px', background: '#080b12', display: 'flex', flexDirection: 'column', color: 'white', fontFamily: "'Syne', sans-serif" }}>
+          
+          {/* Header */}
+          <div style={{ padding: '60px 80px 40px', display: 'flex', alignItems: 'center', gap: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, var(--accent) 0%, rgba(99,102,241,0.6) 100%)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '32px', color: 'white', fontWeight: 800 }}>DT</span>
+            </div>
+            <div>
+              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px' }}>DailyTrack</div>
+              <div style={{ fontSize: '20px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Spending Analyser</div>
+            </div>
+          </div>
+
+          {/* Filters Info */}
+          <div style={{ padding: '40px 80px', fontSize: '24px', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+            {isShowingDescriptions && filterDesc ? (
+              <span style={{ color: 'var(--accent)' }}>Breakdown: {filterDesc}</span>
+            ) : (
+              renderActiveFilters() || 'All Transactions'
+            )}
+          </div>
+
+          {/* Chart Container */}
+          <div style={{ padding: '40px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={220} innerRadius={140} stroke="none" isAnimationActive={false}>
+                  {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} style={{ filter: 'brightness(0.45)' }} />)}
+                </Pie>
+                <Pie data={pieArr.slice(0, 10)} dataKey="value" cx="50%" cy="54%" outerRadius={230} innerRadius={140} paddingAngle={5} cornerRadius={12} stroke="none" isAnimationActive={false}>
+                  {pieArr.slice(0, 10).map((_, i) => <Cell key={`t-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} style={{ filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.5))' }} />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            
+            {/* Centered Total */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '24px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
+              <div style={{ fontSize: '56px', fontWeight: 800, color: 'white' }}>
+                ₹{pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div style={{ flex: 1, padding: '20px 80px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {pieArr.map((d, i) => {
+              const total = pieArr.reduce((s, x) => s + x.value, 0);
+              const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 30px', background: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.05)', borderRadius: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: PIE_COLORS[i % PIE_COLORS.length] }}></div>
+                    <span style={{ fontSize: '28px', fontWeight: 600, color: 'white' }}>{d.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '24px' }}>
+                    <span style={{ fontSize: '36px', fontWeight: 800, color: 'white' }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                    <span style={{ fontSize: '24px', fontWeight: 700, color: PIE_COLORS[i % PIE_COLORS.length], width: '90px', textAlign: 'right' }}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Watermark */}
+          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '20px', fontWeight: 600, letterSpacing: '1px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            © SB Creations
+          </div>
+
+        </div>
+      </div>
 
     </div>
   );
