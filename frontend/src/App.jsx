@@ -2209,16 +2209,12 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
               <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
 
               <input
-                type="text" className="bulk-inp" placeholder="0.00"
+                type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00"
                 value={row.amount}
                 onChange={e => updateRow(row.id, 'amount', e.target.value)}
                 onBlur={e => {
                   const evalAmt = evaluateMath(e.target.value);
                   if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
-                }}
-                style={{
-                  borderColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined,
-                  outlineColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined
                 }}
               />
 
@@ -2348,7 +2344,7 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
 
             <div className="form-group">
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Amount (₹)</label>
-              <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem', borderColor: (form.amount && evaluateMath(form.amount) === null) ? 'var(--neg)' : undefined, outlineColor: (form.amount && evaluateMath(form.amount) === null) ? 'var(--neg)' : undefined }} value={form.amount} onChange={e => updateField('amount', e.target.value)} onBlur={e => {
+              <input type="text" className={`bulk-inp ${form.amount && evaluateMath(form.amount) === null ? 'invalid-math' : ''}`} style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.amount} onChange={e => updateField('amount', e.target.value)} onBlur={e => {
                 const evalAmt = evaluateMath(e.target.value);
                 if (evalAmt !== null && evalAmt !== '') updateField('amount', evalAmt);
               }} />
@@ -2914,10 +2910,10 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
                 ]}
                 minWidth="130px"
               />
-              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="text" className="bulk-inp" placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} onBlur={e => {
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} onBlur={e => {
                 const evalAmt = evaluateMath(e.target.value);
                 if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
-              }} style={{ borderColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined, outlineColor: (row.amount && evaluateMath(row.amount) === null) ? 'var(--neg)' : undefined }} />
+              }} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
 
               <button

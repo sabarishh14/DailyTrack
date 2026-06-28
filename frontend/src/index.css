@@ -1647,3 +1647,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 .custom-dropdown-item.active-item {
   color: var(--accent-text) !important;
 }
+/* Math evaluation error state */
+.invalid-math { border-color: var(--neg) !important; box-shadow: 0 0 0 1px var(--neg) !important; outline: none !important; }
+.invalid-math:focus { border-color: var(--neg) !important; box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3) !important; outline: none !important; }
