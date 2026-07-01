@@ -1208,7 +1208,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       if (openDropdown !== dropdownKey) setSearchTerm("");
     }, [openDropdown, dropdownKey]);
 
-    const filteredOptions = options.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredOptions = options
+      .filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => {
+        const aSelected = included.has(a) || excluded.has(a);
+        const bSelected = included.has(b) || excluded.has(b);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        return 0;
+      });
     const allSelected = included.size === options.length && options.length > 0;
 
     // 3-State Toggle: Neutral -> Included -> Excluded -> Neutral
@@ -2050,7 +2058,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       </section>
 
       {editingTx && (
-        <EditTransactionModal tx={editingTx} categories={categories} onClose={() => setEditingTx(null)} onRefresh={onRefresh} />
+        <EditTransactionModal
+          tx={editingTx}
+          categories={categories}
+          recentDescriptions={[...new Set((transactions || []).map(t => t.description).filter(d => d && d.trim() !== ''))]}
+          onClose={() => setEditingTx(null)}
+          onRefresh={onRefresh}
+        />
       )}
 
       {/* CATEGORY MANAGER MODAL */}
@@ -2576,7 +2590,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   );
 }
 
-function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
+function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onRefresh }) {
   const [form, setForm] = useState({
     date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
     account: tx.account,
@@ -2679,7 +2693,12 @@ function EditTransactionModal({ tx, categories, onClose, onRefresh }) {
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Note</label>
-              <input type="text" className="bulk-inp" style={{ background: 'var(--bg3)', padding: '0.75rem' }} value={form.description} onChange={e => updateField('description', e.target.value)} placeholder="Optional note..." />
+              <AutocompleteInput
+                value={form.description}
+                onChange={val => updateField('description', val)}
+                options={recentDescriptions || []}
+                placeholder="Optional note..."
+              />
             </div>
 
             <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.85rem', marginTop: '0.5rem', background: 'var(--bg3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -3750,7 +3769,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   // ---> ADD THIS NEW BLOCK HERE <---
   const [xirr, setXirr] = useState(null);
   const [loadingXirr, setLoadingXirr] = useState(false);
-
+  const [isAnalyserOpen, setIsAnalyserOpen] = useState(true);
   useEffect(() => {
     if (isUnlocked) {
       const fetchXirr = async () => {
@@ -4614,13 +4633,26 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
         </div>
 
         {/* 🚀 THE COMMAND CENTER: MASTER CHART */}
-        <div className="analyser-card" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="analyser-card" style={{ marginBottom: '2rem' }}>
+          <div
+            className={`analyser-header ${isAnalyserOpen ? 'open' : ''}`}
+            onClick={() => setIsAnalyserOpen(!isAnalyserOpen)}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="analyser-header-left">
+              <div className="analyser-header-icon" style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📈</div>
+              <div className="analyser-header-title" style={{ fontSize: '1.1rem' }}>Investment Analyser</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              <span className={`analyser-chevron ${isAnalyserOpen ? 'open' : ''}`}>▼</span>
+            </div>
+          </div>
 
-          {/* Chart Header & Time/Mode Toggles */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <h3 className="section-title" style={{ margin: 0, border: 'none' }}>📈 Investment Analyser</h3>
-
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          {isAnalyserOpen && (
+            <div className="analyser-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Chart Header & Time/Mode Toggles */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               {/* 🚀 NEW: Chart Mode Toggle */}
               <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
                 {['ABSOLUTE', 'PERCENTAGE'].map(mode => (
@@ -4818,6 +4850,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
+            </div>
+          )}
         </div>
 
         {/* 🚀 THE ASSET CLASS GRID (ACCORDIONS) */}
