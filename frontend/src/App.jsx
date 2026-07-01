@@ -4651,7 +4651,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
           {isAnalyserOpen && (
             <div className="analyser-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Chart Time/Mode Toggles */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', overflowX: 'auto', paddingBottom: '2px', flexWrap: 'nowrap' }}>
               {/* 🚀 NEW: Chart Mode Toggle */}
               <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
                 {['ABSOLUTE', 'PERCENTAGE'].map(mode => (
