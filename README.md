@@ -9,5 +9,5 @@ python -c "from app import app, db; app.app_context().push(); db.create_all()"
 
 command
 git checkout main
-git reset --hard 5655a63f35e2990a97774545133fb266cceac097
+git reset --hard commit
 git push origin main --force
