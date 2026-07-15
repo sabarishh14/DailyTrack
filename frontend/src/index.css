@@ -993,9 +993,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 
   /* ── Filter Grid ── */
   .filter-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-  .filter-bar > div { width: 100%; }
+  .filter-bar > div { width: 100%; min-width: 0; }
   .filter-bar .filter-chip { width: 100%; justify-content: space-between; }
-  .filter-bar > div:nth-child(5), .filter-bar > input.inp, .filter-bar > button.filter-chip { grid-column: 1 / -1; justify-content: center; width: 100% !important; }
+  .filter-bar > input.inp, .filter-bar > button.filter-chip { grid-column: 1 / -1; justify-content: center; width: 100% !important; }
 
   /* ── Floating Action Bar ── */
   .floating-action-bar { bottom: 85px; width: 90%; justify-content: space-between; padding: 0.75rem 1rem; gap: 0.5rem; }
