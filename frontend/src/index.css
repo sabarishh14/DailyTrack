@@ -835,6 +835,11 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 /* ── MOBILE NAV ─── */
 .mobile-bottom-nav { display: none; }
 
+/* ── PHASE 3 POLISH ─── */
+.pie-grid { 
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; 
+}
+
 /* ── RESPONSIVE ─── */
 @media (max-width: 1280px) {
   .accounts-grid { grid-template-columns: repeat(4, 1fr); }
@@ -1185,10 +1190,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   padding-bottom: 170px !important; 
 }
 
-/* ── PHASE 3 POLISH ─── */
-.pie-grid { 
-  display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; 
-}
+
 
 
 
