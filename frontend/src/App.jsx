@@ -6130,6 +6130,11 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {/* 📱 Mobile Version Tag (visible only on phones) */}
+      <div className="mobile-version-tag">
+        v:{__COMMIT_SHA__} • {__BUILD_TIME__}
+      </div>
     </div>
 
 
