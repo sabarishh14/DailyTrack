@@ -1596,26 +1596,38 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 dropdownKey="analyzerHeading"
               />
               {/* Financial Year Filter */}
-              <div className="filter-chip" style={{ padding: 0, overflow: 'hidden', background: chartFY ? 'rgba(var(--accent-rgb), 0.15)' : undefined, borderColor: chartFY ? 'var(--accent)' : undefined }}>
-                <select
-                  value={chartFY}
-                  onChange={e => handleChartFYChange(e.target.value)}
-                  style={{
-                    background: 'transparent', border: 'none', outline: 'none',
-                    color: chartFY ? 'var(--accent)' : 'var(--text2)',
-                    fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif",
-                    padding: '0.45rem 0.75rem', cursor: 'pointer',
-                    appearance: 'none', WebkitAppearance: 'none',
-                    paddingRight: '1.2rem',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 0.4rem center',
-                    backgroundSize: '8px'
-                  }}
+              <div style={{ position: 'relative' }}>
+                <button
+                  className={`filter-chip ${chartFY ? 'active' : ''} ${openDropdown === 'analyzerFY' ? 'open' : ''}`}
+                  onClick={() => setOpenDropdown(openDropdown === 'analyzerFY' ? null : 'analyzerFY')}
                 >
-                  <option value="">📋 FY</option>
-                  {allFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-                </select>
+                  <span>📋</span>
+                  <span>{chartFY || 'FY'}</span>
+                  {chartFY && (
+                    <span
+                      className="chip-clear"
+                      onClick={(e) => { e.stopPropagation(); handleChartFYChange(''); }}
+                      title="Clear FY"
+                    >
+                      ×
+                    </span>
+                  )}
+                  <span className="chip-arrow">▼</span>
+                </button>
+                {openDropdown === 'analyzerFY' && (
+                  <div className="chip-dropdown">
+                    {allFYs.map(fy => (
+                      <div
+                        key={fy}
+                        className={`chip-dropdown-item ${chartFY === fy ? 'included' : ''}`}
+                        onClick={() => { handleChartFYChange(chartFY === fy ? '' : fy); setOpenDropdown(null); }}
+                      >
+                        <div className={`chip-checkbox ${chartFY === fy ? 'included' : ''}`} />
+                        <span>{fy}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {/* Date Range Filter */}
               <div className="date-filter-chip">
@@ -1944,26 +1956,38 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             dropdownKey="tableHeading"
           />
           {/* Financial Year Filter */}
-          <div className="filter-chip" style={{ padding: 0, overflow: 'hidden', background: filterFY ? 'rgba(var(--accent-rgb), 0.15)' : undefined, borderColor: filterFY ? 'var(--accent)' : undefined }}>
-            <select
-              value={filterFY}
-              onChange={e => handleFilterFYChange(e.target.value)}
-              style={{
-                background: 'transparent', border: 'none', outline: 'none',
-                color: filterFY ? 'var(--accent)' : 'var(--text2)',
-                fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif",
-                padding: '0.45rem 0.75rem', cursor: 'pointer',
-                appearance: 'none', WebkitAppearance: 'none',
-                paddingRight: '1.2rem',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.4rem center',
-                backgroundSize: '8px'
-              }}
+          <div style={{ position: 'relative' }}>
+            <button
+              className={`filter-chip ${filterFY ? 'active' : ''} ${openDropdown === 'tableFY' ? 'open' : ''}`}
+              onClick={() => setOpenDropdown(openDropdown === 'tableFY' ? null : 'tableFY')}
             >
-              <option value="">📋 FY</option>
-              {allFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-            </select>
+              <span>📋</span>
+              <span>{filterFY || 'FY'}</span>
+              {filterFY && (
+                <span
+                  className="chip-clear"
+                  onClick={(e) => { e.stopPropagation(); handleFilterFYChange(''); }}
+                  title="Clear FY"
+                >
+                  ×
+                </span>
+              )}
+              <span className="chip-arrow">▼</span>
+            </button>
+            {openDropdown === 'tableFY' && (
+              <div className="chip-dropdown">
+                {allFYs.map(fy => (
+                  <div
+                    key={fy}
+                    className={`chip-dropdown-item ${filterFY === fy ? 'included' : ''}`}
+                    onClick={() => { handleFilterFYChange(filterFY === fy ? '' : fy); setOpenDropdown(null); }}
+                  >
+                    <div className={`chip-checkbox ${filterFY === fy ? 'included' : ''}`} />
+                    <span>{fy}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="date-filter-chip">
             <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>

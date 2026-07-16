@@ -247,16 +247,6 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 }
 [data-theme="light"] .date-filter-chip { background: var(--card); border-color: var(--border); }
 
-/* FY Select within filter-chip */
-.filter-chip select option {
-  background: var(--bg2, #1e1e2e);
-  color: var(--text, #e2e8f0);
-}
-[data-theme="light"] .filter-chip select option {
-  background: var(--card, #fff);
-  color: var(--text, #1e293b);
-}
-
 .invest-legend-item {
   display: flex; justify-content: space-between; alignItems: center;
   background: rgba(255,255,255,0.03); padding: 0.7rem 1rem;
