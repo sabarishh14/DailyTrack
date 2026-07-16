@@ -709,6 +709,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [chartMonths, setChartMonths] = useState({ included: new Set([currentMonthLabel]), excluded: new Set() });
   const [chartYears, setChartYears] = useState({ included: new Set([currentYearLabel]), excluded: new Set() });
   const [chartHeadings, setChartHeadings] = useState({ included: new Set(), excluded: new Set() });
+  const [chartDateFrom, setChartDateFrom] = useState("");
+  const [chartDateTo, setChartDateTo] = useState("");
+  const [chartDateFromDebounced, setChartDateFromDebounced] = useState("");
+  const [chartDateToDebounced, setChartDateToDebounced] = useState("");
+  const [chartFY, setChartFY] = useState(""); // Financial Year for Analyzer
 
   // Table filters - 3-State Multi-select
   const [filterYears, setFilterYears] = useState({ included: new Set([currentYearLabel]), excluded: new Set() });
@@ -723,6 +728,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [filterDesc, setFilterDesc] = useState("");
   const [filterDescDebounced, setFilterDescDebounced] = useState("");
   const [filterVisibility, setFilterVisibility] = useState({ included: new Set(), excluded: new Set() }); // NEW STATE
+  const [filterFY, setFilterFY] = useState(""); // Financial Year for Table
 
   // Dropdown visibility
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -802,25 +808,51 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     setFilterMonths(prev => ({ ...prev, included: months }));
   }, [filterDateFromDebounced, filterDateToDebounced]);
 
+  // Debounce analyzer date filters
+  useEffect(() => {
+    const timer = setTimeout(() => setChartDateFromDebounced(chartDateFrom), 300);
+    return () => clearTimeout(timer);
+  }, [chartDateFrom]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setChartDateToDebounced(chartDateTo), 300);
+    return () => clearTimeout(timer);
+  }, [chartDateTo]);
+
   useEffect(() => {
     const timer = setTimeout(() => setFilterDescDebounced(filterDesc), 300);
     return () => clearTimeout(timer);
   }, [filterDesc]);
 
   // Memoize expensive computations
-  const { allMonths, allYears, allHeadings, allAccountsList, allTypes } = useMemo(() => { // <-- Destructure allYears
+  const { allMonths, allYears, allHeadings, allAccountsList, allTypes, allFYs } = useMemo(() => { // <-- Destructure allYears, allFYs
+    const years = [...new Set(transactions.map(t => {
+      if (!t.date) return null;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return null;
+      return d.getFullYear().toString();
+    }))]
+      .filter(Boolean)
+      .sort().reverse();
+
+    // Generate Financial Year options from transactions
+    // FY runs April 1 to March 31. A date in Jan-Mar belongs to FY starting previous year.
+    const fySet = new Set();
+    transactions.forEach(t => {
+      if (!t.date) return;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return;
+      const month = d.getMonth(); // 0-indexed
+      const year = d.getFullYear();
+      const fyStart = month >= 3 ? year : year - 1; // Apr(3)-Dec = current year, Jan-Mar = prev year
+      fySet.add(`FY ${fyStart}-${fyStart + 1}`);
+    });
+    const fys = [...fySet].sort().reverse();
+
     return {
       allMonths: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-      // --- ADD THIS BLOCK FOR YEARS ---
-      allYears: [...new Set(transactions.map(t => {
-        if (!t.date) return null;
-        const d = new Date(t.date);
-        if (isNaN(d.getTime())) return null;
-        return d.getFullYear().toString();
-      }))]
-        .filter(Boolean)
-        .sort().reverse(),
-      // --------------------------------
+      allYears: years,
+      allFYs: fys,
       allHeadings: [...new Set(transactions.map(t => t.heading))].sort(),
       allAccountsList: [...new Set(transactions.map(t => t.account))].sort(),
       allTypes: [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1))
@@ -851,7 +883,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       const monthMatch = checkMatch(chartMonths, month);
       const yearMatch = checkMatch(chartYears, year);
       const headingMatch = checkMatch(chartHeadings, t.heading);
-      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch;
+      // Date range filter for analyzer
+      const dateMatch = (() => {
+        if (!chartDateFromDebounced) return true;
+        const txDate = new Date(t.date);
+        const from = new Date(chartDateFromDebounced);
+        const to = chartDateToDebounced ? new Date(chartDateToDebounced) : from;
+        return txDate >= from && txDate <= to;
+      })();
+      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch && dateMatch;
     });
 
     // If exactly one heading is included, drill down into descriptions!
@@ -869,15 +909,17 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
     return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
-  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings]); // <-- UPDATE DEPENDENCIES
+  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings, chartDateFromDebounced, chartDateToDebounced]);
 
   const renderActiveFilters = (c) => {
     const filters = [];
+    if (chartFY) filters.push({ label: 'FY', val: chartFY });
     if (chartMonths.included.size > 0) filters.push({ label: 'Month', val: Array.from(chartMonths.included).join(', ') });
     if (chartYears.included.size > 0) filters.push({ label: 'Year', val: Array.from(chartYears.included).join(', ') });
     if (chartAccounts.included.size > 0) filters.push({ label: 'Account', val: Array.from(chartAccounts.included).join(', ') });
     if (chartTypes.included.size > 0) filters.push({ label: 'Type', val: Array.from(chartTypes.included).join(', ') });
     if (chartHeadings.included.size > 0) filters.push({ label: 'Category', val: Array.from(chartHeadings.included).join(', ') });
+    if (chartDateFromDebounced) filters.push({ label: 'Date', val: `${chartDateFromDebounced}${chartDateToDebounced ? ' → ' + chartDateToDebounced : ''}` });
     
     if (filters.length === 0) return 'All Transactions';
     
@@ -897,6 +939,55 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         ))}
       </span>
     );
+  };
+
+  // FY selection handler for Spending Analyser
+  const handleChartFYChange = (fy) => {
+    if (!fy) {
+      setChartFY("");
+      setChartDateFrom(""); setChartDateTo("");
+      setChartDateFromDebounced(""); setChartDateToDebounced("");
+      return;
+    }
+    setChartFY(fy);
+    // Parse "FY 2025-2026" → startYear=2025
+    const match = fy.match(/FY (\d{4})-(\d{4})/);
+    if (match) {
+      const startYear = parseInt(match[1]);
+      const endYear = parseInt(match[2]);
+      setChartDateFrom(`${startYear}-04-01`);
+      setChartDateTo(`${endYear}-03-31`);
+      setChartDateFromDebounced(`${startYear}-04-01`);
+      setChartDateToDebounced(`${endYear}-03-31`);
+      // Clear month and year filters since FY covers the full range
+      const empty = { included: new Set(), excluded: new Set() };
+      setChartMonths(empty);
+      setChartYears(empty);
+    }
+  };
+
+  // FY selection handler for All Transactions table
+  const handleFilterFYChange = (fy) => {
+    if (!fy) {
+      setFilterFY("");
+      setFilterDateFrom(""); setFilterDateTo("");
+      setFilterDateFromDebounced(""); setFilterDateToDebounced("");
+      return;
+    }
+    setFilterFY(fy);
+    const match = fy.match(/FY (\d{4})-(\d{4})/);
+    if (match) {
+      const startYear = parseInt(match[1]);
+      const endYear = parseInt(match[2]);
+      setFilterDateFrom(`${startYear}-04-01`);
+      setFilterDateTo(`${endYear}-03-31`);
+      setFilterDateFromDebounced(`${startYear}-04-01`);
+      setFilterDateToDebounced(`${endYear}-03-31`);
+      // Clear month and year filters since FY covers the full range
+      const empty = { included: new Set(), excluded: new Set() };
+      setFilterMonths(empty);
+      setFilterYears(empty);
+    }
   };
 
   const handleExportPDF = async (e) => {
@@ -1504,17 +1595,62 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
+              {/* Financial Year Filter */}
+              <div className="filter-chip" style={{ padding: 0, overflow: 'hidden', background: chartFY ? 'rgba(var(--accent-rgb), 0.15)' : undefined, borderColor: chartFY ? 'var(--accent)' : undefined }}>
+                <select
+                  value={chartFY}
+                  onChange={e => handleChartFYChange(e.target.value)}
+                  style={{
+                    background: 'transparent', border: 'none', outline: 'none',
+                    color: chartFY ? 'var(--accent)' : 'var(--text2)',
+                    fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif",
+                    padding: '0.45rem 0.75rem', cursor: 'pointer',
+                    appearance: 'none', WebkitAppearance: 'none',
+                    paddingRight: '1.2rem',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.4rem center',
+                    backgroundSize: '8px'
+                  }}
+                >
+                  <option value="">📋 FY</option>
+                  {allFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+                </select>
+              </div>
+              {/* Date Range Filter */}
+              <div className="date-filter-chip">
+                <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
+                <input
+                  type="date"
+                  value={chartDateFrom}
+                  onChange={e => { setChartDateFrom(e.target.value); setChartFY(""); }}
+                  style={{ background: 'transparent', border: 'none', outline: 'none', color: chartDateFrom ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: chartDateFrom ? '100px' : '90px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>→</span>
+                <input
+                  type="date"
+                  value={chartDateTo}
+                  onChange={e => { setChartDateTo(e.target.value); setChartFY(""); }}
+                  min={chartDateFrom}
+                  style={{ background: 'transparent', border: 'none', outline: 'none', color: chartDateTo ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: chartDateTo ? '100px' : '90px', cursor: 'pointer' }}
+                />
+                {(chartDateFrom || chartDateTo) && (
+                  <button onClick={() => { setChartDateFrom(''); setChartDateTo(''); setChartFY(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
+                )}
+              </div>
               {(chartAccounts.included.size > 0 || chartAccounts.excluded.size > 0 ||
                 chartTypes.included.size > 0 || chartTypes.excluded.size > 0 ||
                 chartMonths.included.size > 0 || chartMonths.excluded.size > 0 ||
                 chartYears.included.size > 0 || chartYears.excluded.size > 0 ||
-                chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0) && (
+                chartHeadings.included.size > 0 || chartHeadings.excluded.size > 0 ||
+                chartDateFrom || chartDateTo || chartFY) && (
                   <button
                     className="filter-chip"
                     onClick={() => {
                       const empty = { included: new Set(), excluded: new Set() };
                       setChartAccounts(empty); setChartTypes(empty); setChartMonths(empty);
                       setChartYears(empty); setChartHeadings(empty);
+                      setChartDateFrom(""); setChartDateTo(""); setChartFY("");
                     }}
                     style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
                   >
@@ -1807,24 +1943,46 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             setFilterState={setFilterHeadings}
             dropdownKey="tableHeading"
           />
+          {/* Financial Year Filter */}
+          <div className="filter-chip" style={{ padding: 0, overflow: 'hidden', background: filterFY ? 'rgba(var(--accent-rgb), 0.15)' : undefined, borderColor: filterFY ? 'var(--accent)' : undefined }}>
+            <select
+              value={filterFY}
+              onChange={e => handleFilterFYChange(e.target.value)}
+              style={{
+                background: 'transparent', border: 'none', outline: 'none',
+                color: filterFY ? 'var(--accent)' : 'var(--text2)',
+                fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif",
+                padding: '0.45rem 0.75rem', cursor: 'pointer',
+                appearance: 'none', WebkitAppearance: 'none',
+                paddingRight: '1.2rem',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.4rem center',
+                backgroundSize: '8px'
+              }}
+            >
+              <option value="">📋 FY</option>
+              {allFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+            </select>
+          </div>
           <div className="date-filter-chip">
             <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
             <input
               type="date"
               value={filterDateFrom}
-              onChange={e => setFilterDateFrom(e.target.value)}
+              onChange={e => { setFilterDateFrom(e.target.value); setFilterFY(""); }}
               style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateFrom ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateFrom ? '100px' : '90px', cursor: 'pointer' }}
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>→</span>
             <input
               type="date"
               value={filterDateTo}
-              onChange={e => setFilterDateTo(e.target.value)}
+              onChange={e => { setFilterDateTo(e.target.value); setFilterFY(""); }}
               min={filterDateFrom}
               style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateTo ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateTo ? '100px' : '90px', cursor: 'pointer' }}
             />
             {(filterDateFrom || filterDateTo) && (
-              <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
+              <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setFilterFY(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
             )}
           </div>
           <input
@@ -1840,14 +1998,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             filterYears.included.size > 0 || filterYears.excluded.size > 0 ||
             filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 ||
             filterVisibility.included.size > 0 || filterVisibility.excluded.size > 0 ||
-            filterDateFrom || filterDateTo || filterDesc) && (
+            filterDateFrom || filterDateTo || filterDesc || filterFY) && (
               <button
                 className="filter-chip"
                 onClick={() => {
                   const empty = { included: new Set(), excluded: new Set() };
                   setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
                   setFilterYears(empty); setFilterHeadings(empty); setFilterVisibility(empty);
-                  setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc("");
+                  setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc(""); setFilterFY("");
                 }}
                 style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
               >
