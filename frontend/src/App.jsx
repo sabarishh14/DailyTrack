@@ -625,6 +625,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         left: isRightSide ? 'auto' : `${rect.left}px`,
         right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
         minWidth: `${rect.width}px`, // Matches the button exactly instead of forcing 180px
+        maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
         zIndex: 999999
       });
     }
@@ -1335,6 +1336,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           left: isRightSide ? 'auto' : `${rect.left}px`,
           right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
           minWidth: `${rect.width}px`,
+          maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
           zIndex: 999999
         });
       }
@@ -1614,6 +1616,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 filterState={chartMonths}
                 setFilterState={setChartMonths}
                 dropdownKey="analyzerMonth"
+                maxWidth="160px"
               />
               <MultiSelectDropdown
                 label="Year"
@@ -1622,6 +1625,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 filterState={chartYears}
                 setFilterState={setChartYears}
                 dropdownKey="analyzerYear"
+                maxWidth="160px"
               />
               <MultiSelectDropdown
                 label="Heading"
@@ -1631,40 +1635,15 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
               />
-              {/* Financial Year Filter */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={`filter-chip ${chartFY ? 'active' : ''} ${openDropdown === 'analyzerFY' ? 'open' : ''}`}
-                  onClick={() => setOpenDropdown(openDropdown === 'analyzerFY' ? null : 'analyzerFY')}
-                >
-                  <span>📋</span>
-                  <span>{chartFY || 'FY'}</span>
-                  {chartFY && (
-                    <span
-                      className="chip-clear"
-                      onClick={(e) => { e.stopPropagation(); handleChartFYChange(''); }}
-                      title="Clear FY"
-                    >
-                      ×
-                    </span>
-                  )}
-                  <span className="chip-arrow">▼</span>
-                </button>
-                {openDropdown === 'analyzerFY' && (
-                  <div className="chip-dropdown">
-                    {allFYs.map(fy => (
-                      <div
-                        key={fy}
-                        className={`chip-dropdown-item ${chartFY === fy ? 'included' : ''}`}
-                        onClick={() => { handleChartFYChange(chartFY === fy ? '' : fy); setOpenDropdown(null); }}
-                      >
-                        <div className={`chip-checkbox ${chartFY === fy ? 'included' : ''}`} />
-                        <span>{fy}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* FY Filter upgraded to CustomSelect for portal support */}
+              <CustomSelect
+                value={chartFY}
+                onChange={(fy) => handleChartFYChange(fy === chartFY ? '' : fy)}
+                options={allFYs.map(fy => ({ label: `FY ${fy}`, value: fy }))}
+                placeholder="All FYs"
+                minWidth="110px"
+                icon={<span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>}
+              />
               {/* Date Range Filter */}
               <div className="date-filter-chip">
                 <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
@@ -3842,6 +3821,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
           left: isRightSide ? 'auto' : `${rect.left}px`,
           right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
           minWidth: `${rect.width}px`,
+          maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
           zIndex: 999999
         });
       }
