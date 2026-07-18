@@ -587,13 +587,13 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         setIsOpen(false);
       }
     };
-    
+
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
         setIsOpen(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEsc);
 
@@ -615,10 +615,13 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 
       // Smart Alignment: If the button is on the right side of the screen, open to the left
       const isRightSide = rect.right > window.innerWidth * 0.6;
+      // Smart Vertical: Open upwards if there's no space below (assuming max dropdown height ~300px)
+      const isOffBottom = rect.bottom + 300 > window.innerHeight;
 
       setDropdownStyle({
         position: 'fixed',
-        top: `${rect.bottom + 4}px`,
+        top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
+        bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
         left: isRightSide ? 'auto' : `${rect.left}px`,
         right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
         minWidth: `${rect.width}px`, // Matches the button exactly instead of forcing 180px
@@ -920,13 +923,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     if (chartTypes.included.size > 0) filters.push({ label: 'Type', val: Array.from(chartTypes.included).join(', ') });
     if (chartHeadings.included.size > 0) filters.push({ label: 'Category', val: Array.from(chartHeadings.included).join(', ') });
     if (chartDateFromDebounced) filters.push({ label: 'Date', val: `${chartDateFromDebounced}${chartDateToDebounced ? ' → ' + chartDateToDebounced : ''}` });
-    
+
     if (filters.length === 0) return 'All Transactions';
-    
+
     const color2 = c ? c.text2 : 'rgba(255,255,255,0.6)';
     const color3 = c ? c.text3 : 'rgba(255,255,255,0.4)';
     const accent = c ? c.accent : '#818cf8';
-    
+
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
         <span style={{ color: color3 }}>Filtered by:</span>
@@ -992,7 +995,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   const handleExportPDF = async (e) => {
     if (e) e.stopPropagation();
-    
+
     const rs = getComputedStyle(document.body);
     const tColors = {
       bg: rs.getPropertyValue('--bg').trim() || '#080b12',
@@ -1006,14 +1009,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       accentRgb: rs.getPropertyValue('--accent-rgb').trim() || '99, 102, 241',
       accent2Rgb: rs.getPropertyValue('--accent2-rgb').trim() || '6, 182, 212',
     };
-    
+
     setCaptureColors(tColors);
     setCaptureMode('pdf');
     try {
       await new Promise(r => setTimeout(r, 150)); // wait for DOM resize
       const { toJpeg } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
-      
+
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
@@ -1027,7 +1030,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
       for (let i = 0; i < totalPages; i++) {
         const node = document.getElementById(`pdf-poster-${i}`);
         if (!node) continue;
-        
+
         const dataUrl = await toJpeg(node, {
           quality: 0.95,
           pixelRatio: 1,
@@ -1044,23 +1047,23 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             transform: 'none'
           }
         });
-        
+
         if (i > 0) pdf.addPage('a4', 'portrait');
-        
+
         // Draw dark background to fill A4 page
         pdf.setFillColor(tColors.bg);
         pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
-        
+
         // Center the 1358x1920 image on A4
         const imgRatio = 1358 / 1920;
         const finalH = pdfHeight;
         const finalW = finalH * imgRatio;
         const xOffset = (pdfWidth - finalW) / 2;
         const yOffset = (pdfHeight - finalH) / 2;
-        
+
         pdf.addImage(dataUrl, 'JPEG', xOffset, yOffset, finalW, finalH, undefined, 'FAST');
       }
-      
+
       pdf.save(`DailyTrack-Report-${new Date().getTime()}.pdf`);
     } catch (err) {
       console.error(err);
@@ -1071,7 +1074,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   const handleShareSnapshot = async (e) => {
     if (e) e.stopPropagation();
-    
+
     if (pieArr.length > 30) {
       return handleExportPDF(e);
     }
@@ -1114,13 +1117,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           backgroundImage: `radial-gradient(circle at top right, rgba(${tColors.accentRgb}, 0.15), transparent 400px), radial-gradient(circle at bottom left, rgba(${tColors.accent2Rgb}, 0.1), transparent 400px)`
         }
       });
-      
+
       const filename = `DailyTrack-Snapshot-${new Date().getTime()}.png`;
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], filename, { type: 'image/png' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ title: `Spending Snapshot`, files: [file] }) } 
+        try { await navigator.share({ title: `Spending Snapshot`, files: [file] }) }
         catch (shareErr) { console.log('User canceled share') }
       } else {
         const link = document.createElement('a');
@@ -1254,10 +1257,28 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   };
 
   // Rows per page dropdown component
+  // RowsPerPage dropdown component
   const RowsPerPageDropdown = ({ value, onChange }) => {
-    const options = [10, 25, 50, 100];
+    const containerRef = useRef(null);
+    const [dropdownStyle, setDropdownStyle] = useState({});
+
+    useEffect(() => {
+      if (openDropdown === 'rowsPerPage' && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const isOffBottom = rect.bottom + 200 > window.innerHeight;
+        setDropdownStyle({
+          position: 'fixed',
+          top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
+          bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
+          left: `${rect.left}px`,
+          minWidth: `${rect.width}px`,
+          zIndex: 999999
+        });
+      }
+    }, [openDropdown]);
+
     return (
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }} ref={containerRef}>
         <button
           className={`filter-chip ${openDropdown === 'rowsPerPage' ? 'open' : ''}`}
           onClick={() => setOpenDropdown(openDropdown === 'rowsPerPage' ? null : 'rowsPerPage')}
@@ -1267,13 +1288,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           <span className="chip-arrow">▼</span>
         </button>
 
-        {openDropdown === 'rowsPerPage' && (
-          <div className="chip-dropdown">
-            {options.map(opt => (
+        {openDropdown === 'rowsPerPage' && createPortal(
+          <div className="chip-dropdown" style={{ ...dropdownStyle }}>
+            {[10, 25, 50, 100].map(opt => (
               <div
                 key={opt}
                 className={`chip-dropdown-item ${value === opt ? 'selected' : ''}`}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   onChange(opt);
                   setOpenDropdown(null);
                   setCurrentPage(0);
@@ -1283,7 +1305,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 <span>{opt}</span>
               </div>
             ))}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -1293,10 +1316,28 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const MultiSelectDropdown = ({ label, icon, options, filterState, setFilterState, dropdownKey }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const { included, excluded } = filterState;
+    const containerRef = useRef(null);
+    const [dropdownStyle, setDropdownStyle] = useState({});
 
-    // Clear search when dropdown closes
+    // Clear search and set position when dropdown opens/closes
     useEffect(() => {
-      if (openDropdown !== dropdownKey) setSearchTerm("");
+      if (openDropdown !== dropdownKey) {
+        setSearchTerm("");
+      } else if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const isRightSide = rect.right > window.innerWidth * 0.6;
+        const isOffBottom = rect.bottom + 300 > window.innerHeight;
+
+        setDropdownStyle({
+          position: 'fixed',
+          top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
+          bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
+          left: isRightSide ? 'auto' : `${rect.left}px`,
+          right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
+          minWidth: `${rect.width}px`,
+          zIndex: 999999
+        });
+      }
     }, [openDropdown, dropdownKey]);
 
     const filteredOptions = options
@@ -1338,7 +1379,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
     const isExcludeOnly = included.size === 0 && excluded.size > 0;
 
     return (
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }} ref={containerRef}>
         <button
           className={`filter-chip ${hasSelection ? (isExcludeOnly ? 'exclude-active' : 'active') : ''} ${openDropdown === dropdownKey ? 'open' : ''}`}
           onClick={() => setOpenDropdown(openDropdown === dropdownKey ? null : dropdownKey)}
@@ -1362,8 +1403,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           <span className="chip-arrow">▼</span>
         </button>
 
-        {openDropdown === dropdownKey && (
-          <div className="chip-dropdown">
+        {openDropdown === dropdownKey && createPortal(
+          <div className="chip-dropdown" style={{ ...dropdownStyle, maxHeight: '350px' }}>
 
             {/* 🚀 STICKY HEADER GROUP */}
             <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
@@ -1405,13 +1446,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 <span>{opt}</span>
               </div>
             ))}
-            {filteredOptions.length === 0 && options.length > 0 && (
-              <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No results found</div>
-            )}
-            {options.length === 0 && (
-              <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text2)', fontSize: '0.8rem' }}>No options</div>
-            )}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -1511,7 +1547,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 <span style={{ fontSize: '12px' }}>⏳</span>
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                 </svg>
               )}
             </button>
@@ -1526,7 +1562,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 <span style={{ fontSize: '12px' }}>⏳</span>
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
                 </svg>
               )}
             </button>
@@ -1544,7 +1580,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
         {expanded && (
           <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
-            
+
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
               <MultiSelectDropdown
@@ -2367,7 +2403,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         return (
           <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 1, pointerEvents: 'none', overflow: 'hidden' }}>
             <div style={{ width: `${posterWidth}px`, height: '1920px', background: c.bg, display: 'flex', flexDirection: 'column', color: c.text, fontFamily: "'Syne', sans-serif" }}>
-              
+
               {/* Header */}
               <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
                 <svg width="400" height="70" viewBox="0 0 400 70" style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
@@ -2377,9 +2413,9 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                       <stop offset="100%" stopColor={c.accent2} />
                     </linearGradient>
                   </defs>
-                  <text 
-                    x="200" y="52" 
-                    textAnchor="middle" 
+                  <text
+                    x="200" y="52"
+                    textAnchor="middle"
                     fill={`url(#logo-grad-${pageIndex})`}
                     style={{ fontSize: '48px', fontWeight: 800, fontFamily: "'Syne', sans-serif", letterSpacing: '-1px' }}
                   >
@@ -2416,7 +2452,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                 </PieChart>
-                
+
                 {/* Centered Total */}
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ fontSize: '20px', color: c.text2, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
@@ -2436,13 +2472,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 {chunk.map((d, i) => {
                   const total = pieArr.reduce((s, x) => s + x.value, 0);
                   const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-                  
+
                   const TARGET_ROWS = 15;
                   const N = chunk.length;
                   let doubleCols = 0;
                   if (N > TARGET_ROWS) doubleCols = (N - TARGET_ROWS) * 2;
                   const isFullWidth = i >= doubleCols;
-                  
+
                   // Keep color synced with actual item index from pieArr
                   const actualIndex = pageIndex * 30 + i;
 
@@ -3783,11 +3819,15 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const isMobile = window.innerWidth <= 768;
+      const isOffBottom = rect.bottom + 300 > window.innerHeight;
+      const topStyle = isOffBottom ? 'auto' : `${rect.bottom + 4}px`;
+      const bottomStyle = isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto';
 
       if (isMobile) {
         setDropdownStyle({
           position: 'fixed',
-          top: `${rect.bottom + 4}px`,
+          top: topStyle,
+          bottom: bottomStyle,
           left: '16px',
           right: '16px',
           width: 'calc(100vw - 32px)',
@@ -3797,7 +3837,8 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
         const isRightSide = rect.right > window.innerWidth * 0.6;
         setDropdownStyle({
           position: 'fixed',
-          top: `${rect.bottom + 4}px`,
+          top: topStyle,
+          bottom: bottomStyle,
           left: isRightSide ? 'auto' : `${rect.left}px`,
           right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
           minWidth: `${rect.width}px`,
@@ -4959,124 +5000,124 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
 
 
-          {/* The Recharts Graph */}
-          <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-                <YAxis
-                  stroke="var(--text3)"
-                  fontSize={11}
-                  tickFormatter={v => chartMode === 'PERCENTAGE' ? `${v.toFixed(0)}%` : `₹${(v / 1000).toFixed(0)}k`}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={['auto', 'auto']}
-                />
-                {/* 🚀 DYNAMIC TOOLTIP: Renders Both Metrics Gracefully */}
-                <Tooltip
-                  cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }}
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', minWidth: '220px' }}>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {payload.map((p, i) => {
-                              // 🚀 NEW: Ignore the dotted "Invested" line so we don't get duplicate tooltip blocks
-                              if (p.dataKey && p.dataKey.endsWith('_Inv')) return null;
+              {/* The Recharts Graph */}
+              <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="date" stroke="var(--text3)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                    <YAxis
+                      stroke="var(--text3)"
+                      fontSize={11}
+                      tickFormatter={v => chartMode === 'PERCENTAGE' ? `${v.toFixed(0)}%` : `₹${(v / 1000).toFixed(0)}k`}
+                      axisLine={false}
+                      tickLine={false}
+                      domain={['auto', 'auto']}
+                    />
+                    {/* 🚀 DYNAMIC TOOLTIP: Renders Both Metrics Gracefully */}
+                    <Tooltip
+                      cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '5 5' }}
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', minWidth: '220px' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '10px', fontWeight: 600 }}>{label}</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {payload.map((p, i) => {
+                                  // 🚀 NEW: Ignore the dotted "Invested" line so we don't get duplicate tooltip blocks
+                                  if (p.dataKey && p.dataKey.endsWith('_Inv')) return null;
 
-                              let sym = p.name;
-                              let curr = 0, inv = 0, pct = 0, retAmt = 0;
+                                  let sym = p.name;
+                                  let curr = 0, inv = 0, pct = 0, retAmt = 0;
 
-                              if (selectedAssets.size > 0) {
-                                sym = p.dataKey.replace('_Pct', '');
-                                curr = p.payload[sym] || 0;
-                                inv = p.payload[`${sym}_Inv`] || 0;
-                                pct = p.payload[`${sym}_Pct`] || 0;
-                              } else {
-                                if (i > 0) return null; // Avoid duplicate tooltip rows for single mode
-                                curr = p.payload.Current || 0;
-                                inv = p.payload.Invested || 0;
-                                pct = p.payload.ReturnPct || 0;
-                                sym = "Total Portfolio";
-                              }
-                              retAmt = curr - inv;
-                              const isPos = retAmt >= 0;
+                                  if (selectedAssets.size > 0) {
+                                    sym = p.dataKey.replace('_Pct', '');
+                                    curr = p.payload[sym] || 0;
+                                    inv = p.payload[`${sym}_Inv`] || 0;
+                                    pct = p.payload[`${sym}_Pct`] || 0;
+                                  } else {
+                                    if (i > 0) return null; // Avoid duplicate tooltip rows for single mode
+                                    curr = p.payload.Current || 0;
+                                    inv = p.payload.Invested || 0;
+                                    pct = p.payload.ReturnPct || 0;
+                                    sym = "Total Portfolio";
+                                  }
+                                  retAmt = curr - inv;
+                                  const isPos = retAmt >= 0;
 
-                              return (
-                                <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{sym}</span>
-                                  </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                                    <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
-                                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'}</span>
-                                  </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                                    <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
-                                    <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                                      {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+                                  return (
+                                    <div key={sym} style={{ borderBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: (selectedAssets.size > 0 && i < payload.length - 1) ? '8px' : '0' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.color }}></div>
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>{sym}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                                        <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Current:</span>
+                                        <span style={{ color: 'var(--text)', fontWeight: 700 }}>{showBalances ? `₹${curr.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                                        <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>Return:</span>
+                                        <span className={isPos ? 'pos' : 'neg'} style={{ fontWeight: 600, fontSize: '0.75rem' }}>
+                                          {isPos ? '+' : '-'}{showBalances ? `₹${Math.abs(retAmt).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '₹ ••••••'} ({Math.abs(pct).toFixed(1)}%)
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
 
-                {/* 🚀 DYNAMIC LINES BASED ON MODE */}
-                {selectedAssets.size > 0 ? (
-                  <>
-                    {Array.from(selectedAssets).map((sym, i) => (
-                      <Line
-                        key={sym}
-                        type="monotone"
-                        name={sym}
-                        dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym}
-                        stroke={PIE_COLORS[i % PIE_COLORS.length]}
-                        strokeWidth={3}
-                        dot={chartData.length <= 1}
-                        activeDot={{ r: 6, strokeWidth: 0 }}
-                        animationDuration={800}
-                      />
-                    ))}
-                    {/* 🚀 NEW: If exactly ONE asset is selected and we are in ₹ Value mode, show the dotted Invested line! */}
-                    {selectedAssets.size === 1 && chartMode !== 'PERCENTAGE' && (
-                      <Line
-                        key={`${Array.from(selectedAssets)[0]}_Inv`}
-                        type="monotone"
-                        name="Invested Amount"
-                        dataKey={`${Array.from(selectedAssets)[0]}_Inv`}
-                        stroke="var(--text3)"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={chartData.length <= 1}
-                        activeDot={false}
-                        animationDuration={800}
-                      />
+                    {/* 🚀 DYNAMIC LINES BASED ON MODE */}
+                    {selectedAssets.size > 0 ? (
+                      <>
+                        {Array.from(selectedAssets).map((sym, i) => (
+                          <Line
+                            key={sym}
+                            type="monotone"
+                            name={sym}
+                            dataKey={chartMode === 'PERCENTAGE' ? `${sym}_Pct` : sym}
+                            stroke={PIE_COLORS[i % PIE_COLORS.length]}
+                            strokeWidth={3}
+                            dot={chartData.length <= 1}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            animationDuration={800}
+                          />
+                        ))}
+                        {/* 🚀 NEW: If exactly ONE asset is selected and we are in ₹ Value mode, show the dotted Invested line! */}
+                        {selectedAssets.size === 1 && chartMode !== 'PERCENTAGE' && (
+                          <Line
+                            key={`${Array.from(selectedAssets)[0]}_Inv`}
+                            type="monotone"
+                            name="Invested Amount"
+                            dataKey={`${Array.from(selectedAssets)[0]}_Inv`}
+                            stroke="var(--text3)"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={chartData.length <= 1}
+                            activeDot={false}
+                            animationDuration={800}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      chartMode === 'PERCENTAGE' ? (
+                        <Line type="monotone" name="Return %" dataKey="ReturnPct" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
+                      ) : (
+                        <>
+                          <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
+                          <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
+                        </>
+                      )
                     )}
-                  </>
-                ) : (
-                  chartMode === 'PERCENTAGE' ? (
-                    <Line type="monotone" name="Return %" dataKey="ReturnPct" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
-                  ) : (
-                    <>
-                      <Line type="monotone" name="Current Value" dataKey="Current" stroke="var(--accent)" strokeWidth={3} dot={chartData.length <= 1} activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--accent)' }} animationDuration={800} />
-                      <Line type="monotone" name="Invested Amount" dataKey="Invested" stroke="var(--text3)" strokeWidth={2} strokeDasharray="5 5" dot={chartData.length <= 1} activeDot={false} animationDuration={800} />
-                    </>
-                  )
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </div>
@@ -5902,11 +5943,11 @@ export default function App() {
   const [accent, setAccent] = useState(localStorage.getItem('dt_accent') || 'indigo');
 
   const ACCENT_PALETTES = [
-    { id: 'indigo',  color: '#6366f1', label: 'Indigo' },
-    { id: 'ocean',   color: '#0ea5e9', label: 'Ocean' },
-    { id: 'rose',    color: '#f43f5e', label: 'Rose' },
+    { id: 'indigo', color: '#6366f1', label: 'Indigo' },
+    { id: 'ocean', color: '#0ea5e9', label: 'Ocean' },
+    { id: 'rose', color: '#f43f5e', label: 'Rose' },
     { id: 'emerald', color: '#10b981', label: 'Emerald' },
-    { id: 'amber',   color: '#f59e0b', label: 'Amber' },
+    { id: 'amber', color: '#f59e0b', label: 'Amber' },
   ];
 
   const logout = useCallback(() => {
