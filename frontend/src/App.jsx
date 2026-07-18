@@ -4862,7 +4862,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
                   {/* Asset Filter — inline with categories, only when category selected */}
                   {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-                    <div style={{ flex: '0 0 auto', width: '220px', animation: 'fadeIn 0.2s ease' }}>
+                    <div className="asset-filter-wrapper">
                       <MultiAssetSelect
                         selectedAssets={selectedAssets}
                         setSelectedAssets={setSelectedAssets}

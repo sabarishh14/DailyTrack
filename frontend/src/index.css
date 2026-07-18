@@ -1582,12 +1582,18 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   transform: scale(1.15);
 }
 
-/* ── Row 2: Mode + Timeframe + Asset Filter ── */
+/* ── Row 2: Mode + Timeframe ── */
 .analyser-controls-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.asset-filter-wrapper {
+  flex: 0 0 auto;
+  width: 220px;
+  animation: fadeIn 0.2s ease;
 }
 
 /* ── Segmented Control (Value / Return) ── */
@@ -1779,9 +1785,13 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 /* ── Responsive: Mobile ── */
 @media (max-width: 768px) {
   .analyser-toolbar { gap: 0.6rem; }
+  
+  .toolbar-left-group, .toolbar-right-group {
+    width: 100%;
+  }
 
   .category-tabs {
-    gap: 0;
+    gap: 0.2rem;
     padding: 0 0.25rem;
     margin: 0 -1.5rem;
     padding-left: 1.5rem;
@@ -1795,6 +1805,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
   }
 
   .category-tab .cat-icon { font-size: 0.85rem; }
+
+  .asset-filter-wrapper {
+    width: 100%;
+  }
 
   .analyser-controls-row {
     gap: 0.5rem;
@@ -1818,9 +1832,15 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cur
 }
 
 @media (max-width: 480px) {
+  .category-tabs {
+    justify-content: space-between;
+    width: 100%;
+  }
   .category-tab {
     padding: 0.5rem 0.5rem;
     font-size: 0.68rem;
+    flex: 1;
+    justify-content: center;
   }
   .category-tab .cat-label { display: none; }
   .category-tab .cat-icon { font-size: 1rem; }
