@@ -531,6 +531,11 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
           onRefresh={onRefresh}
         />
       )}
+
+      {/* 📱 Mobile Version Tag (at bottom of Home) */}
+      <div className="mobile-version-tag">
+        v:{__COMMIT_SHA__} • {__BUILD_TIME__}
+      </div>
     </div> // This is the closing div of HomeTab
   );
 }
@@ -613,8 +618,9 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
 
-      // Smart Alignment: If the button is on the right side of the screen, open to the left
-      const isRightSide = rect.right > window.innerWidth * 0.6;
+      const clientWidth = document.documentElement.clientWidth;
+      // Smart Alignment: Align right if there isn't enough space (~300px) on the left
+      const isRightSide = rect.left + 300 > clientWidth;
       // Smart Vertical: Open upwards if there's no space below (assuming max dropdown height ~300px)
       const isOffBottom = rect.bottom + 300 > window.innerHeight;
 
@@ -623,9 +629,9 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
         top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
         bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
         left: isRightSide ? 'auto' : `${rect.left}px`,
-        right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
-        minWidth: `${rect.width}px`, // Matches the button exactly instead of forcing 180px
-        maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
+        right: isRightSide ? `${clientWidth - rect.right}px` : 'auto',
+        minWidth: `${rect.width}px`,
+        maxWidth: isRightSide ? `${rect.right - 16}px` : `${clientWidth - rect.left - 16}px`,
         zIndex: 999999
       });
     }
@@ -1326,7 +1332,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         setSearchTerm("");
       } else if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const isRightSide = rect.right > window.innerWidth * 0.6;
+        const clientWidth = document.documentElement.clientWidth;
+        const isRightSide = rect.left + 300 > clientWidth;
         const isOffBottom = rect.bottom + 300 > window.innerHeight;
 
         setDropdownStyle({
@@ -3802,6 +3809,8 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
       const topStyle = isOffBottom ? 'auto' : `${rect.bottom + 4}px`;
       const bottomStyle = isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto';
 
+      const clientWidth = document.documentElement.clientWidth;
+      
       if (isMobile) {
         setDropdownStyle({
           position: 'fixed',
@@ -3809,19 +3818,20 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
           bottom: bottomStyle,
           left: '16px',
           right: '16px',
-          width: 'calc(100vw - 32px)',
+          width: 'auto',
+          maxWidth: `${clientWidth - 32}px`,
           zIndex: 999999
         });
       } else {
-        const isRightSide = rect.right > window.innerWidth * 0.6;
+        const isRightSide = rect.left + 300 > clientWidth;
         setDropdownStyle({
           position: 'fixed',
           top: topStyle,
           bottom: bottomStyle,
           left: isRightSide ? 'auto' : `${rect.left}px`,
-          right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
+          right: isRightSide ? `${clientWidth - rect.right}px` : 'auto',
           minWidth: `${rect.width}px`,
-          maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
+          maxWidth: isRightSide ? `${rect.right - 16}px` : `${clientWidth - rect.left - 16}px`,
           zIndex: 999999
         });
       }
@@ -6380,11 +6390,6 @@ export default function App() {
           </button>
         ))}
       </nav>
-
-      {/* 📱 Mobile Version Tag (visible only on phones) */}
-      <div className="mobile-version-tag">
-        v:{__COMMIT_SHA__} • {__BUILD_TIME__}
-      </div>
     </div>
 
 
