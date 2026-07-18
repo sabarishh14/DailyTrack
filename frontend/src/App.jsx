@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import WatchTrack from './WatchTrack';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -62,9 +63,10 @@ const TABS = [
   { id: 2, icon: "➕", label: "Add Transaction", add: true },
   { id: 3, icon: "🏋️", label: "Gym & Activity" },
   { id: 4, icon: "📈", label: "Investments" },
+  { id: 5, icon: "🍿", label: "WatchTrack" },
 ];
 
-const TAB_TITLES = ["Dashboard", "Money", "Add Transaction", "Gym & Activity", "Investments"];
+const TAB_TITLES = ["Dashboard", "Money", "Add Transaction", "Gym & Activity", "Investments", "WatchTrack"];
 
 function fmt(n) {
   if (n === undefined || n === null || isNaN(n)) return "₹0";
@@ -5862,6 +5864,7 @@ const MemoizedMoneyTab = memo(MoneyTab);
 const MemoizedAddTab = memo(AddTab);
 const MemoizedGymTab = memo(GymTab);
 const MemoizedInvestTab = memo(InvestTab);
+const MemoizedWatchTrack = memo(WatchTrack);
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
@@ -6123,6 +6126,7 @@ export default function App() {
         {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
         {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}
         {tab === 4 && <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />}
+        {tab === 5 && <MemoizedWatchTrack API={API} getToken={getToken} />}
       </>
     );
   };

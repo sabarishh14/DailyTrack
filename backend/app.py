@@ -58,6 +58,9 @@ if not ADMIN_PASS:
 KITE_API_KEY = os.getenv("KITE_API_KEY")
 KITE_API_SECRET = os.getenv("KITE_API_SECRET")
 
+# TMDB API Key
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -279,6 +282,63 @@ class AllowedEmail(db.Model):
     __tablename__ = "allowed_emails"
     email = db.Column(db.String(120), primary_key=True)
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
+
+class TvShow(db.Model):
+    __tablename__ = "tv_shows"
+    id = db.Column(db.BigInteger, primary_key=True)
+    tmdb_id = db.Column(db.Integer, unique=True, nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    poster_path = db.Column(db.String(255))
+    status = db.Column(db.String(50), default="Plan to Watch") # Watching, Completed, Plan to Watch, Dropped
+    watched_episodes = db.Column(db.JSON, default=dict) # e.g. {"1": [1, 2, 3]} mapping season string to array of episode numbers
+    added_on = db.Column(db.DateTime, default=datetime.utcnow)
+
+class TvDiaryLog(db.Model):
+    __tablename__ = "tv_diary_logs"
+    id = db.Column(db.BigInteger, primary_key=True)
+    tv_show_id = db.Column(db.BigInteger, db.ForeignKey("tv_shows.id"), nullable=False)
+    season_number = db.Column(db.Integer, nullable=True) # Null if logging the whole show
+    episode_number = db.Column(db.Integer, nullable=True) # Null if logging the whole show
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    rating = db.Column(db.Float, nullable=True) # 1-5 stars
+    review = db.Column(db.Text, nullable=True)
+    liked = db.Column(db.Boolean, default=False)
+    tags = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship to TvShow
+    tv_show = db.relationship('TvShow', backref=db.backref('diary_logs', lazy=True, cascade="all, delete-orphan"))
+
+class TvActivityLog(db.Model):
+    __tablename__ = "tv_activity_logs"
+    id = db.Column(db.BigInteger, primary_key=True)
+    tv_show_id = db.Column(db.BigInteger, db.ForeignKey("tv_shows.id"), nullable=False)
+    action = db.Column(db.String(255), nullable=False) # e.g. "Added to library", "Status changed to Completed"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    tv_show = db.relationship('TvShow', backref=db.backref('activity_logs', lazy=True, cascade="all, delete-orphan"))
+class Movie(db.Model):
+    __tablename__ = "movies"
+    id = db.Column(db.BigInteger, primary_key=True)
+    tmdb_id = db.Column(db.Integer, unique=True, nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    poster_path = db.Column(db.String(255))
+    status = db.Column(db.String(50), default="Plan to Watch") # Watched, Plan to Watch
+    added_on = db.Column(db.DateTime, default=datetime.utcnow)
+
+class MovieDiaryLog(db.Model):
+    __tablename__ = "movie_diary_logs"
+    id = db.Column(db.BigInteger, primary_key=True)
+    movie_id = db.Column(db.BigInteger, db.ForeignKey("movies.id"), nullable=False)
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    rating = db.Column(db.Float, nullable=True) # 1-5 stars
+    review = db.Column(db.Text, nullable=True)
+    liked = db.Column(db.Boolean, default=False)
+    tags = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship to Movie
+    movie = db.relationship('Movie', backref=db.backref('diary_logs', lazy=True, cascade="all, delete-orphan"))
 
 def get_transactions_for_sync():
     # Fetch only transactions where synced=False
@@ -1535,6 +1595,363 @@ def remove_allowed_email(email):
     if record:
         db.session.delete(record)
         db.session.commit()
+    return jsonify({"success": True})
+
+# ==========================================
+# 📺 TV TRACKER ENDPOINTS
+# ==========================================
+
+@app.route('/api/media/search', methods=['GET'])
+@require_api_key
+def search_media():
+    query = request.args.get('q', '')
+    if not query:
+        return jsonify({"success": False, "message": "Query required"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
+    
+    url = f"https://api.themoviedb.org/3/search/multi?query={query}&include_adult=false&language=en-US&page=1"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {TMDB_API_KEY}",
+        "User-Agent": "Mozilla/5.0",
+        "Connection": "close"
+    }
+    
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=requests.packages.urllib3.util.retry.Retry(total=3, backoff_factor=0.5))
+    session.mount('https://', adapter)
+    
+    try:
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return jsonify({"success": True, "data": response.json()})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/tv/details/<int:tmdb_id>', methods=['GET'])
+@require_api_key
+def get_tv_details(tmdb_id):
+    if not TMDB_API_KEY:
+        return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
+        
+    url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?append_to_response=aggregate_credits,videos&language=en-US"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {TMDB_API_KEY}",
+        "User-Agent": "Mozilla/5.0",
+        "Connection": "close"
+    }
+    
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=requests.packages.urllib3.util.retry.Retry(total=3, backoff_factor=0.5))
+    session.mount('https://', adapter)
+    
+    try:
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return jsonify({"success": True, "data": response.json()})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/tv/shows', methods=['GET'])
+@require_api_key
+def get_tv_shows():
+    shows = TvShow.query.order_by(TvShow.added_on.desc()).all()
+    result = []
+    for s in shows:
+        result.append({
+            "id": s.id,
+            "tmdb_id": s.tmdb_id,
+            "name": s.name,
+            "poster_path": s.poster_path,
+            "status": s.status,
+            "watched_episodes": s.watched_episodes,
+            "added_on": s.added_on.isoformat() if s.added_on else None
+        })
+    return jsonify({"success": True, "shows": result})
+
+@app.route('/api/tv/shows', methods=['POST'])
+@require_api_key
+def add_tv_show():
+    data = request.json
+    tmdb_id = data.get('tmdb_id')
+    name = data.get('name')
+    poster_path = data.get('poster_path')
+    status = data.get('status', 'Plan to Watch')
+    
+    if not tmdb_id or not name:
+        return jsonify({"success": False, "message": "tmdb_id and name are required"}), 400
+        
+    existing = TvShow.query.filter_by(tmdb_id=tmdb_id).first()
+    if existing:
+        return jsonify({"success": False, "message": "Show already tracked", "id": existing.id}), 400
+        
+    new_show = TvShow(
+        tmdb_id=tmdb_id,
+        name=name,
+        poster_path=poster_path,
+        status=status,
+        watched_episodes={}
+    )
+    db.session.add(new_show)
+    db.session.flush() # to get new_show.id
+    
+    activity = TvActivityLog(tv_show_id=new_show.id, action=f"Added to library as {status}")
+    db.session.add(activity)
+    
+    db.session.commit()
+    
+    return jsonify({"success": True, "message": "Show added", "id": new_show.id})
+
+@app.route('/api/tv/shows/<int:show_id>', methods=['PUT', 'DELETE'])
+@require_api_key
+def update_tv_show(show_id):
+    show = TvShow.query.get(show_id)
+    if not show:
+        return jsonify({"success": False, "message": "Show not found"}), 404
+        
+    if request.method == 'DELETE':
+        db.session.delete(show)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Show deleted"})
+        
+    # PUT
+    data = request.json
+    if 'status' in data and show.status != data['status']:
+        show.status = data['status']
+        activity = TvActivityLog(tv_show_id=show.id, action=f"Status changed to {data['status']}")
+        db.session.add(activity)
+        
+    if 'watched_episodes' in data:
+        show.watched_episodes = data['watched_episodes']
+        
+    db.session.commit()
+    return jsonify({"success": True, "message": "Show updated"})
+
+@app.route('/api/tv/diary', methods=['GET'])
+@require_api_key
+def get_tv_diary():
+    logs = TvDiaryLog.query.order_by(TvDiaryLog.date.desc(), TvDiaryLog.created_at.desc()).all()
+    result = []
+    for log in logs:
+        result.append({
+            "id": log.id,
+            "show_id": log.tv_show_id,
+            "show_name": log.tv_show.name if log.tv_show else "Unknown",
+            "poster_path": log.tv_show.poster_path if log.tv_show else None,
+            "season_number": log.season_number,
+            "episode_number": log.episode_number,
+            "date": log.date.isoformat(),
+            "rating": log.rating,
+            "review": log.review,
+            "liked": log.liked,
+            "tags": log.tags,
+            "created_at": log.created_at.isoformat()
+        })
+    return jsonify({"success": True, "logs": result})
+
+@app.route('/api/tv/diary', methods=['POST'])
+@require_api_key
+def add_tv_diary():
+    data = request.json
+    tv_show_id = data.get('tv_show_id')
+    
+    if not tv_show_id:
+        return jsonify({"success": False, "message": "tv_show_id is required"}), 400
+        
+    log_date_str = data.get('date')
+    log_date = datetime.strptime(log_date_str, "%Y-%m-%d").date() if log_date_str else date.today()
+        
+    new_log = TvDiaryLog(
+        tv_show_id=tv_show_id,
+        season_number=data.get('season_number'),
+        episode_number=data.get('episode_number'),
+        date=log_date,
+        rating=data.get('rating'),
+        review=data.get('review'),
+        liked=data.get('liked', False),
+        tags=data.get('tags')
+    )
+    
+    db.session.add(new_log)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
+
+@app.route('/api/tv/diary', methods=['PUT'])
+@require_api_key
+def update_tv_diary():
+    data = request.json
+    log_ids = data.get('log_ids', [])
+    if not log_ids:
+        return jsonify({"success": False, "message": "log_ids required"}), 400
+    
+    update_data = {}
+    if 'rating' in data: update_data['rating'] = data['rating'] or None
+    if 'review' in data: update_data['review'] = data['review'] or None
+    if 'liked' in data: update_data['liked'] = data['liked']
+    if 'tags' in data: update_data['tags'] = data['tags'] or None
+    
+    TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/tv/diary', methods=['DELETE'])
+@require_api_key
+def delete_tv_diary():
+    log_ids = request.json.get('log_ids', [])
+    if not log_ids:
+        return jsonify({"success": False, "message": "log_ids required"}), 400
+        
+    TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).delete(synchronize_session=False)
+    db.session.commit()
+    return jsonify({"success": True})
+
+# ==========================================
+# 🎬 MOVIE TRACKER ENDPOINTS
+# ==========================================
+
+@app.route('/api/movies/details/<int:tmdb_id>', methods=['GET'])
+@require_api_key
+def get_movie_details(tmdb_id):
+    if not TMDB_API_KEY:
+        return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
+        
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits,videos&language=en-US"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {TMDB_API_KEY}",
+        "User-Agent": "Mozilla/5.0",
+        "Connection": "close"
+    }
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=requests.packages.urllib3.util.retry.Retry(total=3, backoff_factor=0.5))
+    session.mount('https://', adapter)
+    try:
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if 'credits' in data:
+            data['aggregate_credits'] = data['credits']
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/movies', methods=['GET'])
+@require_api_key
+def get_movies():
+    movies = Movie.query.order_by(Movie.added_on.desc()).all()
+    result = []
+    for m in movies:
+        result.append({
+            "id": m.id,
+            "tmdb_id": m.tmdb_id,
+            "name": m.name,
+            "poster_path": m.poster_path,
+            "status": m.status,
+            "added_on": m.added_on.isoformat() if m.added_on else None
+        })
+    return jsonify({"success": True, "movies": result})
+
+@app.route('/api/movies', methods=['POST'])
+@require_api_key
+def add_movie():
+    data = request.json
+    tmdb_id = data.get('tmdb_id')
+    name = data.get('name')
+    poster_path = data.get('poster_path')
+    status = data.get('status', 'Plan to Watch')
+    if not tmdb_id or not name:
+        return jsonify({"success": False, "message": "tmdb_id and name are required"}), 400
+    existing = Movie.query.filter_by(tmdb_id=tmdb_id).first()
+    if existing:
+        return jsonify({"success": False, "message": "Movie already tracked", "id": existing.id}), 400
+    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status)
+    db.session.add(new_movie)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Movie added", "id": new_movie.id})
+
+@app.route('/api/movies/<int:movie_id>', methods=['PUT', 'DELETE'])
+@require_api_key
+def update_movie(movie_id):
+    movie = Movie.query.get(movie_id)
+    if not movie:
+        return jsonify({"success": False, "message": "Movie not found"}), 404
+    if request.method == 'DELETE':
+        db.session.delete(movie)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Movie deleted"})
+    data = request.json
+    if 'status' in data and movie.status != data['status']:
+        movie.status = data['status']
+    db.session.commit()
+    return jsonify({"success": True, "message": "Movie updated"})
+
+@app.route('/api/movies/diary', methods=['GET'])
+@require_api_key
+def get_movie_diary():
+    logs = MovieDiaryLog.query.order_by(MovieDiaryLog.date.desc(), MovieDiaryLog.created_at.desc()).all()
+    result = []
+    for log in logs:
+        result.append({
+            "id": log.id,
+            "show_id": log.movie_id,
+            "show_name": log.movie.name if log.movie else "Unknown",
+            "poster_path": log.movie.poster_path if log.movie else None,
+            "date": log.date.isoformat(),
+            "rating": log.rating,
+            "review": log.review,
+            "liked": log.liked,
+            "tags": log.tags,
+            "created_at": log.created_at.isoformat()
+        })
+    return jsonify({"success": True, "logs": result})
+
+@app.route('/api/movies/diary', methods=['POST'])
+@require_api_key
+def add_movie_diary():
+    data = request.json
+    movie_id = data.get('tv_show_id') # keeping tv_show_id property name for frontend compatibility
+    if not movie_id:
+        return jsonify({"success": False, "message": "movie_id is required"}), 400
+    log_date_str = data.get('date')
+    log_date = datetime.strptime(log_date_str, "%Y-%m-%d").date() if log_date_str else date.today()
+    new_log = MovieDiaryLog(
+        movie_id=movie_id,
+        date=log_date,
+        rating=data.get('rating'),
+        review=data.get('review'),
+        liked=data.get('liked', False),
+        tags=data.get('tags')
+    )
+    db.session.add(new_log)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
+
+@app.route('/api/movies/diary', methods=['PUT'])
+@require_api_key
+def update_movie_diary():
+    data = request.json
+    log_ids = data.get('log_ids', [])
+    if not log_ids:
+        return jsonify({"success": False, "message": "log_ids required"}), 400
+    update_data = {}
+    if 'rating' in data: update_data['rating'] = data['rating'] or None
+    if 'review' in data: update_data['review'] = data['review'] or None
+    if 'liked' in data: update_data['liked'] = data['liked']
+    if 'tags' in data: update_data['tags'] = data['tags'] or None
+    MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/movies/diary', methods=['DELETE'])
+@require_api_key
+def delete_movie_diary():
+    log_ids = request.json.get('log_ids', [])
+    if not log_ids:
+        return jsonify({"success": False, "message": "log_ids required"}), 400
+    MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).delete(synchronize_session=False)
+    db.session.commit()
     return jsonify({"success": True})
 
 if __name__ == '__main__':
