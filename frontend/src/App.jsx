@@ -6117,7 +6117,7 @@ export default function App() {
     return (
       <>
         {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
-        <div style={{ display: tab === 1 ? 'block' : 'none', height: '100%' }}>
+        <div style={{ display: tab === 1 ? 'contents' : 'none' }}>
           <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />
         </div>
         {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
