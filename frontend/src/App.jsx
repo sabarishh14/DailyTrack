@@ -660,7 +660,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 
       {isOpen && createPortal(
         <div
-          className="chip-dropdown"
+          className="chip-dropdown portaled"
           ref={dropdownRef}
           style={{ ...dropdownStyle }}
         >
@@ -1289,7 +1289,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         </button>
 
         {openDropdown === 'rowsPerPage' && createPortal(
-          <div className="chip-dropdown" style={{ ...dropdownStyle }}>
+          <div className="chip-dropdown portaled" style={{ ...dropdownStyle }}>
             {[10, 25, 50, 100].map(opt => (
               <div
                 key={opt}
@@ -1404,7 +1404,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
         </button>
 
         {openDropdown === dropdownKey && createPortal(
-          <div className="chip-dropdown" style={{ ...dropdownStyle, maxHeight: '350px' }}>
+          <div className="chip-dropdown portaled" style={{ ...dropdownStyle, maxHeight: '350px' }}>
 
             {/* 🚀 STICKY HEADER GROUP */}
             <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
@@ -3868,7 +3868,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
       </button>
 
       {isOpen && createPortal(
-        <div className="chip-dropdown" ref={dropdownRef} style={{ ...dropdownStyle, maxHeight: '300px' }}>
+        <div className="chip-dropdown portaled" ref={dropdownRef} style={{ ...dropdownStyle, maxHeight: '300px' }}>
 
           {/* 🚀 STICKY HEADER GROUP */}
           <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>

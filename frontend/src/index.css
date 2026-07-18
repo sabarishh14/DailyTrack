@@ -310,6 +310,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   z-index: 100;
   padding: 0.375rem;
 }
+
+.chip-dropdown.portaled {
+  position: fixed;
+  top: auto;
+  left: auto;
+}
 .chip-dropdown-item {
   display: flex; align-items: center; gap: 0.625rem;
   padding: 0.45rem 0.65rem; /* Shrunk padding to make the list compact */
