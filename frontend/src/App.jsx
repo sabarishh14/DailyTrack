@@ -6114,14 +6114,17 @@ export default function App() {
   const dateStr = today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const renderTab = () => {
-    switch (tab) {
-      case 0: return <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />;
-      case 1: return <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />;
-      case 2: return <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />;
-      case 3: return <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />;
-      case 4: return <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />;
-      default: return null;
-    }
+    return (
+      <>
+        {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
+        <div style={{ display: tab === 1 ? 'block' : 'none', height: '100%' }}>
+          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />
+        </div>
+        {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
+        {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}
+        {tab === 4 && <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />}
+      </>
+    );
   };
 
   const syncBalances = useCallback(async (data) => {
@@ -6357,7 +6360,7 @@ export default function App() {
 
           </div>
         </header>
-        <main className="page-body" key={tab}>
+        <main className="page-body">
           {renderTab()}
         </main>
       </div>
