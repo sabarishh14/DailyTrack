@@ -4007,6 +4007,8 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
   const [timeframe, setTimeframe] = useState('3M');
   const [chartMode, setChartMode] = useState('PERCENTAGE'); // 🚀 NEW: 'ABSOLUTE' or 'PERCENTAGE'
   const [selectedAssets, setSelectedAssets] = useState(new Set());
+  const segRef = useRef(null);
+  const segBtnRefs = useRef([]);
 
   // 🚀 OPTIMIZATION: IN-MEMORY CACHE
   const assetHistoryCache = useRef({});
@@ -4832,85 +4834,130 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
 
           {isAnalyserOpen && (
             <div className="analyser-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Chart Time/Mode Toggles */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', paddingBottom: '2px', flexWrap: 'wrap' }}>
-              {/* 🚀 NEW: Chart Mode Toggle */}
-              <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                {['ABSOLUTE', 'PERCENTAGE'].map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setChartMode(mode)}
-                    style={{
-                      background: chartMode === mode ? 'var(--card)' : 'transparent',
-                      color: chartMode === mode ? 'var(--text)' : 'var(--text3)',
-                      border: chartMode === mode ? '1px solid var(--border2)' : '1px solid transparent',
-                      padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: chartMode === mode ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                  >
-                    {mode === 'ABSOLUTE' ? '₹ Value' : '% Return'}
-                  </button>
-                ))}
+
+              {/* 🚀 REDESIGNED: Split Analyser Toolbar */}
+              <div className="analyser-toolbar">
+
+                {/* Left Side: What am I looking at? */}
+                <div className="toolbar-left-group">
+                  <div className="category-tabs">
+                    {[
+                      { id: 'ALL', label: 'Overall', icon: '🌐' },
+                      { id: 'EQUITY', label: 'Stocks', icon: '📈' },
+                      { id: 'MF', label: 'Mutual Funds', icon: '🏦' },
+                      { id: 'PROVIDENT', label: 'Retirement', icon: '🛡️' },
+                      { id: 'FIXED_INCOME', label: 'Fixed Income', icon: '💰' },
+                      { id: 'GOLD', label: 'Gold', icon: '🥇' }
+                    ].map(cat => (
+                      <button
+                        key={cat.id}
+                        className={`category-tab ${chartCategory === cat.id ? 'active' : ''}`}
+                        onClick={() => setChartCategory(cat.id)}
+                      >
+                        <span className="cat-icon">{cat.icon}</span>
+                        <span className="cat-label">{cat.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Asset Filter — inline with categories, only when category selected */}
+                  {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
+                    <div style={{ flex: '0 0 auto', width: '220px', animation: 'fadeIn 0.2s ease' }}>
+                      <MultiAssetSelect
+                        selectedAssets={selectedAssets}
+                        setSelectedAssets={setSelectedAssets}
+                        options={assetList[chartCategory]}
+                        placeholder="Filter Assets..."
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Side: How am I viewing it? */}
+                <div className="toolbar-right-group">
+                  {/* Segmented Control — Sliding Thumb */}
+                  <div className="segmented-control" ref={segRef}>
+                    <div
+                      className="segmented-control-thumb"
+                      style={(() => {
+                        const modes = ['ABSOLUTE', 'PERCENTAGE'];
+                        const activeIdx = modes.indexOf(chartMode);
+                        const btn = segBtnRefs.current[activeIdx];
+                        if (btn && segRef.current) {
+                          const parentRect = segRef.current.getBoundingClientRect();
+                          const btnRect = btn.getBoundingClientRect();
+                          return {
+                            left: `${btnRect.left - parentRect.left}px`,
+                            width: `${btnRect.width}px`
+                          };
+                        }
+                        return {
+                          left: activeIdx === 0 ? '3px' : '50%',
+                          width: '50%'
+                        };
+                      })()}
+                    />
+                    {[
+                      { id: 'ABSOLUTE', label: '₹ Value', icon: '₹' },
+                      { id: 'PERCENTAGE', label: '% Return', icon: '📊' }
+                    ].map((mode, i) => (
+                      <button
+                        key={mode.id}
+                        ref={el => segBtnRefs.current[i] = el}
+                        className={`seg-btn ${chartMode === mode.id ? 'active' : ''}`}
+                        onClick={() => setChartMode(mode.id)}
+                      >
+                        <span className="seg-icon">{mode.icon}</span>
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Timeframe Toggle */}
+                  <div className="timeframe-group">
+                    {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
+                      <button
+                        key={tf}
+                        className={`tf-btn ${timeframe === tf ? 'active' : ''}`}
+                        onClick={() => setTimeframe(tf)}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Selected chips — full width row below controls if assets are selected */}
+                {selectedAssets.size > 0 && (
+                  <div className="selected-chips" style={{ width: '100%', marginTop: '-0.25rem' }}>
+                    {Array.from(selectedAssets).slice(0, 8).map(sym => (
+                      <span key={sym} className="selected-chip">
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sym}</span>
+                        <button
+                          className="selected-chip-remove"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = new Set(selectedAssets);
+                            next.delete(sym);
+                            setSelectedAssets(next);
+                          }}
+                          title={`Remove ${sym}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {selectedAssets.size > 8 && (
+                      <span className="selected-chip" style={{ opacity: 0.7 }}>
+                        +{selectedAssets.size - 8} more
+                      </span>
+                    )}
+                  </div>
+                )}
+
               </div>
 
-              {/* Timeframe Toggle */}
-              <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--bg2)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                {['1M', '3M', '6M', '1Y', 'YTD', 'ALL'].map(tf => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    style={{
-                      background: timeframe === tf ? 'var(--card)' : 'transparent',
-                      color: timeframe === tf ? 'var(--text)' : 'var(--text3)',
-                      border: timeframe === tf ? '1px solid var(--border2)' : '1px solid transparent',
-                      padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', boxShadow: timeframe === tf ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                  >
-                    {tf}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            {/* Category Toggles & Multi-Asset Filter */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: '1 1 auto' }}>
-              {[
-                { id: 'ALL', label: 'Overall' },
-                { id: 'EQUITY', label: 'Stocks' },
-                { id: 'MF', label: 'Mutual Funds' },
-                { id: 'PROVIDENT', label: 'Retirement' },
-                { id: 'FIXED_INCOME', label: 'Fixed Income' },
-                { id: 'GOLD', label: 'Gold' }
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setChartCategory(cat.id)}
-                  style={{
-                    flexShrink: 0, padding: '0.45rem 1.25rem', borderRadius: '999px', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
-                    background: chartCategory === cat.id ? 'var(--accent)' : 'transparent',
-                    color: chartCategory === cat.id ? '#fff' : 'var(--text2)',
-                    border: chartCategory === cat.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    boxShadow: chartCategory === cat.id ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
-                  }}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 🚀 MULTI-ASSET CUSTOM SELECTOR */}
-            {chartCategory !== 'ALL' && assetList && assetList[chartCategory] && assetList[chartCategory].length > 0 && (
-              <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
-                <MultiAssetSelect
-                  selectedAssets={selectedAssets}
-                  setSelectedAssets={setSelectedAssets}
-                  options={assetList[chartCategory]}
-                  placeholder="All Assets"
-                />
-              </div>
-            )}
-          </div>
 
           {/* The Recharts Graph */}
           <div style={{ height: '350px', width: '100%', marginTop: '0.5rem' }}>
