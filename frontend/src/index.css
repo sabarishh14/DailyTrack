@@ -2072,13 +2072,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     grid-row: 2;
     font-size: 0.8rem;
     color: var(--text2);
-    text-align: right;
-    justify-content: flex-end;
-    display: block;
+    justify-content: flex-end !important;
+    display: flex !important;
     max-width: 140px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    gap: 6px;
   }
 
   .tx-row>span:nth-child(9) {
@@ -2311,7 +2308,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .tx-row>span:nth-child(8) {
     max-width: 130px;
-    display: block !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 6px;
   }
 
   /* ── Filter Grid ── */
@@ -5154,4 +5153,39 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .tv-ep-grid {
     grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
   }
+}
+
+/* ─── STARTUP LOG TERMINAL ─── */
+.loading-logs-terminal {
+  width: 90%;
+  max-width: 450px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  text-align: left;
+  animation: slideUpFadeCenter 0.4s ease;
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 120px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text2);
+  scroll-behavior: smooth;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+.terminal-line {
+  margin-bottom: 6px;
+  word-break: break-word;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes slideUpFadeCenter {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }

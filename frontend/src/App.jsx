@@ -97,16 +97,22 @@ function formatDate(dateStr) {
   return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
 }
 
-function LoadingScreen() {
+function LoadingScreen({ logs = [] }) {
   const [showWakeMsg, setShowWakeMsg] = useState(false);
+  const logsEndRef = useRef(null);
+
   useEffect(() => {
     // Show wake up message if loading takes more than 3 seconds
     const timer = setTimeout(() => setShowWakeMsg(true), 3000);
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '1.5rem' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '1.5rem', padding: '1rem' }}>
       <span className="logo-name" style={{ fontSize: '2rem' }}>DailyTrack</span>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         {[0, 1, 2].map(i => (
@@ -119,9 +125,17 @@ function LoadingScreen() {
         ))}
       </div>
       {showWakeMsg && (
-        <div style={{ color: 'var(--text2)', fontSize: '0.9rem', marginTop: '1rem', animation: 'fadeIn 0.5s ease', textAlign: 'center' }}>
-          Waking up the server...<br />
-          <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>(This can take up to 1-2 minutes on free tiers)</span>
+        <div style={{ color: 'var(--text2)', fontSize: '0.9rem', marginTop: '1rem', animation: 'fadeIn 0.5s ease', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '600px' }}>
+          <div>
+            Waking up the server...<br />
+            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>(This can take up to 1-2 minutes on free tiers)</span>
+          </div>
+
+          {logs.length > 0 && (
+            <div style={{ fontSize: '0.65rem', color: 'var(--text3)', opacity: 0.5, fontFamily: 'monospace', animation: 'fadeIn 0.3s ease', marginTop: '0.5rem' }}>
+              {logs[logs.length - 1]}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -6172,6 +6186,7 @@ const MemoizedWatchTrack = memo(WatchTrack);
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
   const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token')); const [tab, setTab] = useState(0);
+  const [loadingLogs, setLoadingLogs] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -6355,35 +6370,55 @@ export default function App() {
     }
   }, [allTransactionsLoaded, logout]);
 
-  const fetchAll = useCallback(async (showLoading = false) => {
+  const fetchAll = useCallback(async (showLoading = false, attempt = 1) => {
     if (showLoading) setAppLoading(true);
+    
+    const addLog = (msg) => {
+      setLoadingLogs(prev => {
+        const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return [...prev, `[${time}] ${msg}`];
+      });
+    };
+
     try {
+      if (showLoading) {
+        setLoadingLogs([]); // reset
+        addLog("Initializing startup sequence...");
+      }
+      
       // Trigger Lazy Cron before fetching data so UI gets the updated values
       if (getToken()) {
+        if (showLoading) addLog("Authenticating & verifying background tasks...");
         await fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(() => console.log("Cron passed"));
       }
 
       // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
-      const fetchWithCheck = async (url) => {
+      const fetchWithCheck = async (url, name) => {
+        if (showLoading) addLog(`Fetching ${name}...`);
         const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
         if (r.status === 401) {
           logout();
           throw new Error("UNAUTHORIZED");
         }
         if (!r.ok) throw new Error(`Server waking up: ${r.status}`);
+        if (showLoading) addLog(`${name} loaded OK.`);
         return r.json();
       };
 
+      if (showLoading) addLog("Connecting to LifeTrack database...");
+      
       // Fire ALL 6 requests in parallel
       const [acc, phy, inv, manAssets, txRes, listRes, catRes] = await Promise.all([
-        fetchWithCheck(`${API}/accounts`),
-        fetchWithCheck(`${API}/physical`),
-        fetchWithCheck(`${API}/investments`),
-        fetchWithCheck(`${API}/manual_assets`),
-        fetchWithCheck(`${API}/transactions?limit=100&offset=0`),
-        fetchWithCheck(`${API}/assets/list`), // 🚀 FETCH SYMBOLS
-        fetchWithCheck(`${API}/transactions/categories`)
+        fetchWithCheck(`${API}/accounts`, 'Accounts'),
+        fetchWithCheck(`${API}/physical`, 'Health & Fitness'),
+        fetchWithCheck(`${API}/investments`, 'Investments'),
+        fetchWithCheck(`${API}/manual_assets`, 'Manual Assets'),
+        fetchWithCheck(`${API}/transactions?limit=100&offset=0`, 'Transactions (Batch 1)'),
+        fetchWithCheck(`${API}/assets/list`, 'Market Symbols'),
+        fetchWithCheck(`${API}/transactions/categories`, 'Categories')
       ]);
+
+      if (showLoading) addLog("Data parsed successfully. Finalizing UI...");
 
       setAccounts(acc);
       setTransactions(txRes.transactions);
@@ -6400,9 +6435,18 @@ export default function App() {
         setAppLoading(false);
         return;
       }
+      if (showLoading) {
+        addLog(`Server unavailable (${e.message.split(':')[0] || 'timeout'}). Retrying in 3s... (Attempt ${attempt}/5)`);
+      }
       console.warn("Server is asleep or database is booting. Retrying in 3 seconds...", e.message);
+      
+      if (attempt >= 5) {
+        if (showLoading) addLog("Max connection attempts reached. Backend is unreachable. Please try again later.");
+        return;
+      }
+      
       // The loading screen stays up, and we try again automatically!
-      setTimeout(() => fetchAll(showLoading), 3000);
+      setTimeout(() => fetchAll(showLoading, attempt + 1), 3000);
     }
   }, [logout]);
 
@@ -6452,7 +6496,7 @@ export default function App() {
 
 
   if (!isLoggedIn) return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
-  if (appLoading) return <LoadingScreen />;
+  if (appLoading) return <LoadingScreen logs={loadingLogs} />;
 
   return (
     <div className="app">
