@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import WatchTrack from './WatchTrack';
+import SabDekho from './SabDekho';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -63,10 +63,10 @@ const TABS = [
   { id: 2, icon: "➕", label: "Add Transaction", add: true },
   { id: 3, icon: "🏋️", label: "Gym & Activity" },
   { id: 4, icon: "📈", label: "Investments" },
-  { id: 5, icon: "🍿", label: "WatchTrack" },
+  { id: 5, icon: "📺", label: "SabDekho" },
 ];
 
-const TAB_TITLES = ["Dashboard", "Money", "Add Transaction", "Gym & Activity", "Investments", "WatchTrack"];
+const TAB_TITLES = ["Dashboard", "Money", "Add Transaction", "Gym & Activity", "Investments", "SabDekho"];
 
 function fmt(n) {
   if (n === undefined || n === null || isNaN(n)) return "₹0";
@@ -6180,7 +6180,7 @@ const MemoizedMoneyTab = memo(MoneyTab);
 const MemoizedAddTab = memo(AddTab);
 const MemoizedGymTab = memo(GymTab);
 const MemoizedInvestTab = memo(InvestTab);
-const MemoizedWatchTrack = memo(WatchTrack);
+const MemoizedSabDekho = memo(SabDekho);
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
@@ -6251,6 +6251,72 @@ export default function App() {
   // --- Theme & Accent Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [accent, setAccent] = useState(localStorage.getItem('dt_accent') || 'indigo');
+  
+  // --- SabDekho Settings ---
+  const [showMovies, setShowMovies] = useState(localStorage.getItem('dt_show_movies') === 'true');
+  const [lbxUsername, setLbxUsername] = useState(localStorage.getItem('dt_lbx_username') || 'sabarishh14');
+  const [lbxSyncing, setLbxSyncing] = useState(false);
+  const [lbxSyncStatus, setLbxSyncStatus] = useState('');
+  const [sabDekhoRefresh, setSabDekhoRefresh] = useState(0);
+
+  const toggleShowMovies = () => {
+    const val = !showMovies;
+    setShowMovies(val);
+    localStorage.setItem('dt_show_movies', val);
+  };
+
+  const syncLetterboxd = async () => {
+    if (!lbxUsername) return alert("Please enter Letterboxd username");
+    setLbxSyncing(true);
+    setLbxSyncStatus('Syncing...');
+    localStorage.setItem('dt_lbx_username', lbxUsername);
+    try {
+      const response = await fetch(`${API}/movies/sync/rss`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({ username: lbxUsername })
+      });
+      
+      if (!response.body) throw new Error("No response body");
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let finalData = null;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.status === 'complete') {
+              finalData = data;
+            } else if (data.status) {
+              setLbxSyncStatus(data.status);
+            } else if (data.message) {
+              setLbxSyncStatus(`Error: ${data.message}`);
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (finalData && finalData.success) {
+        setLbxSyncStatus(`Synced! Added ${finalData.added_movies} movies, ${finalData.added_logs} logs.`);
+        setSabDekhoRefresh(prev => prev + 1); // Trigger SabDekho refresh
+      } else if (finalData && !finalData.success) {
+        setLbxSyncStatus(`Error: ${finalData.message}`);
+      }
+    } catch (e) {
+      setLbxSyncStatus(`Sync failed: ${e.message}`);
+    }
+    setLbxSyncing(false);
+  };
 
   const ACCENT_PALETTES = [
     { id: 'indigo', color: '#6366f1', label: 'Indigo' },
@@ -6472,7 +6538,7 @@ export default function App() {
         {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
         {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}
         {tab === 4 && <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />}
-        {tab === 5 && <MemoizedWatchTrack API={API} getToken={getToken} />}
+        {tab === 5 && <MemoizedSabDekho API={API} getToken={getToken} showMovies={showMovies} refreshTrigger={sabDekhoRefresh} />}
       </>
     );
   };
@@ -6687,6 +6753,38 @@ export default function App() {
                         />
                       ))}
                     </div>
+                  </div>
+
+                  {/* SabDekho Settings */}
+                  <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                    <div className="menu-section-title">SabDekho Settings</div>
+                    
+                    <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Show Movies</span>
+                      <div className={`toggle-switch ${showMovies ? 'active' : ''}`}>
+                        <div className="toggle-knob" />
+                      </div>
+                    </div>
+
+                    {showMovies && (
+                      <div className="lbx-sync-container">
+                        <input 
+                          type="text" 
+                          className="lbx-input"
+                          value={lbxUsername} 
+                          onChange={e => setLbxUsername(e.target.value)} 
+                          placeholder="Letterboxd Username"
+                        />
+                        <button className="lbx-btn" onClick={syncLetterboxd} disabled={lbxSyncing}>
+                          {lbxSyncing ? 'Syncing...' : 'Sync RSS'}
+                        </button>
+                        {lbxSyncStatus && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '4px', textAlign: 'center' }}>
+                            {lbxSyncStatus}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Logout */}

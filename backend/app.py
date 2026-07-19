@@ -20,6 +20,7 @@ from firebase_admin import credentials, auth as firebase_auth
 from pyxirr import xirr
 import socket
 from urllib.parse import urlparse
+import xml.etree.ElementTree as ET
 
 # Load environment variables from .env.local file (or .env as fallback)
 load_dotenv('.env.local')
@@ -2119,5 +2120,172 @@ def delete_movie_diary():
     db.session.commit()
     return jsonify({"success": True})
 
+from flask import stream_with_context, Response
+
+@app.route('/api/movies/sync/rss', methods=['POST'])
+@require_api_key
+def sync_letterboxd_rss():
+    data = request.json
+    username = data.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "Username required"}), 400
+    if not TMDB_API_KEY:
+        return jsonify({"success": False, "message": "TMDB API Key missing on server"}), 500
+
+    @stream_with_context
+    def generate():
+        import json
+        yield json.dumps({"status": "Fetching RSS feed..."}) + "\n"
+        
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Connection': 'close'}
+            r = requests.get(f'https://letterboxd.com/{username}/rss/', headers=headers, timeout=10)
+            if r.status_code != 200:
+                yield json.dumps({"success": False, "message": f"Failed to fetch RSS: {r.status_code}"}) + "\n"
+                return
+            
+            root = ET.fromstring(r.content)
+            items = root.findall('.//item')
+            
+            yield json.dumps({"status": f"Found {len(items)} logs. Processing..."}) + "\n"
+            
+            added_movies = 0
+            added_logs = 0
+    
+            # Namespaces in Letterboxd RSS
+            ns = {'letterboxd': 'https://letterboxd.com'}
+        
+            tmdb_session = requests.Session()
+            tmdb_session.headers.update({
+                "accept": "application/json",
+                "Authorization": f"Bearer {TMDB_API_KEY}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            })
+
+            for i, item in enumerate(items):
+                title = item.find('letterboxd:filmTitle', ns)
+                year = item.find('letterboxd:filmYear', ns)
+                if title is None:
+                    continue
+                
+                film_title = title.text
+                film_year = year.text if year is not None else ""
+            
+                if i % 5 == 0:
+                    yield json.dumps({"status": f"Processing {i+1}/{len(items)}: {film_title}..."}) + "\n"
+            
+                watched_date_node = item.find('letterboxd:watchedDate', ns)
+                watched_date_str = watched_date_node.text if watched_date_node is not None else ""
+                if not watched_date_str:
+                    pub_date = item.find('pubDate')
+                    if pub_date is not None:
+                        # Very simple fallback for pubdate string parsing
+                        watched_date_str = datetime.strptime(pub_date.text[5:16], "%d %b %Y").strftime("%Y-%m-%d")
+                    else:
+                        watched_date_str = date.today().strftime("%Y-%m-%d")
+                    
+                rating_node = item.find('letterboxd:memberRating', ns)
+                rating = float(rating_node.text) if rating_node is not None else 0
+            
+                rewatch_node = item.find('letterboxd:rewatch', ns)
+                rewatch = True if rewatch_node is not None and rewatch_node.text == 'Yes' else False
+            
+                liked_node = item.find('letterboxd:memberLike', ns)
+                liked = True if liked_node is not None and liked_node.text == 'Yes' else False
+
+                import re
+                description_node = item.find('description')
+                review_text = ""
+                if description_node is not None and description_node.text:
+                    review_html = description_node.text
+                    review_text = re.sub(r'<[^>]+>', '', review_html).strip()
+
+                # Check if this movie exists in our local DB by name (basic check first)
+                movie = Movie.query.filter_by(name=film_title).first()
+                if not movie:
+                    # Query TMDB
+                    import time
+                    time.sleep(0.1) # Small delay
+                
+                    search_url = f"https://api.themoviedb.org/3/search/movie?query={requests.utils.quote(film_title)}"
+                    if film_year:
+                        search_url += f"&year={film_year}"
+                
+                    try:
+                        for attempt in range(3):
+                            try:
+                                tmdb_r = tmdb_session.get(search_url, timeout=10).json()
+                                break
+                            except requests.exceptions.ConnectionError:
+                                if attempt == 2:
+                                    print(f"Skipping {film_title} due to ConnectionError after 3 attempts")
+                                    tmdb_r = None
+                                else:
+                                    time.sleep(1) # wait longer before retry
+                    except Exception as e:
+                        print(f"Error fetching {film_title}: {e}")
+                        continue
+                    
+                    if tmdb_r and tmdb_r.get('results'):
+                        first_result = tmdb_r['results'][0]
+                        movie = Movie(
+                            tmdb_id=first_result['id'],
+                            name=film_title,
+                            poster_path=first_result.get('poster_path'),
+                            status='WATCHED'
+                        )
+                        db.session.add(movie)
+                        db.session.flush() # Get ID
+                        added_movies += 1
+                    else:
+                        continue # Couldn't find in TMDB
+            
+                # Ensure movie status is WATCHED if we are importing a log
+                if movie.status != 'WATCHED':
+                    movie.status = 'WATCHED'
+                    db.session.commit()
+                
+                # Create or update diary log
+                log_date = datetime.strptime(watched_date_str, "%Y-%m-%d").date()
+                existing_log = MovieDiaryLog.query.filter_by(movie_id=movie.id, date=log_date).first()
+                if not existing_log:
+                    log = MovieDiaryLog(
+                        movie_id=movie.id,
+                        date=log_date,
+                        rating=rating,
+                        rewatch=rewatch,
+                        liked=liked,
+                        review=review_text
+                    )
+                    db.session.add(log)
+                    added_logs += 1
+                else:
+                    # If log exists but review is empty and we have a review now, update it
+                    updated = False
+                    if review_text and not existing_log.review:
+                        existing_log.review = review_text
+                        updated = True
+                    if rating and not existing_log.rating:
+                        existing_log.rating = rating
+                        updated = True
+                    if liked and not existing_log.liked:
+                        existing_log.liked = True
+                        updated = True
+                
+                    if updated:
+                        added_logs += 1 # Count as a modified log for user feedback
+
+            db.session.commit()
+            yield json.dumps({"status": "complete", "success": True, "added_movies": added_movies, "added_logs": added_logs}) + "\n"
+
+    
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print("RSS SYNC ERROR", repr(e))
+            yield json.dumps({"success": False, "message": str(e)}) + "\n"
+
+    return Response(generate(), mimetype='application/x-ndjson')
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

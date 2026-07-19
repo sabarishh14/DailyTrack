@@ -3045,6 +3045,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   padding-top: 0.25rem;
 }
 
+/* Toggle Switch */
+.toggle-container { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-switch { position: relative; width: 36px; height: 20px; background-color: var(--bg3); border-radius: 20px; transition: 0.3s; }
+.toggle-switch.active { background-color: var(--accent); }
+.toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background-color: #fff; border-radius: 50%; transition: 0.3s; }
+.toggle-switch.active .toggle-knob { left: calc(100% - 18px); }
+
+.lbx-sync-container { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.lbx-input { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; width: 100%; box-sizing: border-box; font-family: inherit; font-size: 0.85rem; }
+.lbx-input:focus { border-color: var(--accent); outline: none; }
+.lbx-btn { background: var(--accent); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; width: 100%; transition: 0.2s; }
+.lbx-btn:hover:not(:disabled) { opacity: 0.9; }
+.lbx-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
 /* Fix autocomplete active color to follow accent */
 .custom-dropdown-item:hover,
 .custom-dropdown-item.active-item {
@@ -3989,13 +4003,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ── DIARY VIEW ── */
 .tv-diary-view {
-  max-width: 680px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tv-diary-entries-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1rem;
 }
 
 .tv-diary-group {
-  margin-bottom: 1.5rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
   position: relative;
   padding-left: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
 .tv-diary-group::before {
@@ -4074,6 +4097,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-right: 80px; /* Space for action buttons */
 }
 
 .tv-diary-entry-title {
@@ -4483,6 +4507,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .tv-log-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tv-diary-entries-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
   }
 
   .tv-diary-entry {
@@ -4939,9 +4968,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .tv-diary-entry-actions {
   position: absolute;
-  top: 50%;
+  top: 1rem;
   right: 1rem;
-  transform: translateY(-50%);
   display: flex;
   gap: 0.5rem;
   opacity: 1; /* Always visible */
