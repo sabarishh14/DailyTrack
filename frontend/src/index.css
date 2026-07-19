@@ -3941,12 +3941,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #fff;
 }
 
-.tv-status-chip.completed {
+.tv-status-chip.watched {
   background: rgba(16, 185, 129, 0.85);
   color: #fff;
 }
 
-.tv-status-chip.plan-to-watch {
+.tv-status-chip.to-watch {
   background: rgba(245, 158, 11, 0.85);
   color: #fff;
 }
@@ -4668,6 +4668,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: rgba(var(--accent-rgb), 0.2);
   border-color: rgba(var(--accent-rgb), 0.6);
   color: var(--accent-text);
+}
+
+.tv-ep-btn.watched {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.tv-ep-btn.watched.selected {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.8);
+  color: #10b981;
 }
 
 .tv-ep-select-all {

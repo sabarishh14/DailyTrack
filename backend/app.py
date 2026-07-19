@@ -298,7 +298,7 @@ class TvShow(db.Model):
     tmdb_id = db.Column(db.Integer, unique=True, nullable=False)
     name = db.Column(db.String(255), nullable=False)
     poster_path = db.Column(db.String(255))
-    status = db.Column(db.String(50), default="Plan to Watch") # Watching, Completed, Plan to Watch, Dropped
+    status = db.Column(db.String(50), default="TO WATCH") # WATCHING, WATCHED, TO WATCH, DROPPED
     watched_episodes = db.Column(db.JSON, default=dict) # e.g. {"1": [1, 2, 3]} mapping season string to array of episode numbers
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -312,6 +312,7 @@ class TvDiaryLog(db.Model):
     rating = db.Column(db.Float, nullable=True) # 1-5 stars
     review = db.Column(db.Text, nullable=True)
     liked = db.Column(db.Boolean, default=False)
+    rewatch = db.Column(db.Boolean, default=False)
     tags = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -322,7 +323,7 @@ class TvActivityLog(db.Model):
     __tablename__ = "tv_activity_logs"
     id = db.Column(db.BigInteger, primary_key=True)
     tv_show_id = db.Column(db.BigInteger, db.ForeignKey("tv_shows.id"), nullable=False)
-    action = db.Column(db.String(255), nullable=False) # e.g. "Added to library", "Status changed to Completed"
+    action = db.Column(db.String(255), nullable=False) # e.g. "Added to library", "Status changed to WATCHED"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     tv_show = db.relationship('TvShow', backref=db.backref('activity_logs', lazy=True, cascade="all, delete-orphan"))
@@ -332,7 +333,7 @@ class Movie(db.Model):
     tmdb_id = db.Column(db.Integer, unique=True, nullable=False)
     name = db.Column(db.String(255), nullable=False)
     poster_path = db.Column(db.String(255))
-    status = db.Column(db.String(50), default="Plan to Watch") # Watched, Plan to Watch
+    status = db.Column(db.String(50), default="TO WATCH") # WATCHED, TO WATCH
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 
 class MovieDiaryLog(db.Model):
@@ -343,6 +344,7 @@ class MovieDiaryLog(db.Model):
     rating = db.Column(db.Float, nullable=True) # 1-5 stars
     review = db.Column(db.Text, nullable=True)
     liked = db.Column(db.Boolean, default=False)
+    rewatch = db.Column(db.Boolean, default=False)
     tags = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -1834,7 +1836,7 @@ def add_tv_show():
     tmdb_id = data.get('tmdb_id')
     name = data.get('name')
     poster_path = data.get('poster_path')
-    status = data.get('status', 'Plan to Watch')
+    status = data.get('status', 'TO WATCH')
     
     if not tmdb_id or not name:
         return jsonify({"success": False, "message": "tmdb_id and name are required"}), 400
@@ -1902,6 +1904,7 @@ def get_tv_diary():
             "rating": log.rating,
             "review": log.review,
             "liked": log.liked,
+            "rewatch": log.rewatch,
             "tags": log.tags,
             "created_at": log.created_at.isoformat()
         })
@@ -1927,6 +1930,7 @@ def add_tv_diary():
         rating=data.get('rating'),
         review=data.get('review'),
         liked=data.get('liked', False),
+        rewatch=data.get('rewatch', False),
         tags=data.get('tags')
     )
     
@@ -1946,6 +1950,7 @@ def update_tv_diary():
     if 'rating' in data: update_data['rating'] = data['rating'] or None
     if 'review' in data: update_data['review'] = data['review'] or None
     if 'liked' in data: update_data['liked'] = data['liked']
+    if 'rewatch' in data: update_data['rewatch'] = data['rewatch']
     if 'tags' in data: update_data['tags'] = data['tags'] or None
     
     TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
@@ -2016,7 +2021,7 @@ def add_movie():
     tmdb_id = data.get('tmdb_id')
     name = data.get('name')
     poster_path = data.get('poster_path')
-    status = data.get('status', 'Plan to Watch')
+    status = data.get('status', 'TO WATCH')
     if not tmdb_id or not name:
         return jsonify({"success": False, "message": "tmdb_id and name are required"}), 400
     existing = Movie.query.filter_by(tmdb_id=tmdb_id).first()
@@ -2059,6 +2064,7 @@ def get_movie_diary():
             "rating": log.rating,
             "review": log.review,
             "liked": log.liked,
+            "rewatch": log.rewatch,
             "tags": log.tags,
             "created_at": log.created_at.isoformat()
         })
@@ -2068,7 +2074,7 @@ def get_movie_diary():
 @require_api_key
 def add_movie_diary():
     data = request.json
-    movie_id = data.get('tv_show_id') # keeping tv_show_id property name for frontend compatibility
+    movie_id = data.get('movie_id') or data.get('tv_show_id') # keeping tv_show_id property name for frontend compatibility
     if not movie_id:
         return jsonify({"success": False, "message": "movie_id is required"}), 400
     log_date_str = data.get('date')
@@ -2079,6 +2085,7 @@ def add_movie_diary():
         rating=data.get('rating'),
         review=data.get('review'),
         liked=data.get('liked', False),
+        rewatch=data.get('rewatch', False),
         tags=data.get('tags')
     )
     db.session.add(new_log)
@@ -2096,6 +2103,7 @@ def update_movie_diary():
     if 'rating' in data: update_data['rating'] = data['rating'] or None
     if 'review' in data: update_data['review'] = data['review'] or None
     if 'liked' in data: update_data['liked'] = data['liked']
+    if 'rewatch' in data: update_data['rewatch'] = data['rewatch']
     if 'tags' in data: update_data['tags'] = data['tags'] or None
     MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
     db.session.commit()

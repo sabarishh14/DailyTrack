@@ -102,13 +102,14 @@ export default function WatchTrack({ API, getToken }) {
   const [logReview, setLogReview] = useState('');
   const [logTags, setLogTags] = useState('');
   const [logLiked, setLogLiked] = useState(false);
+  const [logRewatch, setLogRewatch] = useState(false);
   const [logSaving, setLogSaving] = useState(false);
   const [modalView, setModalView] = useState('log'); // log | details
   const [editingLogIds, setEditingLogIds] = useState(null);
 
   // Filter
   const [mediaType, setMediaType] = useState('all'); // 'movies', 'all', 'tv'
-  const [statusFilter, setStatusFilter] = useState('Watching');
+  const [statusFilter, setStatusFilter] = useState('WATCHING');
 
   // Calendar
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -168,6 +169,7 @@ export default function WatchTrack({ API, getToken }) {
           let results = d.data.results || [];
           results = results.filter(r => r.media_type === 'tv' || r.media_type === 'movie');
           setSearchResults(results);
+          setShowDropdown(true);
         }
       } catch (e) { console.error(e); }
       setSearchLoading(false);
@@ -187,10 +189,10 @@ export default function WatchTrack({ API, getToken }) {
     try {
       const endpoint = tmdbShow.media_type === 'movie' ? '/movies' : '/tv/shows';
       const name = tmdbShow.title || tmdbShow.name;
-      const status = tmdbShow.media_type === 'movie' ? 'Plan to Watch' : 'Watching';
-      const r = await fetch(`${API}${endpoint}`, { 
-        method: 'POST', headers: hdrs(), 
-        body: JSON.stringify({ tmdb_id: tmdbShow.id, name: name, poster_path: tmdbShow.poster_path, status: status }) 
+      const status = tmdbShow.media_type === 'movie' ? 'TO WATCH' : 'WATCHING';
+      const r = await fetch(`${API}${endpoint}`, {
+        method: 'POST', headers: hdrs(),
+        body: JSON.stringify({ tmdb_id: tmdbShow.id, name: name, poster_path: tmdbShow.poster_path, status: status })
       });
       const d = await r.json();
       if (d.success) fetchShows();
@@ -201,6 +203,13 @@ export default function WatchTrack({ API, getToken }) {
     setSelectedShow(show); setShowDetails(null); setShowDetailsLoading(true);
     setLogDate(new Date().toISOString().split('T')[0]);
     setLogSeason(''); setLogEpisodes([]); setLogRating(0); setLogReview(''); setLogTags(''); setLogLiked(false);
+    
+    if (show.type === 'movie') {
+        const hasLogged = diaryLogs.some(l => l.show_id === show.id && l.type === 'movie');
+        setLogRewatch(hasLogged);
+    } else {
+        setLogRewatch(false);
+    }
     setModalView('log');
     try {
       const endpoint = show.type === 'movie' ? `/movies/details/${show.tmdb_id}` : `/tv/details/${show.tmdb_id}`;
@@ -223,21 +232,21 @@ export default function WatchTrack({ API, getToken }) {
   const closeModal = () => setSelectedShow(null);
 
   const exportToLetterboxd = () => {
-    const movies = diaryLogs.filter(log => log.tmdb_id);
+    const movies = diaryLogs.filter(log => log.type === 'movie' && log.tmdb_id);
     if (movies.length === 0) return alert('No movies found in diary to export!');
-    
+
     let csvContent = "data:text/csv;charset=utf-8,tmdbID,Rating,WatchedDate,Rewatch,Tags,Review\n";
-    
+
     movies.forEach(log => {
       const tmdbId = log.tmdb_id || '';
-      const rating = log.rating ? log.rating : ''; 
+      const rating = log.rating ? log.rating : '';
       const date = log.date || '';
-      const rewatch = 'No';
+      const rewatch = log.rewatch ? 'Yes' : 'No';
       const tags = `"${(log.tags || '').replace(/"/g, '""')}"`;
       const review = `"${(log.review || '').replace(/"/g, '""')}"`;
       csvContent += `${tmdbId},${rating},${date},${rewatch},${tags},${review}\n`;
     });
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -248,8 +257,29 @@ export default function WatchTrack({ API, getToken }) {
     window.open("https://letterboxd.com/import/", "_blank");
   };
 
-  const updateStatus = async (status) => {
+  const canMarkAsWatched = () => {
+    if (selectedShow.type === 'movie') return true;
+    if (!showDetails) return false;
+    const showLogs = diaryLogs.filter(l => l.show_id === selectedShow.id && l.type === 'tv');
+    if (showLogs.some(l => !l.season_number && !l.episode_number)) return true;
+    let watchedCount = 0;
+    const loggedSeasons = new Set(showLogs.filter(l => l.season_number && !l.episode_number).map(l => l.season_number));
+    if (showDetails.seasons) {
+      showDetails.seasons.forEach(s => {
+        if (loggedSeasons.has(s.season_number)) watchedCount += s.episode_count;
+      });
+    }
+    const loggedEps = new Set(showLogs.filter(l => l.season_number && l.episode_number).map(l => `${l.season_number}-${l.episode_number}`));
+    watchedCount += loggedEps.size;
+    return watchedCount >= showDetails.number_of_episodes;
+  };
+
+  const updateStatus = async (status, force = false) => {
     if (!selectedShow) return;
+    if (!force && status === 'WATCHED' && selectedShow.type === 'tv' && !canMarkAsWatched()) {
+      alert("You can only mark this show as WATCHED if you have logged all episodes or an entire season.");
+      return;
+    }
     setSelectedShow(prev => ({ ...prev, status }));
     setShows(prev => prev.map(s => (s.id === selectedShow.id && s.type === selectedShow.type) ? { ...s, status } : s));
     try {
@@ -269,19 +299,29 @@ export default function WatchTrack({ API, getToken }) {
 
   const saveDiaryLog = async () => {
     if (!selectedShow) return;
-    if (selectedShow.type === 'tv' && !editingLogIds && logSeason && logEpisodes.length === 0) {
+    if (selectedShow.type === 'tv' && logSeason && logEpisodes.length === 0) {
       alert("Please select at least one episode to log.");
       return;
     }
     setLogSaving(true);
     try {
       const endpoint = selectedShow.type === 'movie' ? '/movies/diary' : '/tv/diary';
+      
       if (editingLogIds) {
-        await fetch(`${API}${endpoint}`, {
-          method: 'PUT', headers: hdrs(),
-          body: JSON.stringify({ log_ids: editingLogIds, rating: logRating || null, review: logReview || null, liked: logLiked, tags: logTags.trim() || null })
-        });
-      } else {
+        if (selectedShow.type === 'tv') {
+          // For TV shows, editing might involve changing seasons or episode counts (e.g., 3 logs to 1 "Entire Show" log)
+          // It's safest to delete the old logs and recreate them
+          await fetch(`${API}${endpoint}`, { method: 'DELETE', headers: hdrs(), body: JSON.stringify({ log_ids: editingLogIds }) });
+        } else {
+          // Movies are always 1:1, a PUT is perfectly fine
+          await fetch(`${API}${endpoint}`, {
+            method: 'PUT', headers: hdrs(),
+            body: JSON.stringify({ log_ids: editingLogIds, rating: logRating || null, review: logReview || null, liked: logLiked, rewatch: logRewatch, tags: logTags.trim() || null })
+          });
+        }
+      }
+
+      if (!editingLogIds || selectedShow.type === 'tv') {
         if (selectedShow.type === 'tv') {
           const episodes = logSeason && logEpisodes.length > 0 ? logEpisodes : [null];
           for (const ep of episodes) {
@@ -291,23 +331,50 @@ export default function WatchTrack({ API, getToken }) {
                 tv_show_id: selectedShow.id, date: logDate,
                 season_number: logSeason || null, episode_number: ep,
                 rating: logRating || null, review: logReview || null,
-                liked: logLiked, tags: logTags.trim() || null
+                liked: logLiked, rewatch: logRewatch, tags: logTags.trim() || null
               })
             });
           }
-        } else {
+        } else if (!editingLogIds) {
           // Movie log
           await fetch(`${API}${endpoint}`, {
             method: 'POST', headers: hdrs(),
             body: JSON.stringify({
-              tv_show_id: selectedShow.id, date: logDate,
+              movie_id: selectedShow.id, date: logDate,
               rating: logRating || null, review: logReview || null,
-              liked: logLiked, tags: logTags.trim() || null
+              liked: logLiked, rewatch: logRewatch, tags: logTags.trim() || null
             })
           });
         }
       }
       setEditingLogIds(null);
+
+      // Auto-update status
+      if (selectedShow.type === 'movie' && selectedShow.status !== 'WATCHED') {
+          updateStatus('WATCHED', true);
+      } else if (selectedShow.type === 'tv' && selectedShow.status !== 'WATCHED') {
+          if (!logSeason) {
+              updateStatus('WATCHED', true);
+          } else {
+              const tvRes = await fetch(`${API}/tv/diary`, { headers: hdrs() }).then(r => r.json());
+              if (tvRes.success) {
+                  const showLogs = tvRes.logs.filter(l => l.show_id === selectedShow.id);
+                  let watchedCount = 0;
+                  const loggedSeasons = new Set(showLogs.filter(l => l.season_number && !l.episode_number).map(l => l.season_number));
+                  if (showDetails?.seasons) {
+                      showDetails.seasons.forEach(s => {
+                          if (loggedSeasons.has(s.season_number)) watchedCount += s.episode_count;
+                      });
+                  }
+                  const loggedEps = new Set(showLogs.filter(l => l.season_number && l.episode_number).map(l => `${l.season_number}-${l.episode_number}`));
+                  watchedCount += loggedEps.size;
+                  if (watchedCount >= (showDetails?.number_of_episodes || 9999)) {
+                      updateStatus('WATCHED', true);
+                  }
+              }
+          }
+      }
+
       fetchDiary();
       closeModal(); // close modal after saving
     } catch (e) { console.error(e); }
@@ -326,6 +393,7 @@ export default function WatchTrack({ API, getToken }) {
     setLogReview(log.review || '');
     setLogTags(log.tags || '');
     setLogLiked(log.liked || false);
+    setLogRewatch(log.rewatch || false);
   };
 
   const deleteLog = async (log_ids, logType) => {
@@ -350,8 +418,26 @@ export default function WatchTrack({ API, getToken }) {
     return Array.from({ length: season.episode_count }, (_, i) => i + 1);
   };
 
+  const isEpisodeWatched = (ep) => {
+    return diaryLogs.some(l => l.show_id === selectedShow.id && l.type === 'tv' && 
+                               l.season_number === parseInt(logSeason) && 
+                               (l.episode_number === ep || l.episode_number === null));
+  };
+
   const toggleEpisode = (ep) => {
-    setLogEpisodes(prev => prev.includes(ep) ? prev.filter(e => e !== ep) : [...prev, ep].sort((a, b) => a - b));
+    setLogEpisodes(prev => {
+        const newEps = prev.includes(ep) ? prev.filter(e => e !== ep) : [...prev, ep].sort((a, b) => a - b);
+        if (newEps.length > 0) {
+            const firstEp = newEps[0];
+            const hasLogged = diaryLogs.some(l => l.show_id === selectedShow.id && l.type === 'tv' && 
+                                             l.season_number === parseInt(logSeason) && 
+                                             (l.episode_number === firstEp || l.episode_number === null));
+            setLogRewatch(hasLogged);
+        } else {
+            setLogRewatch(false);
+        }
+        return newEps;
+    });
   };
 
   const selectAllEpisodes = () => {
@@ -380,9 +466,9 @@ export default function WatchTrack({ API, getToken }) {
     if (!acc[l.date]) acc[l.date] = [];
 
     // Check if we already have an entry for this show and season on this date with the SAME review, rating, and tags
-    const existing = acc[l.date].find(e => 
+    const existing = acc[l.date].find(e =>
       e.type === l.type &&
-      e.show_id === l.show_id && 
+      e.show_id === l.show_id &&
       e.season_number === l.season_number &&
       e.review === l.review &&
       e.rating === l.rating &&
@@ -472,10 +558,10 @@ export default function WatchTrack({ API, getToken }) {
           <div className="tv-filters">
             {[
               { key: 'all', label: 'All', count: shows.length },
-              { key: 'Watching', label: 'Watching', count: statusCounts['Watching'] || 0 },
-              { key: 'Plan to Watch', label: 'Plan to Watch', count: statusCounts['Plan to Watch'] || 0 },
-              { key: 'Completed', label: 'Completed', count: statusCounts['Completed'] || 0 },
-              { key: 'Dropped', label: 'Dropped', count: statusCounts['Dropped'] || 0 },
+              { key: 'WATCHING', label: 'Watching', count: statusCounts['WATCHING'] || 0 },
+              { key: 'TO WATCH', label: 'To Watch', count: statusCounts['TO WATCH'] || 0 },
+              { key: 'WATCHED', label: 'Watched', count: statusCounts['WATCHED'] || 0 },
+              { key: 'DROPPED', label: 'Dropped', count: statusCounts['DROPPED'] || 0 },
             ].filter(f => f.key === 'all' || f.count > 0).map(f => (
               <button key={f.key} className={`tv-filter-pill ${statusFilter === f.key ? 'active' : ''}`} onClick={() => setStatusFilter(f.key)}>
                 {f.label} <span className="tv-filter-count">{f.count}</span>
@@ -486,7 +572,7 @@ export default function WatchTrack({ API, getToken }) {
           {/* Grid */}
           <div className="tv-poster-grid">
             {filteredShows.map(show => (
-              <div key={show.id} className="tv-poster-card" onClick={() => openModal(show)}>
+              <div key={`${show.type}-${show.id}`} className="tv-poster-card" onClick={() => openModal(show)}>
                 <div className="tv-poster-img-wrap">
                   {show.poster_path ? <img src={`${TMDB_IMG}/w300${show.poster_path}`} alt={show.name} loading="lazy" /> : <div className="tv-poster-fallback"><span>{show.type === 'movie' ? '🎬' : '📺'}</span>{show.name}</div>}
                   <div className="tv-poster-gradient" />
@@ -519,6 +605,7 @@ export default function WatchTrack({ API, getToken }) {
                       <h4 className="tv-diary-entry-title">
                         {log.show_name}
                         {log.liked && <span style={{ marginLeft: '6px', fontSize: '0.9em', color: '#ff4d4f' }}>❤️</span>}
+                        {log.rewatch && <span style={{ marginLeft: '6px', fontSize: '0.9em' }}>🔄</span>}
                       </h4>
                       <div className="tv-diary-entry-meta">
                         {log.type === 'movie' ? (
@@ -596,9 +683,9 @@ export default function WatchTrack({ API, getToken }) {
                   </div>
                 )}
                 <div className="tv-modal-status-row">
-                  {(selectedShow.type === 'movie' ? ['Watched', 'Plan to Watch'] : ['Watching', 'Completed', 'Plan to Watch', 'Dropped']).map(s => (
-                    <button key={s} className={`tv-status-option ${selectedShow.status === s || (selectedShow.status === 'Completed' && s === 'Watched') ? 'active' : ''}`} onClick={() => updateStatus(s === 'Watched' ? 'Completed' : s)}>
-                      {s === 'Watching' ? '👁️' : (s === 'Completed' || s === 'Watched') ? '✅' : s === 'Plan to Watch' ? '📋' : '🗑️'} {s}
+                  {(selectedShow.type === 'movie' ? ['WATCHED', 'TO WATCH'] : ['WATCHING', 'WATCHED', 'TO WATCH', 'DROPPED']).map(s => (
+                    <button key={s} className={`tv-status-option ${selectedShow.status === s ? 'active' : ''}`} onClick={() => updateStatus(s)}>
+                      {s === 'WATCHING' ? '👁️' : s === 'WATCHED' ? '✅' : s === 'TO WATCH' ? '📋' : '🗑️'} {s}
                     </button>
                   ))}
                 </div>
@@ -623,7 +710,7 @@ export default function WatchTrack({ API, getToken }) {
                   {selectedShow.type === 'tv' && (
                     <div className="tv-log-field">
                       <label>Season</label>
-                      <select value={logSeason} onChange={e => { setLogSeason(e.target.value); setLogEpisodes([]); }} disabled={!!editingLogIds}>
+                      <select value={logSeason} onChange={e => { setLogSeason(e.target.value); setLogEpisodes([]); }}>
                         <option value="">— Entire Show —</option>
                         {getSeasons().map(s => <option key={s.season_number} value={s.season_number}>Season {s.season_number} ({s.episode_count} eps)</option>)}
                       </select>
@@ -635,15 +722,13 @@ export default function WatchTrack({ API, getToken }) {
                     <div className="tv-log-field tv-log-field-full">
                       <label>
                         Episodes
-                        {!editingLogIds && (
-                          <button type="button" className="tv-ep-select-all" onClick={selectAllEpisodes}>
-                            {logEpisodes.length === getEpisodes().length ? 'Deselect All' : 'Select All'}
-                          </button>
-                        )}
+                        <button type="button" className="tv-ep-select-all" onClick={selectAllEpisodes}>
+                          {logEpisodes.length === getEpisodes().length ? 'Deselect All' : 'Select All'}
+                        </button>
                       </label>
                       <div className="tv-ep-grid">
                         {getEpisodes().map(ep => (
-                          <button key={ep} type="button" className={`tv-ep-btn ${logEpisodes.includes(ep) ? 'selected' : ''}`} onClick={() => !editingLogIds && toggleEpisode(ep)} disabled={!!editingLogIds}>
+                          <button key={ep} type="button" className={`tv-ep-btn ${logEpisodes.includes(ep) ? 'selected' : ''} ${isEpisodeWatched(ep) ? 'watched' : ''}`} onClick={() => toggleEpisode(ep)}>
                             {ep}
                           </button>
                         ))}
@@ -655,11 +740,18 @@ export default function WatchTrack({ API, getToken }) {
                     <label>Rating & Like</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <StarRating value={logRating} onChange={setLogRating} size={26} />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setLogLiked(!logLiked)}
                         style={{ background: 'none', border: 'none', fontSize: '1.6rem', cursor: 'pointer', filter: logLiked ? 'none' : 'grayscale(1) opacity(0.3)' }}
+                        title="Like"
                       >❤️</button>
+                      <button
+                        type="button"
+                        onClick={() => setLogRewatch(!logRewatch)}
+                        style={{ background: 'none', border: 'none', fontSize: '1.6rem', cursor: 'pointer', filter: logRewatch ? 'none' : 'grayscale(1) opacity(0.3)' }}
+                        title="Rewatch"
+                      >🔄</button>
                     </div>
                   </div>
                   <div className="tv-log-field tv-log-field-full">
@@ -702,7 +794,7 @@ export default function WatchTrack({ API, getToken }) {
                 ) : (
                   <p style={{ color: 'var(--text2)' }}>No cast information available.</p>
                 )}
-                
+
                 {showDetails?.aggregate_credits?.crew && showDetails.aggregate_credits.crew.length > 0 && (
                   <div style={{ marginTop: '1.5rem' }}>
                     <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem' }}>Key Crew</h3>
@@ -712,18 +804,18 @@ export default function WatchTrack({ API, getToken }) {
                         .reduce((unique, item) => unique.some(u => u.id === item.id) ? unique : [...unique, item], [])
                         .slice(0, 8)
                         .map(crew => (
-                        <div key={`crew-${crew.id}`} className="tv-cast-card">
-                          {crew.profile_path ? (
-                            <img src={`${TMDB_IMG}/w138_and_h175_face${crew.profile_path}`} alt={crew.name} />
-                          ) : (
-                            <div className="tv-cast-nopfp">👤</div>
-                          )}
-                          <div className="tv-cast-info">
-                            <div className="tv-cast-name">{crew.name}</div>
-                            <div className="tv-cast-role">{crew.jobs ? crew.jobs[0]?.job : crew.job}</div>
+                          <div key={`crew-${crew.id}`} className="tv-cast-card">
+                            {crew.profile_path ? (
+                              <img src={`${TMDB_IMG}/w138_and_h175_face${crew.profile_path}`} alt={crew.name} />
+                            ) : (
+                              <div className="tv-cast-nopfp">👤</div>
+                            )}
+                            <div className="tv-cast-info">
+                              <div className="tv-cast-name">{crew.name}</div>
+                              <div className="tv-cast-role">{crew.jobs ? crew.jobs[0]?.job : crew.job}</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 )}
