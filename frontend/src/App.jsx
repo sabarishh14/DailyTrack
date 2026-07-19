@@ -710,9 +710,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
 
   const [expanded, setExpanded] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
+  const [copyingTx, setCopyingTx] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [lastSelectedIdx, setLastSelectedIdx] = useState(null); // Tracks last click for Shift-Select
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkCopyOpen, setIsBulkCopyOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const dropdownRef = useRef(null);
   // Analyzer filters - 3-State Multi-select
@@ -759,14 +761,16 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const posterRef = useRef(null);
 
   /// Change actions: 90 to actions: 130
-  const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 100 });
+  const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 140 });
 
   // 🚀 GLOBAL ESCAPE: Closes Money-level Modals
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
         setEditingTx(null);
+        setCopyingTx(null);
         setIsBulkEditOpen(false);
+        setIsBulkCopyOpen(false);
         setIsCategoryModalOpen(false);
         setActionMenuTx(null);
       }
@@ -2227,15 +2231,22 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {t.description || '—'}
                     </span>
-                    {t.exclude_analytics && (
-                      <span title="Excluded from Analytics" style={{ marginLeft: '8px', fontSize: '0.9rem', cursor: 'help', flexShrink: 0 }}>
-                        🙈
-                      </span>
-                    )}
+                    <span style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                      {t.split && (
+                        <span title="Contains Split Details" style={{ fontSize: '0.9rem', cursor: 'help' }}>
+                          👥
+                        </span>
+                      )}
+                      {t.exclude_analytics && (
+                        <span title="Excluded from Analytics" style={{ fontSize: '0.9rem', cursor: 'help' }}>
+                          🙈
+                        </span>
+                      )}
+                    </span>
                   </span>
                   <span className="tx-actions">
-                    {/* Add e.stopPropagation() to the action buttons */}
                     <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
+                    <button className="action-icon-btn copy" onClick={(e) => { e.stopPropagation(); setCopyingTx(t); }} title="Duplicate">📋</button>
                     <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} title="Delete">🗑️</button>
                   </span>
                 </div>
@@ -2250,6 +2261,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
               <span className="fab-text">{selectedIds.size} selected</span>
               <div className="fab-actions">
                 <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ Edit</button>
+                <button className="action-btn" onClick={() => setIsBulkCopyOpen(true)} style={{ padding: '0.45rem 1rem' }}>📋 Duplicate</button>
                 <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ Delete</button>
                 <button className="action-btn secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '0.45rem 1rem' }}>✕</button>
               </div>
@@ -2259,6 +2271,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           {/* Bulk Edit Modal */}
           {isBulkEditOpen && (
             <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
+          )}
+
+          {/* Bulk Copy Modal */}
+          {isBulkCopyOpen && (
+            <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} isCopy={true} onClose={() => { setIsBulkCopyOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
           )}
         </div>
       </section>
@@ -2270,6 +2287,17 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
           recentDescriptions={[...new Set((transactions || []).map(t => t.description).filter(d => d && d.trim() !== ''))]}
           onClose={() => setEditingTx(null)}
           onRefresh={onRefresh}
+        />
+      )}
+
+      {copyingTx && (
+        <EditTransactionModal
+          tx={copyingTx}
+          categories={categories}
+          recentDescriptions={[...new Set((transactions || []).map(t => t.description).filter(d => d && d.trim() !== ''))]}
+          onClose={() => setCopyingTx(null)}
+          onRefresh={onRefresh}
+          isCopy={true}
         />
       )}
 
@@ -2310,6 +2338,56 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)', fontStyle: 'italic', lineHeight: 1.5 }}>
                   📝 {actionMenuTx.description}
                 </p>
+              </div>
+            )}
+
+            {/* Split Details UI */}
+            {actionMenuTx.split && (
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>👥 Split Details</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600 }}>Total: ₹{actionMenuTx.split.total_amount}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {actionMenuTx.split.members.map((m, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg3)', borderRadius: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="checkbox"
+                          checked={m.paid}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+                          onChange={async (e) => {
+                            e.stopPropagation();
+                            const newMembers = [...actionMenuTx.split.members];
+                            newMembers[idx].paid = !newMembers[idx].paid;
+                            
+                            let myAmount = 0;
+                            const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
+                            if (youMember) myAmount += parseFloat(youMember.amount) || 0;
+                            myAmount += newMembers.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+                            const finalAmount = myAmount > 0 ? Math.round(myAmount) : actionMenuTx.amount;
+                            
+                            const updatedTx = { ...actionMenuTx, amount: finalAmount, split: { ...actionMenuTx.split, members: newMembers } };
+                            setActionMenuTx(updatedTx);
+                            try {
+                              const res = await fetch(`${API}/splits`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                                body: JSON.stringify({ transaction_id: updatedTx.id, total_amount: updatedTx.split.total_amount, members: newMembers, transaction_amount: finalAmount })
+                              });
+                              if (res.ok) onRefresh();
+                            } catch (err) {
+                              alert("Error updating split: " + err.message);
+                              setActionMenuTx(actionMenuTx);
+                            }
+                          }}
+                        />
+                        <span style={{ fontSize: '0.85rem', color: m.paid ? 'var(--text3)' : 'var(--text)', textDecoration: m.paid ? 'line-through' : 'none' }}>{m.name}</span>
+                      </div>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: m.paid ? 'var(--text3)' : 'var(--text)', textDecoration: m.paid ? 'line-through' : 'none' }}>₹{m.amount}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -2362,6 +2440,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 ✏️ Edit Transaction
+              </button>
+              <button
+                onClick={() => { setCopyingTx(actionMenuTx); setActionMenuTx(null); }}
+                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--text)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                📋 Duplicate Transaction
               </button>
               <button
                 onClick={() => { handleDelete(actionMenuTx.id); setActionMenuTx(null); }}
@@ -2586,7 +2672,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     type: 'Debit',
     heading: '',
     description: '',
-    amount: ''
+    amount: '',
+    isSplit: false,
+    split_data: { total_amount: 0, members: [], gdrive_link: '', loading: false }
   });
 
   // MAGICAL AUTO-SAVE: Loads data from local storage so nothing is ever lost!
@@ -2619,7 +2707,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       ...lastRow,
       id: Date.now() + Math.random(),
       amount: '',
-      description: ''
+      description: '',
+      isSplit: false,
+      split_data: { total_amount: 0, members: [], gdrive_link: '', loading: false }
     }]);
   };
 
@@ -2629,6 +2719,41 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       return;
     }
     setRows(rows.filter(r => r.id !== id));
+  };
+
+  const handleOcrSplit = async (rowId) => {
+    const row = rows.find(r => r.id === rowId);
+    const currentSplit = row.split_data || { members: [], total_amount: 0, loading: false };
+    updateRow(rowId, 'split_data', { ...currentSplit, loading: true });
+    try {
+      const res = await fetch(`${API}/sync/ocr-split`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        let myAmount = 0;
+        const youMember = data.members.find(m => m.name.toLowerCase() === 'you');
+        if (youMember) myAmount += parseFloat(youMember.amount) || 0;
+        
+        myAmount += data.members
+          .filter(m => m.name.toLowerCase() !== 'you' && !m.paid)
+          .reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+          
+        setRows(prevRows => prevRows.map(r => 
+          r.id === rowId ? {
+            ...r,
+            amount: myAmount > 0 ? Math.round(myAmount) : r.amount,
+            split_data: { ...currentSplit, total_amount: data.total_amount, members: data.members, loading: false }
+          } : r
+        ));
+      } else {
+        alert("OCR Failed: " + data.message);
+        updateRow(rowId, 'split_data', { ...currentSplit, loading: false });
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+      updateRow(rowId, 'split_data', { ...currentSplit, loading: false });
+    }
   };
 
   const submit = async () => {
@@ -2656,7 +2781,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
         // ✨ MAGIC RULE: if all previous transactions in this category are excluded, automatically exclude this new one!
         const isAutoExclude = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
 
-        return {
+        const payloadRow = {
           account: r.account,
           date: r.date,
           type: r.type,
@@ -2665,6 +2790,14 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           amount: parseFloat(r.amount),
           exclude_analytics: isAutoExclude
         };
+
+        if (r.isSplit && r.split_data && r.split_data.members.length > 0) {
+          payloadRow.split = {
+            total_amount: parseFloat(r.split_data.total_amount) || 0,
+            members: r.split_data.members
+          };
+        }
+        return payloadRow;
       });
 
       const res = await fetch(`${API}/transactions`, {
@@ -2726,54 +2859,216 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           </div>
 
           {rows.map((row) => (
-            <div key={row.id} className="bulk-grid bulk-row" style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
-              <CustomSelect
-                value={row.account}
-                onChange={val => updateRow(row.id, 'account', val)}
-                options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))}
-                minWidth="140px"
-              />
+            <div key={row.id} style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
+              <div className="bulk-grid bulk-row" style={{ marginBottom: 0 }}>
+                <CustomSelect
+                  value={row.account}
+                  onChange={val => updateRow(row.id, 'account', val)}
+                  options={Object.keys(BANKS).map(b => ({ label: `${BANKS[b]?.emoji} ${b}`, value: b }))}
+                  minWidth="140px"
+                />
 
-              <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
+                <input type="date" className="bulk-inp" style={{ height: '36px' }} value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} />
 
-              <CustomSelect
-                value={row.type}
-                onChange={val => updateRow(row.id, 'type', val)}
-                options={[
-                  { label: '🔴 Debit', value: 'Debit' },
-                  { label: '🟢 Credit', value: 'Credit' },
-                  { label: '💰 Savings', value: 'Savings' },
-                  { label: '💸 Investment', value: 'Investment' }
-                ]}
-                minWidth="130px"
-              />
+                <CustomSelect
+                  value={row.type}
+                  onChange={val => updateRow(row.id, 'type', val)}
+                  options={[
+                    { label: '🔴 Debit', value: 'Debit' },
+                    { label: '🟢 Credit', value: 'Credit' },
+                    { label: '💰 Savings', value: 'Savings' },
+                    { label: '💸 Investment', value: 'Investment' }
+                  ]}
+                  minWidth="130px"
+                />
 
-              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
+                <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
 
-              <input
-                type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00"
-                value={row.amount}
-                onChange={e => updateRow(row.id, 'amount', e.target.value)}
-                onBlur={e => {
-                  const evalAmt = evaluateMath(e.target.value);
-                  if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
-                }}
-              />
+                <input
+                  type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00"
+                  value={row.amount}
+                  onChange={e => updateRow(row.id, 'amount', e.target.value)}
+                  onBlur={e => {
+                    const evalAmt = evaluateMath(e.target.value);
+                    if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
+                  }}
+                />
 
-              <AutocompleteInput
-                value={row.description}
-                onChange={val => updateRow(row.id, 'description', val)}
-                options={recentDescriptions}
-                placeholder="Optional note..."
-              />
+                <AutocompleteInput
+                  value={row.description}
+                  onChange={val => updateRow(row.id, 'description', val)}
+                  options={recentDescriptions}
+                  placeholder="Optional note..."
+                />
 
-              <button
-                className="bulk-del-btn"
-                onClick={() => removeRow(row.id)}
-                title="Remove Row"
-              >
-                ×
-              </button>
+                <div className="bulk-actions-wrapper" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <button
+                    className="bulk-split-btn"
+                    onClick={() => updateRow(row.id, 'isSplit', !row.isSplit)}
+                    title="Toggle Split Details"
+                    style={{ background: row.isSplit ? 'var(--accent)' : 'transparent', color: row.isSplit ? '#fff' : 'inherit', fontSize: '1rem' }}
+                  >
+                    👥
+                  </button>
+                  <button
+                    className="bulk-del-btn"
+                    onClick={() => removeRow(row.id)}
+                    title="Remove Row"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {row.isSplit && (
+                <div style={{ margin: '0.5rem 0 1rem 0', padding: '1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '10px' }}>
+                    <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text1)' }}>👥 Split Details</h4>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button 
+                        className="action-btn" 
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                        onClick={() => handleOcrSplit(row.id)}
+                        disabled={row.split_data?.loading}
+                      >
+                        {row.split_data?.loading ? '⏳ Parsing...' : '🔍 Fetch Receipt'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text3)', display: 'block', marginBottom: '6px' }}>Total Bill Amount (₹)</label>
+                      <input 
+                        type="number" 
+                        className="bulk-inp" 
+                        style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'var(--text3)', cursor: 'not-allowed' }}
+                        value={row.split_data?.total_amount || 0} 
+                        readOnly
+                        title="Auto-calculated from member amounts"
+                      />
+                      
+                      <div style={{ marginTop: '1.5rem' }}>
+                        <button 
+                          className="action-btn" 
+                          style={{ width: '100%', justifyContent: 'center', padding: '10px', background: 'var(--accent)', color: '#fff' }}
+                          onClick={() => {
+                            if (!row.split_data || !row.split_data.members) return;
+                            const members = row.split_data.members;
+                            let myAmount = 0;
+                            const youMember = members.find(m => m.name.toLowerCase() === 'you');
+                            if (youMember) {
+                              myAmount += parseFloat(youMember.amount) || 0;
+                            }
+                            const unpaidAmount = members
+                              .filter(m => m.name.toLowerCase() !== 'you' && !m.paid)
+                              .reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+                            
+                            myAmount += unpaidAmount;
+                            updateRow(row.id, 'amount', Math.round(myAmount));
+                          }}
+                        >
+                          🧮 Set My Transaction Amount
+                        </button>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text3)', marginTop: '8px', lineHeight: '1.4' }}>
+                          Calculates: <b>Your portion</b> + <b>All Unpaid portions</b>.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div style={{ flex: '3 1 400px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>Members (Parsed from screenshot)</label>
+                        <button 
+                          className="action-btn secondary" 
+                          style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                          onClick={() => {
+                            const currentSplit = row.split_data || { members: [], loading: false, total_amount: 0 };
+                            updateRow(row.id, 'split_data', { ...currentSplit, members: [...currentSplit.members, { name: '', amount: 0, paid: false }] });
+                          }}
+                        >+ Add Member</button>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '8px' }}>
+                        {(!row.split_data || !row.split_data.members || row.split_data.members.length === 0) ? (
+                          <div style={{ fontSize: '0.9rem', color: 'var(--text3)', fontStyle: 'italic', padding: '1rem', textAlign: 'center' }}>No members added. Fetch from folder or enter manually.</div>
+                        ) : (
+                          row.split_data.members.map((m, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--card)', padding: '8px', borderRadius: '6px' }}>
+                              <input 
+                                type="text" 
+                                className="bulk-inp" 
+                                style={{ flex: 2, background: 'transparent', border: '1px solid var(--border)' }}
+                                value={m.name}
+                                placeholder="Name"
+                                onChange={e => {
+                                  const newM = [...row.split_data.members];
+                                  newM[idx].name = e.target.value;
+                                  updateRow(row.id, 'split_data', { ...row.split_data, members: newM });
+                                }}
+                              />
+                              <input 
+                                type="number" 
+                                className="bulk-inp" 
+                                style={{ flex: 1, background: 'transparent', border: '1px solid var(--border)' }}
+                                value={m.amount}
+                                placeholder="Amount"
+                                onChange={e => {
+                                  const newM = [...row.split_data.members];
+                                  newM[idx].amount = e.target.value;
+                                  const newTotal = newM.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+                                  updateRow(row.id, 'split_data', { ...row.split_data, members: newM, total_amount: newTotal });
+                                }}
+                              />
+                              <button
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  cursor: 'pointer',
+                                  background: m.paid ? 'var(--pos)' : 'var(--bg2)',
+                                  color: m.paid ? '#fff' : 'var(--text2)',
+                                  width: '80px',
+                                  transition: '0.2s'
+                                }}
+                                onClick={() => {
+                                  const newM = [...row.split_data.members];
+                                  newM[idx].paid = !newM[idx].paid;
+                                  
+                                  let myAmount = 0;
+                                  const youMember = newM.find(m => m.name.toLowerCase() === 'you');
+                                  if (youMember) myAmount += parseFloat(youMember.amount) || 0;
+                                  myAmount += newM.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
+                                  
+                                  setRows(prevRows => prevRows.map(r => 
+                                    r.id === row.id ? {
+                                      ...r,
+                                      amount: myAmount > 0 ? Math.round(myAmount) : r.amount,
+                                      split_data: { ...r.split_data, members: newM }
+                                    } : r
+                                  ));
+                                }}
+                              >
+                                {m.paid ? 'PAID' : 'UNPAID'}
+                              </button>
+                              <button 
+                                className="bulk-del-btn"
+                                style={{ padding: '4px', background: 'transparent' }}
+                                onClick={() => {
+                                  const newM = row.split_data.members.filter((_, i) => i !== idx);
+                                  updateRow(row.id, 'split_data', { ...row.split_data, members: newM });
+                                }}
+                              >×</button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 
@@ -2796,9 +3091,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   );
 }
 
-function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onRefresh }) {
+function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onRefresh, isCopy }) {
   const [form, setForm] = useState({
-    date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
+    date: isCopy ? new Date().toISOString().split('T')[0] : (tx.date ? new Date(tx.date).toISOString().split('T')[0] : ''),
     account: tx.account,
     type: tx.type,
     heading: tx.heading,
@@ -2825,17 +3120,21 @@ function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onR
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/transactions/${tx.id}`, {
-        method: "PUT",
+      const url = isCopy ? `${API}/transactions` : `${API}/transactions/${tx.id}`;
+      const method = isCopy ? "POST" : "PUT";
+      const payload = isCopy ? [{ ...finalForm, amount: parseFloat(finalForm.amount) }] : { ...finalForm, amount: parseFloat(finalForm.amount) };
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify({ ...finalForm, amount: parseFloat(finalForm.amount) }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         onRefresh();
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1200);
       } else {
-        alert("Failed to update transaction.");
+        alert(isCopy ? "Failed to duplicate transaction." : "Failed to update transaction.");
       }
     } catch (e) {
       alert("Network error: " + e.message);
@@ -2848,7 +3147,7 @@ function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onR
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content bulk-modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">✏️ Edit Transaction</div>
+          <div className="modal-title">{isCopy ? '📋 Duplicate Transaction' : '✏️ Edit Transaction'}</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body" style={{ padding: '1.5rem' }}>
@@ -2930,7 +3229,7 @@ function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onR
           </div>
 
           <button className={`submit-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ width: '100%', marginTop: '1.5rem' }}>
-            {loading ? "Saving..." : success ? "✅ Updated!" : "Save Changes"}
+            {loading ? "Saving..." : success ? "✅ Saved!" : (isCopy ? "📋 Add Duplicated Transaction" : "Save Changes")}
           </button>
 
         </div>
@@ -3371,13 +3670,13 @@ function ReconciliationModal({ accounts, onClose, onRefresh }) {
 }
 
 
-function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh }) {
+function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh, isCopy }) {
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(
     transactions.map(tx => ({
       ...tx,
-      date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : '',
-      exclude_analytics: tx.exclude_analytics || false
+      date: isCopy ? new Date().toISOString().split('T')[0] : (tx.date ? new Date(tx.date).toISOString().split('T')[0] : ''),
+      exclude_analytics: isCopy ? (tx.exclude_analytics || false) : (tx.exclude_analytics || false)
     }))
   );
   const [loading, setLoading] = useState(false);
@@ -3405,8 +3704,11 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
     setLoading(true);
     try {
       const payload = evaluatedRows.map(r => ({ ...r, amount: parseFloat(r.amount), exclude_analytics: r.exclude_analytics }))
-      const res = await fetch(`${API}/transactions/bulk-edit`, {
-        method: "PUT",
+      const url = isCopy ? `${API}/transactions` : `${API}/transactions/bulk-edit`;
+      const method = isCopy ? "POST" : "PUT";
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify(payload),
       });
@@ -3415,7 +3717,7 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1500);
       } else {
-        alert("Failed to update transactions.");
+        alert(isCopy ? "Failed to duplicate transactions." : "Failed to update transactions.");
       }
     } catch (e) {
       alert("Network error: " + e.message);
@@ -3481,7 +3783,7 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
             <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
-              {loading ? "Saving..." : success ? "✅ Saved!" : `💾 Save All (${rows.length})`}
+              {loading ? "Saving..." : success ? "✅ Saved!" : (isCopy ? `📋 Duplicate All (${rows.length})` : `💾 Save All (${rows.length})`)}
             </button>
           </div>
 
@@ -3812,7 +4114,7 @@ function MultiAssetSelect({ selectedAssets, setSelectedAssets, options, placehol
       const bottomStyle = isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto';
 
       const clientWidth = document.documentElement.clientWidth;
-      
+
       if (isMobile) {
         setDropdownStyle({
           position: 'fixed',

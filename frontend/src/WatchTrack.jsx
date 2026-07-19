@@ -222,6 +222,32 @@ export default function WatchTrack({ API, getToken }) {
 
   const closeModal = () => setSelectedShow(null);
 
+  const exportToLetterboxd = () => {
+    const movies = diaryLogs.filter(log => log.tmdb_id);
+    if (movies.length === 0) return alert('No movies found in diary to export!');
+    
+    let csvContent = "data:text/csv;charset=utf-8,tmdbID,Rating,WatchedDate,Rewatch,Tags,Review\n";
+    
+    movies.forEach(log => {
+      const tmdbId = log.tmdb_id || '';
+      const rating = log.rating ? log.rating : ''; 
+      const date = log.date || '';
+      const rewatch = 'No';
+      const tags = `"${(log.tags || '').replace(/"/g, '""')}"`;
+      const review = `"${(log.review || '').replace(/"/g, '""')}"`;
+      csvContent += `${tmdbId},${rating},${date},${rewatch},${tags},${review}\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "watchtrack_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.open("https://letterboxd.com/import/", "_blank");
+  };
+
   const updateStatus = async (status) => {
     if (!selectedShow) return;
     setSelectedShow(prev => ({ ...prev, status }));
@@ -401,10 +427,15 @@ export default function WatchTrack({ API, getToken }) {
             </button>
           ))}
         </div>
-        <div className="tv-media-toggle">
-          <button className={mediaType === 'movie' ? 'active' : ''} onClick={() => { setMediaType('movie'); setStatusFilter('all'); }}>🎬 Movies</button>
-          <button className={mediaType === 'all' ? 'active' : ''} onClick={() => { setMediaType('all'); setStatusFilter('all'); }}>🍿 All</button>
-          <button className={mediaType === 'tv' ? 'active' : ''} onClick={() => { setMediaType('tv'); setStatusFilter('all'); }}>📺 TV Shows</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div className="tv-media-toggle">
+            <button className={mediaType === 'movie' ? 'active' : ''} onClick={() => { setMediaType('movie'); setStatusFilter('all'); }}>🎬 Movies</button>
+            <button className={mediaType === 'all' ? 'active' : ''} onClick={() => { setMediaType('all'); setStatusFilter('all'); }}>🍿 All</button>
+            <button className={mediaType === 'tv' ? 'active' : ''} onClick={() => { setMediaType('tv'); setStatusFilter('all'); }}>📺 TV Shows</button>
+          </div>
+          <button onClick={exportToLetterboxd} style={{ background: 'var(--pos)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+            📤 Export to Letterboxd
+          </button>
         </div>
       </div>
 

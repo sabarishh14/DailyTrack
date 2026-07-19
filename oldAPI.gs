@@ -13,45 +13,6 @@ function doPost(e) {
       const res = triggerOCR();
       return ContentService.createTextOutput(JSON.stringify(res)).setMimeType(ContentService.MimeType.JSON);
     }
-    
-    // ==========================================
-    // 1.5 OCR A SPECIFIC SPLIT IMAGE FROM GDRIVE FOLDER
-    // ==========================================
-    else if (type === "ocr_split") {
-      try {
-        const FOLDER_ID = "1QdOpIOuHhzOEtXGhBhswtgiY0c-nKF5N"; // Folder ID
-        const folder = DriveApp.getFolderById(FOLDER_ID);
-        const files = folder.getFiles();
-        
-        let processed = false;
-        let text = "";
-        
-        while (files.hasNext()) {
-          const file = files.next();
-          if (file.getMimeType().includes("image")) {
-            const blob = file.getBlob();
-            const resource = { title: file.getName() };
-            
-            const docFile = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: "en" });
-            const doc = DocumentApp.openById(docFile.id);
-            text = doc.getBody().getText();
-            
-            DriveApp.getFileById(docFile.id).setTrashed(true);
-            file.setTrashed(true);
-            processed = true;
-            break; // Only process one split at a time
-          }
-        }
-        
-        if (!processed) {
-           return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No images found in the GDrive folder!"})).setMimeType(ContentService.MimeType.JSON);
-        }
-        
-        return ContentService.createTextOutput(JSON.stringify({status: "success", text: text})).setMimeType(ContentService.MimeType.JSON);
-      } catch (e) {
-        return ContentService.createTextOutput(JSON.stringify({status: "error", message: e.toString()})).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
 
     // ==========================================
     // 2. INSERT OR EDIT TRANSACTIONS

@@ -683,7 +683,7 @@ body {
 .invest-legend-item {
   display: flex;
   justify-content: space-between;
-  alignItems: center;
+  align-items: center;
   background: rgba(255, 255, 255, 0.03);
   padding: 0.7rem 1rem;
   border-radius: 12px;
@@ -961,7 +961,7 @@ body {
 
 .tx-table-head,
 .tx-row {
-  min-width: 1220px;
+  min-width: 1260px;
   /* Fits all columns + the new checkbox! */
   width: 100%;
   display: grid;
@@ -2367,7 +2367,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 0.75rem !important;
-    padding: 2.75rem 1rem 1rem 1rem !important;
+    padding: 3.25rem 1rem 1rem 1rem !important;
     background: var(--card) !important;
     border: 1px solid var(--border) !important;
     border-radius: 16px !important;
@@ -2383,6 +2383,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     padding: 0.75rem;
     border-radius: 8px;
     font-size: 0.85rem;
+  }
+
+  .bulk-actions-wrapper {
+    position: absolute !important;
+    top: 0.5rem !important;
+    right: 0.5rem !important;
+    display: flex !important;
+    gap: 6px !important;
+  }
+
+  .bulk-del-btn,
+  .bulk-split-btn,
+  .bulk-hide-btn {
+    position: relative !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 6px !important;
+    font-size: 0.9rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .bulk-del-btn {
+    background: rgba(220, 38, 38, 0.1) !important;
+    color: #dc2626 !important;
   }
 
   .bulk-row>*:nth-child(1) {
@@ -2405,25 +2431,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .bulk-row>*:nth-child(6) {
     order: 5;
     grid-column: span 2;
-  }
-
-  .bulk-del-btn,
-  .bulk-hide-btn {
-    position: absolute !important;
-    top: 0.5rem !important;
-    right: 0.5rem !important;
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 50% !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .bulk-del-btn {
-    background: rgba(220, 38, 38, 0.1) !important;
-    color: #dc2626 !important;
   }
 }
 
@@ -2518,7 +2525,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .bulk-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 40px;
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 85px;
   gap: 0.6rem;
   /* Slightly larger gap to breathe */
   align-items: center;
@@ -2607,8 +2614,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: white !important;
 }
 
-/* ⬇️ Fixes the cutoff dropdown issue */
-.add-table-wrap {
+.bulk-split-btn {
+  background: rgba(var(--accent-rgb), 0.15) !important;
+  color: var(--accent) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  min-width: 32px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  font-family: 'DM Sans', sans-serif !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.bulk-split-btn:hover {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+/* ?? Fixes the cutoff dropdown issue */
+.css-1nmdiq5-menu {
   transition: padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2751,6 +2780,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #ef4444;
 }
 
+.action-icon-btn.copy:hover {
+  background: rgba(59, 130, 246, 0.15); /* A nice blue tint */
+  color: #3b82f6;
+}
+
 /* ── FLOATING ACTION BAR ─── */
 .floating-action-bar {
   position: fixed;
@@ -2852,7 +2886,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   height: 24px;
   border: 3px solid rgba(var(--accent-rgb), 0.2);
   border-top-color: var(--accent);
-  borderRadius: 50%;
+  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 

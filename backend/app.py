@@ -5,6 +5,7 @@ import pandas as pd
 import os
 from datetime import datetime, date
 import json
+import re
 import pytz # <-- Add this line
 import requests
 import hashlib
@@ -186,6 +187,14 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     synced = db.Column(db.Boolean, default=False)
     exclude_analytics = db.Column(db.Boolean, default=False)
+
+class Split(db.Model):
+    __tablename__ = "splits"
+    id = db.Column(db.BigInteger, primary_key=True)
+    transaction_id = db.Column(db.BigInteger, db.ForeignKey('transactions.id'), unique=True, nullable=False)
+    total_amount = db.Column(db.Float, nullable=False)
+    members = db.Column(db.JSON, nullable=False, default=list)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class RecurringTask(db.Model):
     __tablename__ = "recurring_tasks"
@@ -516,8 +525,12 @@ def get_transactions():
     # Total count before pagination (for frontend to know if more data exists)
     total_count = query.count()
     
-    # Apply pagination
     transactions = query.limit(limit).offset(offset).all()
+    
+    # Fetch splits for this page of transactions
+    tx_ids = [tx.id for tx in transactions]
+    splits = Split.query.filter(Split.transaction_id.in_(tx_ids)).all()
+    split_map = {s.transaction_id: {"id": s.id, "total_amount": s.total_amount, "members": s.members} for s in splits}
 
     result = [
         {
@@ -529,7 +542,8 @@ def get_transactions():
             "heading": tx.heading,
             "description": tx.description,
             "amount": tx.amount,
-            "exclude_analytics": getattr(tx, 'exclude_analytics', False)
+            "exclude_analytics": getattr(tx, 'exclude_analytics', False),
+            "split": split_map.get(tx.id)
         }
         for tx in transactions
     ]
@@ -570,6 +584,16 @@ def add_transaction():
                 exclude_analytics=item.get('exclude_analytics', False)
             )
             db.session.add(new_tx)
+            db.session.flush() # Force insert of transaction to satisfy foreign key constraints
+            
+            if item.get('split'):
+                split_data = item['split']
+                new_split = Split(
+                    transaction_id=new_tx.id,
+                    total_amount=split_data['total_amount'],
+                    members=split_data['members']
+                )
+                db.session.add(new_split)
             
             # --- NEW: Automatically Update Account Balance ---
             account_record = Account.query.filter_by(account=acc_name).first()
@@ -590,6 +614,132 @@ def add_transaction():
         print(f"❌ Error adding transaction(s): {str(e)}")
         db.session.rollback() # Safely undo everything if there's an error
         return jsonify({"success": False, "message": str(e)})
+@app.route('/api/sync/ocr-split', methods=['POST'])
+@require_api_key
+def sync_ocr_split():
+    try:
+        # No link required anymore, API.gs will fetch the latest image from the folder
+        payload = {"type": "ocr_split"}
+        response = requests.post(SHEETS_URL, json=payload, timeout=60)
+        res_data = response.json()
+        
+        if res_data.get('status') == 'success':
+            raw_text = res_data.get('text', '')
+            print("=== RAW OCR TEXT ===")
+            print(raw_text)
+            print("====================")
+            total_amount = 0
+            members = []
+            lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+            
+            members = []
+            current_member = None
+            total_amount = 0
+
+            for line in lines:
+                lower_line = line.lower()
+                
+                # 1. Total
+                if lower_line.startswith('total:'):
+                    amt_match = re.search(r'([\d,]+(?:\.\d{1,2})?)\s*$', line)
+                    if amt_match:
+                        total_amount = max(total_amount, float(amt_match.group(1).replace(',', '')))
+                    continue
+                    
+                # 2. Check if amount
+                amt_match = re.search(r'^(?:€|₹|rs\.?|inr|r)?\s*([\d,]+(?:\.\d{1,2})?)$', lower_line, re.IGNORECASE)
+                if amt_match:
+                    if current_member and current_member.get('amount') is None:
+                        current_member['amount'] = float(amt_match.group(1).replace(',', ''))
+                    continue
+                    
+                # 3. Check if status
+                if lower_line in ['paid', 'unpaid', 'sent this request']:
+                    if current_member:
+                        current_member['paid'] = (lower_line == 'paid' or lower_line == 'sent this request')
+                    continue
+                    
+                # 4. Check noise
+                if len(line) <= 1 or ' paid' in lower_line or 'left' in lower_line or 'send reminder' in lower_line or lower_line in ['popcorn', 'split with', 'paid by', 'google pay']:
+                    continue
+                    
+                # 5. Must be a name!
+                if current_member:
+                    members.append(current_member)
+                current_member = {'name': line, 'amount': None, 'paid': False}
+                
+            if current_member:
+                members.append(current_member)
+                
+            # Filter out invalid members (e.g. no amount detected)
+            members = [m for m in members if m['amount'] is not None]
+            
+            return jsonify({"success": True, "total_amount": total_amount, "members": members, "raw_text": raw_text})
+        else:
+            return jsonify({"success": False, "message": res_data.get('message', 'Unknown error')})
+            
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/splits', methods=['POST'])
+@require_api_key
+def save_split():
+    try:
+        data = request.json
+        transaction_id = data.get('transaction_id')
+        total_amount = data.get('total_amount')
+        members = data.get('members', [])
+        new_tx_amount = data.get('transaction_amount')
+        
+        if not transaction_id or total_amount is None:
+            return jsonify({"success": False, "message": "transaction_id and total_amount required"}), 400
+            
+        split = Split.query.filter_by(transaction_id=transaction_id).first()
+        if split:
+            split.total_amount = total_amount
+            split.members = members
+        else:
+            split = Split(transaction_id=transaction_id, total_amount=total_amount, members=members)
+            db.session.add(split)
+            
+        if new_tx_amount is not None:
+            tx = Transaction.query.get(transaction_id)
+            if tx and tx.amount != float(new_tx_amount):
+                # 1. Revert old amount
+                account = Account.query.filter_by(account=tx.account).first()
+                if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                    if tx.type.lower() == 'credit':
+                        account.balance -= tx.amount
+                    elif tx.type.lower() in ['debit', 'savings']:
+                        account.balance += tx.amount
+                
+                # 2. Update amount
+                tx.amount = float(new_tx_amount)
+                
+                # 3. Apply new amount
+                if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                    if tx.type.lower() == 'credit':
+                        account.balance += tx.amount
+                    elif tx.type.lower() in ['debit', 'savings']:
+                        account.balance -= tx.amount
+            
+        db.session.commit()
+        return jsonify({"success": True, "split": {"id": split.id, "total_amount": split.total_amount, "members": split.members}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/splits/<int:transaction_id>', methods=['DELETE'])
+@require_api_key
+def delete_split(transaction_id):
+    try:
+        Split.query.filter_by(transaction_id=transaction_id).delete()
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/sync/ocr-balances', methods=['POST'])
 @require_api_key
@@ -652,6 +802,9 @@ def delete_transaction(tid):
     except Exception as e:
         print("Failed to sync delete to sheets:", e)
     # ------------------------------------------------
+
+    # Delete associated split if it exists
+    Split.query.filter_by(transaction_id=tx.id).delete()
 
     db.session.delete(tx)
     db.session.commit()
@@ -877,6 +1030,9 @@ def bulk_delete_transactions():
                     account.balance -= tx.amount
                 elif tx.type.lower() in ["debit", "savings"]:
                     account.balance += tx.amount
+
+            # Delete split first if it exists
+            Split.query.filter_by(transaction_id=tx.id).delete()
 
             # Track it and delete from DB
             deleted_data.append({"id": str(tx.id), "account": tx.account})
@@ -1896,6 +2052,7 @@ def get_movie_diary():
         result.append({
             "id": log.id,
             "show_id": log.movie_id,
+            "tmdb_id": log.movie.tmdb_id if log.movie else None,
             "show_name": log.movie.name if log.movie else "Unknown",
             "poster_path": log.movie.poster_path if log.movie else None,
             "date": log.date.isoformat(),
