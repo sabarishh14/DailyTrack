@@ -2346,11 +2346,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     gap: 0.5rem;
     border-radius: 999px;
   }
-  
+
   .fab-actions {
     gap: 4px;
   }
-  
+
   .fab-actions .action-btn {
     padding: 0.4rem 0.6rem !important;
   }
@@ -2446,12 +2446,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     order: 5;
     grid-column: span 2;
   }
-  
+
   .clear-drafts-wrapper {
     justify-content: stretch !important;
     flex: 1 1 100% !important;
   }
-  
+
   .clear-drafts-btn {
     width: 100% !important;
     padding: 0.75rem !important;
@@ -4996,27 +4996,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .tv-diary-row-date {
     width: 60px;
   }
-  
+
   .tv-diary-month-box {
     width: 36px;
     height: 40px;
   }
-  
+
   .tv-diary-day-num {
     font-size: 1.2rem;
   }
-  
+
   .tv-diary-row-content {
     gap: 0.75rem;
     padding: 0.75rem 0.5rem;
   }
-  
+
   .tv-diary-row-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
+
   .tv-diary-row-rating {
     width: 80px;
   }
@@ -5119,6 +5119,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   position: relative;
   transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .tv-modal-tabs button:hover {
@@ -5206,7 +5210,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     align-items: stretch;
     gap: 1rem;
   }
-  
+
   .tv-header-left {
     width: 100%;
     flex-direction: column-reverse; /* Syncing text above tabs */
@@ -5231,58 +5235,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .tv-tab {
     flex: 1;
     justify-content: center;
   }
-  
+
   .tv-media-toggle {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .tv-media-toggle button {
     flex: 1;
     text-align: center;
     padding: 0.5rem 0.25rem;
     font-size: 0.8rem;
   }
-  
+
   .tv-poster-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.75rem;
   }
-  
+
   .tv-poster-name {
     font-size: 0.8rem;
   }
-  
+
   .tv-modal-panel {
     width: 95%;
     max-height: 90vh;
   }
-  
+
   .tv-modal-hero {
     flex-direction: column;
     gap: 1rem;
     align-items: center;
     text-align: center;
   }
-  
+
   .tv-modal-hero-poster {
     width: 120px;
   }
-  
+
   .tv-modal-status-row {
     justify-content: center;
     flex-wrap: wrap;
   }
-  
+
   .tv-log-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .tv-ep-grid {
     grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
   }
@@ -5319,6 +5323,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 @keyframes slideUpFadeCenter {
-  from { opacity: 0; transform: translate(-50%, 10px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.tv-modal-stats-row {
+  justify-content: flex-start;
+}
+
+@media (max-width: 600px) {
+  .tv-modal-stats-row {
+    justify-content: center;
+  }
 }

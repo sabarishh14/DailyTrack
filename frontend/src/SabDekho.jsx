@@ -107,6 +107,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   const [logSaving, setLogSaving] = useState(false);
   const [modalView, setModalView] = useState('log'); // log | details
   const [editingLogIds, setEditingLogIds] = useState(null);
+  const [editingLog, setEditingLog] = useState(null);
 
   // Filter
   const [mediaType, setMediaType] = useState('all'); // 'movies', 'all', 'tv'
@@ -249,7 +250,8 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     setSelectedShow(show); setShowDetails(null); setShowDetailsLoading(true);
     setLogDate(new Date().toISOString().split('T')[0]);
     setLogSeasons([]); setLogEpisodes([]); setLogRating(0); setLogReview(''); setLogTags(''); setLogLiked(false);
-    setEditingLogIds(null); // Fix state leak where editing previously would overwrite new logs
+    setEditingLogIds(null);
+    setEditingLog(null);
 
     if (show.type === 'movie') {
       const hasLogged = diaryLogs.some(l => l.show_id === show.id && l.type === 'movie');
@@ -399,6 +401,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
         }
       }
       setEditingLogIds(null);
+      setEditingLog(null);
 
       // Auto-update status
       if (selectedShow.type === 'movie' && selectedShow.status !== 'WATCHED') {
@@ -437,9 +440,10 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     if (!show) return;
     await openModal(show);
     setEditingLogIds(log.log_ids);
+    setEditingLog(log);
     setLogDate(log.date);
     setLogSeasons(log.seasons || (log.season_number != null ? [log.season_number] : []));
-    setLogEpisodes(log.episodes || []);
+    setLogEpisodes(log.episodes || (log.episode_number != null ? [log.episode_number] : []));
     setLogRating(log.rating || 0);
     setLogReview(log.review || '');
     setLogTags(log.tags || '');
@@ -582,6 +586,12 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   );
 
   // ─── RENDER ───────────────────────────────────────────────────────────
+  // --- CALCULATE MODAL SUMMARY ---
+  const selectedShowLogs = selectedShow ? diaryLogs.filter(l => l.show_id === selectedShow.id && l.type === selectedShow.type) : [];
+  const selectedShowRated = selectedShowLogs.filter(l => l.rating > 0);
+  const selectedShowAvg = selectedShowRated.length > 0 ? (selectedShowRated.reduce((acc, l) => acc + l.rating, 0) / selectedShowRated.length).toFixed(1) : null;
+
+  // 🎨 RENDER 🎨
   return (
     <div className="tv-tracker">
       {/* NAV */}
@@ -917,6 +927,20 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                     </button>
                   ))}
                 </div>
+                {selectedShowLogs.length > 0 && (
+                  <div className="tv-modal-stats-row" style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent)', fontWeight: 600 }}>
+                      <span>📝</span>
+                      <span>{selectedShowLogs.length} Log{selectedShowLogs.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    {selectedShowAvg && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: 600 }}>
+                        <span>⭐️</span>
+                        <span>{selectedShowAvg} - My Avg Rating</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -924,12 +948,31 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
 
             {/* Tabs */}
             <div className="tv-modal-tabs">
-              <button className={modalView === 'log' ? 'active' : ''} onClick={() => setModalView('log')}>📝 Log</button>
-              <button className={modalView === 'details' ? 'active' : ''} onClick={() => setModalView('details')}>👥 Details</button>
+              <button className={modalView === 'log' ? 'active' : ''} onClick={() => setModalView('log')}>
+                <span>📝</span><span>Log</span>
+              </button>
+              {selectedShowLogs.length > 0 && (
+                <button className={modalView === 'diary' ? 'active' : ''} onClick={() => setModalView('diary')}>
+                  <span>📖</span><span> Diary ({selectedShowLogs.length})</span>
+                </button>
+              )}
+              <button className={modalView === 'details' ? 'active' : ''} onClick={() => setModalView('details')}>
+                <span>👥</span><span>Details</span>
+              </button>
             </div>
 
             {modalView === 'log' && (
               <div className="tv-modal-log-section">
+                {editingLog && (
+                  <div style={{ background: 'rgba(var(--accent-rgb), 0.1)', color: 'var(--accent)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
+                    <span>
+                      ✏️ Editing {editingLog.type === 'tv' ? (editingLog.season_number ? (editingLog.episode_number ? `S${editingLog.season_number} E${editingLog.episode_number}` : `Season ${editingLog.season_number}`) : 'Show') : 'Movie'} Log
+                    </span>
+                    <button onClick={() => {
+                      setEditingLog(null); setEditingLogIds([]); setLogRating(0); setLogReview(''); setLogTags(''); setLogLiked(false); setLogRewatch(false); setLogEpisodes([]); setLogSeasons([]);
+                    }} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.75rem', borderRadius: '6px' }}>Cancel</button>
+                  </div>
+                )}
                 <div className="tv-log-grid">
                   <div className="tv-log-field">
                     <label>Date</label>
@@ -996,13 +1039,13 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                       >🔄</button>
                     </div>
                   </div>
+                  <div className="tv-log-field tv-log-field-full" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <label>Review</label>
+                    <textarea style={{ flexGrow: 1, minHeight: '120px', resize: 'vertical' }} value={logReview} onChange={e => setLogReview(e.target.value)} placeholder="What did you think?" />
+                  </div>
                   <div className="tv-log-field tv-log-field-full">
                     <label>Tags</label>
                     <input type="text" value={logTags} onChange={e => setLogTags(e.target.value)} placeholder="Comma separated (e.g. Rewatch, Comfort)" />
-                  </div>
-                  <div className="tv-log-field tv-log-field-full">
-                    <label>Review</label>
-                    <textarea rows="3" value={logReview} onChange={e => setLogReview(e.target.value)} placeholder="What did you think?" />
                   </div>
                 </div>
                 <div className="tv-log-actions">
@@ -1061,6 +1104,49 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {modalView === 'diary' && (
+              <div className="tv-modal-details-section" style={{ padding: '1.25rem 1.5rem 1.5rem' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem' }}>Your Logs</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '50vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {selectedShowLogs.sort((a, b) => new Date(b.date) - new Date(a.date)).map(log => (
+                    <div key={log.id} className="tv-modal-diary-entry" style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg2)', borderRadius: '12px', padding: '1.25rem', border: '1px solid var(--border)', transition: 'transform 0.2s, border-color 0.2s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: log.review || log.tags ? '0.65rem' : '0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                            {log.type === 'tv' ? (log.season_number ? (log.episode_number ? `S${log.season_number} E${log.episode_number}` : `Season ${log.season_number}`) : 'Show') : 'Movie'}
+                            <span style={{ color: 'var(--text3)', marginLeft: '8px', fontSize: '0.75rem', fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{fmtDate(log.date)}</span>
+                          </div>
+
+                          {(log.rating > 0 || log.liked || log.rewatch) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: '6px', borderLeft: '1px solid var(--border)' }}>
+                              <StarDisplay value={log.rating} size={14} />
+                              {log.liked && <span title="Liked" style={{ fontSize: '0.8rem' }}>❤️</span>}
+                              {log.rewatch && <span title="Rewatch" style={{ fontSize: '0.8rem' }}>🔄</span>}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                          <button onClick={() => { editLog(log); setModalView('log'); }} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Log">✏️</button>
+                          <button onClick={() => deleteLog(log.log_ids, log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
+                        </div>
+                      </div>
+
+                      {log.review && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text2)', margin: '0 0 0.75rem 0', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--bg)', padding: '0.75rem', borderRadius: '8px', borderLeft: '2px solid var(--accent)', fontStyle: 'italic' }}>{log.review}</p>
+                      )}
+                      {log.tags && (
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {log.tags.split(',').map(t => t.trim()).filter(Boolean).map(t => (
+                            <span key={t} style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--text3)', border: '1px solid var(--border)' }}>{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
