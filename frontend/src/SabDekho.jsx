@@ -80,6 +80,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   const [shows, setShows] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +111,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   // Filter
   const [mediaType, setMediaType] = useState('all'); // 'movies', 'all', 'tv'
   const [statusFilter, setStatusFilter] = useState('WATCHING');
-  
+
   // Diary expanded reviews
   const [expandedLogs, setExpandedLogs] = useState({});
 
@@ -172,17 +173,14 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
       });
       setDiaryLogs(combined);
     } catch (e) { console.error(e); }
-  }, [API, hdrs]);
-
+  }, [API, hdrs, showMovies]);
   useEffect(() => {
-    Promise.all([fetchShows(), fetchDiary()]).then(() => setLoading(false));
-  }, [fetchShows, fetchDiary]);
-
-  useEffect(() => {
-    if (refreshTrigger > 0) {
-      Promise.all([fetchShows(), fetchDiary()]);
-    }
-  }, [refreshTrigger, fetchShows, fetchDiary]);
+    if (!loading) setIsSyncing(true); // Don't set syncing if we are already showing the full screen loader
+    Promise.all([fetchShows(), fetchDiary()]).then(() => {
+      setLoading(false);
+      setIsSyncing(false);
+    });
+  }, [fetchShows, fetchDiary, refreshTrigger]);
 
   // ─── DEBOUNCED SEARCH ─────────────────────────────────────────────────
   useEffect(() => {
@@ -214,7 +212,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   // ─── ACTIONS ──────────────────────────────────────────────────────────
   const addShow = async (tmdbShow) => {
     setShowDropdown(false); setSearchQuery('');
-    
+
     // Switch to 'TO WATCH' tab so the user instantly sees what they added
     setStatusFilter('TO WATCH');
     setShowsPage(1); // Reset to page 1 to see the newest item at the top
@@ -241,8 +239,8 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
       const d = await r.json();
       if (d.success) fetchShows();
       else setShows(prev => prev.filter(s => s.id !== optimisticShow.id)); // revert on error
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {
+      console.error(e);
       setShows(prev => prev.filter(s => s.id !== optimisticShow.id)); // revert on error
     }
   };
@@ -373,7 +371,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
       if (!editingLogIds || selectedShow.type === 'tv') {
         if (selectedShow.type === 'tv') {
           const seasonsToLog = logSeasons.length > 0 ? logSeasons : [null];
-          
+
           for (const s of seasonsToLog) {
             const episodesToLog = (s !== null && logSeasons.length === 1 && logEpisodes.length > 0) ? logEpisodes : [null];
             for (const ep of episodesToLog) {
@@ -440,7 +438,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     await openModal(show);
     setEditingLogIds(log.log_ids);
     setLogDate(log.date);
-    setLogSeasons(log.seasons || (log.season_number !== null ? [log.season_number] : []));
+    setLogSeasons(log.seasons || (log.season_number != null ? [log.season_number] : []));
     setLogEpisodes(log.episodes || []);
     setLogRating(log.rating || 0);
     setLogReview(log.review || '');
@@ -465,7 +463,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   };
 
   const getEpisodes = () => {
-    if (!showDetails || logSeasons.length !== 1) return [];
+    if (!showDetails?.seasons || logSeasons.length !== 1) return [];
     const seasonData = showDetails.seasons.find(s => s.season_number === logSeasons[0]);
     if (!seasonData) return [];
     return Array.from({ length: seasonData.episode_count }, (_, i) => i + 1);
@@ -480,7 +478,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   const isSeasonWatched = (seasonNum) => {
     if (!selectedShow || !showDetails) return false;
     const showLogs = diaryLogs.filter(l => l.show_id === selectedShow.id && l.type === 'tv');
-    
+
     // Check if full season is logged
     const fullSeasonLogged = showLogs.some(l => l.season_number === seasonNum && l.episode_number === null);
     if (fullSeasonLogged) return true;
@@ -565,9 +563,9 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
         }
       }
     } else {
-      acc[l.date].push({ 
-        ...l, 
-        log_ids: [l.id], 
+      acc[l.date].push({
+        ...l,
+        log_ids: [l.id],
         episodes: l.episode_number !== null ? [l.episode_number] : null,
         seasons: (l.season_number !== null && l.episode_number === null) ? [l.season_number] : null
       });
@@ -588,17 +586,25 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     <div className="tv-tracker">
       {/* NAV */}
       <div className="tv-header">
-        <div className="tv-tabs">
-          {[
-            { id: 'library', icon: '📚', label: 'Library' },
-            { id: 'diary', icon: '📅', label: 'Diary' }
-          ].map(t => (
-            <button key={t.id} className={`tv-tab ${view === t.id ? 'active' : ''}`} onClick={() => setView(t.id)}>
-              <span className="tv-tab-icon">{t.icon}</span> {t.label}
-            </button>
-          ))}
+        <div className="tv-header-left">
+          <div className="tv-tabs">
+            {[
+              { id: 'library', icon: '📚', label: 'Library' },
+              { id: 'diary', icon: '📅', label: 'Diary' }
+            ].map(t => (
+              <button key={t.id} className={`tv-tab ${view === t.id ? 'active' : ''}`} onClick={() => setView(t.id)}>
+                <span className="tv-tab-icon">{t.icon}</span> {t.label}
+              </button>
+            ))}
+          </div>
+          {isSyncing && (
+            <div className="tv-sync-indicator">
+              <div className="tv-loading-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
+              Syncing Library...
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div className="tv-header-actions">
           {showMovies && (
             <div className="tv-media-toggle">
               <button className={mediaType === 'all' ? 'active' : ''} onClick={() => { setMediaType('all'); setStatusFilter('WATCHING'); }}>🍿 All</button>
@@ -652,7 +658,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                 </button>
               ))}
             </div>
-            
+
             {filteredShows.length > ITEMS_PER_PAGE && (
               <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                 <button
@@ -717,7 +723,16 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                 <div className="tv-poster-name">{show.name}</div>
               </div>
             ))}
-            {filteredShows.length === 0 && <div className="tv-empty-state"><span style={{ fontSize: '2.5rem' }}>📺</span><p>{statusFilter === 'all' ? 'Your library is empty. Search above to add shows!' : `No "${statusFilter}" shows`}</p></div>}
+            {filteredShows.length === 0 && (
+              <div className="tv-empty-state">
+                <span style={{ fontSize: '2.5rem' }}>{mediaType === 'movie' ? '🎬' : mediaType === 'tv' ? '📺' : '🍿'}</span>
+                <p>
+                  {statusFilter === 'all'
+                    ? `Your library is empty. Search above to add ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}!`
+                    : `No "${statusFilter}" ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Empty Space for bottom padding since pagination is moved to top */}
@@ -732,71 +747,73 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
             <div className="tv-empty-state"><span style={{ fontSize: '2.5rem' }}>📅</span><p>Your diary is empty. Log what you watch!</p></div>
           ) : (
             <>
-            <div className="tv-diary-list-container">
-              {Object.keys(groupedDiary)
-                .sort((a, b) => new Date(b) - new Date(a))
-                .slice((diaryPage - 1) * ITEMS_PER_PAGE, diaryPage * ITEMS_PER_PAGE)
-                .map(date => {
-                  const logs = groupedDiary[date];
-                  return (
-                    <div key={date} className="tv-diary-group">
-                      <div className="tv-diary-date-header"><span className="tv-diary-date-dot" />{fmtDate(date)}</div>
-                      <div className="tv-diary-entries-grid">
-                        {logs.map(log => (
-                          <div key={log.id} className="tv-diary-entry">
-                            <div className="tv-diary-entry-poster">
-                              {log.poster_path ? <img src={`${TMDB_IMG}/w154${log.poster_path}`} alt={log.show_name} /> : <div className="tv-diary-entry-noposter">📺</div>}
-                            </div>
-                            <div className="tv-diary-entry-content">
-                              <h4 className="tv-diary-entry-title">
-                                {log.show_name}
-                                {log.liked && <span style={{ marginLeft: '6px', fontSize: '0.9em', color: '#ff4d4f' }}>❤️</span>}
-                                {log.rewatch && <span style={{ marginLeft: '6px', fontSize: '0.9em' }}>🔄</span>}
-                              </h4>
-                              <div className="tv-diary-entry-meta">
-                                {log.type === 'movie' ? (
-                                  <span className="tv-ep-badge tv-ep-badge-movie">🎬 Movie</span>
-                                ) : log.season_number !== null && log.episodes ? (
-                                  <span className="tv-ep-badge">S{String(log.season_number).padStart(2, '0')} E{log.episodes.join(', ')}</span>
-                                ) : log.seasons && log.seasons.length > 1 ? (
-                                  <span className="tv-ep-badge">Seasons {log.seasons.join(', ')}</span>
-                                ) : log.season_number !== null ? (
-                                  <span className="tv-ep-badge">Season {log.season_number}</span>
-                                ) : (
-                                  <span className="tv-ep-badge tv-ep-badge-show">📺 Entire Show</span>
-                                )}
-                                {log.rating > 0 && <StarDisplay value={log.rating} />}
+              <div className="tv-diary-list-container">
+                {Object.keys(groupedDiary)
+                  .sort((a, b) => new Date(b) - new Date(a))
+                  .slice((diaryPage - 1) * ITEMS_PER_PAGE, diaryPage * ITEMS_PER_PAGE)
+                  .map(date => {
+                    const logs = groupedDiary[date];
+                    return (
+                      <div key={date} className="tv-diary-group">
+                        <div className="tv-diary-date-header"><span className="tv-diary-date-dot" />{fmtDate(date)}</div>
+                        <div className="tv-diary-entries-grid">
+                          {logs.map(log => (
+                            <div key={log.id} className="tv-diary-entry">
+                              <div className="tv-diary-entry-poster">
+                                {log.poster_path ? <img src={`${TMDB_IMG}/w154${log.poster_path}`} alt={log.show_name} /> : <div className="tv-diary-entry-noposter">📺</div>}
                               </div>
-                              {log.review && (
-                                <p className="tv-diary-entry-review">
-                                  "{expandedLogs[log.id] || log.review.length <= 150 ? log.review : `${log.review.substring(0, 150).trim()}...`}"
-                                  {log.review.length > 150 && (
-                                    <span 
-                                      onClick={() => setExpandedLogs(prev => ({ ...prev, [log.id]: !prev[log.id] }))}
-                                      style={{ display: 'block', marginTop: '0.4rem', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
-                                    >
-                                      {expandedLogs[log.id] ? 'Show less' : 'Read more'}
-                                    </span>
-                                  )}
-                                </p>
-                              )}
-                              {log.tags && (
-                                <div className="tv-diary-tags-row">
-                                  {log.tags.split(',').map((t, i) => <span key={i} className="tv-diary-tag">{t.trim()}</span>)}
+                              <div className="tv-diary-entry-content">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.3rem', minWidth: 0 }}>
+                                  <h4 className="tv-diary-entry-title" style={{ margin: 0, flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+                                    {log.show_name}
+                                    {log.liked && <span style={{ marginLeft: '6px', fontSize: '0.9em', color: '#ff4d4f' }}>❤️</span>}
+                                    {log.rewatch && <span style={{ marginLeft: '6px', fontSize: '0.9em' }}>🔄</span>}
+                                  </h4>
+                                  <div className="tv-diary-entry-actions">
+                                    <button onClick={() => editLog(log)} title="Edit Log">✏️</button>
+                                    <button onClick={() => deleteLog(log.log_ids)} title="Delete Log">🗑️</button>
+                                  </div>
                                 </div>
-                              )}
+                                <div className="tv-diary-entry-meta">
+                                  {log.type === 'movie' ? (
+                                    <span className="tv-ep-badge tv-ep-badge-movie">🎬 Movie</span>
+                                  ) : log.season_number !== null && log.episodes ? (
+                                    <span className="tv-ep-badge">S{String(log.season_number).padStart(2, '0')} E{log.episodes.join(', ')}</span>
+                                  ) : log.seasons && log.seasons.length > 1 ? (
+                                    <span className="tv-ep-badge">Seasons {log.seasons.join(', ')}</span>
+                                  ) : log.season_number !== null ? (
+                                    <span className="tv-ep-badge">Season {log.season_number}</span>
+                                  ) : (
+                                    <span className="tv-ep-badge tv-ep-badge-show">📺 Entire Show</span>
+                                  )}
+                                  {log.rating > 0 && <StarDisplay value={log.rating} />}
+                                </div>
+                                {log.review && (
+                                  <p className="tv-diary-entry-review">
+                                    "{expandedLogs[log.id] || log.review.length <= 150 ? log.review : `${log.review.substring(0, 150).trim()}...`}"
+                                    {log.review.length > 150 && (
+                                      <span
+                                        onClick={() => setExpandedLogs(prev => ({ ...prev, [log.id]: !prev[log.id] }))}
+                                        style={{ display: 'block', marginTop: '0.4rem', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+                                      >
+                                        {expandedLogs[log.id] ? 'Show less' : 'Read more'}
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
+                                {log.tags && (
+                                  <div className="tv-diary-tags-row">
+                                    {log.tags.split(',').map((t, i) => <span key={i} className="tv-diary-tag">{t.trim()}</span>)}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="tv-diary-entry-actions">
-                              <button onClick={() => editLog(log)}>✏️</button>
-                              <button onClick={() => deleteLog(log.log_ids)}>🗑️</button>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-            </div>
+                    );
+                  })}
+              </div>
 
               {Object.keys(groupedDiary).length > ITEMS_PER_PAGE && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.35rem', marginTop: '1.5rem', marginBottom: '4rem' }}>
@@ -926,10 +943,10 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                           All
                         </button>
                         {getSeasons().map(s => (
-                          <button 
-                            key={s.season_number} 
-                            type="button" 
-                            className={`tv-ep-btn ${logSeasons.includes(s.season_number) ? 'selected' : ''} ${isSeasonWatched(s.season_number) ? 'watched' : ''}`} 
+                          <button
+                            key={s.season_number}
+                            type="button"
+                            className={`tv-ep-btn ${logSeasons.includes(s.season_number) ? 'selected' : ''} ${isSeasonWatched(s.season_number) ? 'watched' : ''}`}
                             onClick={() => {
                               setLogSeasons(prev => {
                                 const newSeasons = prev.includes(s.season_number) ? prev.filter(x => x !== s.season_number) : [...prev, s.season_number];
@@ -945,8 +962,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                     </div>
                   )}
 
-                  {/* Multi-episode selector */}
-                  {logSeasons.length === 1 && (
+                  {selectedShow.type === 'tv' && logSeasons.length === 1 && (
                     <div className="tv-log-field tv-log-field-full">
                       <label>Episodes for Season {logSeasons[0]}</label>
                       <div className="tv-ep-grid">

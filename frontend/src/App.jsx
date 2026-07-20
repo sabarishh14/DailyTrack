@@ -2274,9 +2274,9 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
             <div className="floating-action-bar">
               <span className="fab-text">{selectedIds.size} selected</span>
               <div className="fab-actions">
-                <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ Edit</button>
-                <button className="action-btn" onClick={() => setIsBulkCopyOpen(true)} style={{ padding: '0.45rem 1rem' }}>📋 Duplicate</button>
-                <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ Delete</button>
+                <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ <span className="hide-mobile">Edit</span></button>
+                <button className="action-btn" onClick={() => setIsBulkCopyOpen(true)} style={{ padding: '0.45rem 1rem' }}>📋 <span className="hide-mobile">Duplicate</span></button>
+                <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ <span className="hide-mobile">Delete</span></button>
                 <button className="action-btn secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '0.45rem 1rem' }}>✕</button>
               </div>
             </div>
@@ -2374,13 +2374,13 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
                             e.stopPropagation();
                             const newMembers = [...actionMenuTx.split.members];
                             newMembers[idx].paid = !newMembers[idx].paid;
-                            
+
                             let myAmount = 0;
                             const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
                             if (youMember) myAmount += parseFloat(youMember.amount) || 0;
                             myAmount += newMembers.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
                             const finalAmount = myAmount > 0 ? Math.round(myAmount) : actionMenuTx.amount;
-                            
+
                             const updatedTx = { ...actionMenuTx, amount: finalAmount, split: { ...actionMenuTx.split, members: newMembers } };
                             setActionMenuTx(updatedTx);
                             try {
@@ -2748,12 +2748,12 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
         let myAmount = 0;
         const youMember = data.members.find(m => m.name.toLowerCase() === 'you');
         if (youMember) myAmount += parseFloat(youMember.amount) || 0;
-        
+
         myAmount += data.members
           .filter(m => m.name.toLowerCase() !== 'you' && !m.paid)
           .reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
-          
-        setRows(prevRows => prevRows.map(r => 
+
+        setRows(prevRows => prevRows.map(r =>
           r.id === rowId ? {
             ...r,
             amount: myAmount > 0 ? Math.round(myAmount) : r.amount,
@@ -2848,15 +2848,16 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             Your progress is auto-saved locally. Take your time!
           </div>
         </div>
-
-        <button className="action-btn secondary" onClick={() => {
-          if (window.confirm("Are you sure you want to clear all drafts?")) {
-            setRows([createEmptyRow()]);
-            localStorage.removeItem('dt_draft_txs');
-          }
-        }}>
-          🗑️ Clear Drafts
-        </button>
+        <div className="clear-drafts-wrapper">
+          <button className="action-btn secondary clear-drafts-btn" onClick={() => {
+            if (window.confirm("Are you sure you want to clear all drafts?")) {
+              setRows([createEmptyRow()]);
+              localStorage.removeItem('dt_draft_txs');
+            }
+          }}>
+            🗑️ Clear Drafts
+          </button>
+        </div>
       </div>
 
       <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
@@ -2939,8 +2940,8 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '10px' }}>
                     <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text1)' }}>👥 Split Details</h4>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      <button 
-                        className="action-btn" 
+                      <button
+                        className="action-btn"
                         style={{ padding: '6px 12px', fontSize: '0.85rem' }}
                         onClick={() => handleOcrSplit(row.id)}
                         disabled={row.split_data?.loading}
@@ -2949,22 +2950,22 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.8rem', color: 'var(--text3)', display: 'block', marginBottom: '6px' }}>Total Bill Amount (₹)</label>
-                      <input 
-                        type="number" 
-                        className="bulk-inp" 
+                      <input
+                        type="number"
+                        className="bulk-inp"
                         style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'var(--text3)', cursor: 'not-allowed' }}
-                        value={row.split_data?.total_amount || 0} 
+                        value={row.split_data?.total_amount || 0}
                         readOnly
                         title="Auto-calculated from member amounts"
                       />
-                      
+
                       <div style={{ marginTop: '1.5rem' }}>
-                        <button 
-                          className="action-btn" 
+                        <button
+                          className="action-btn"
                           style={{ width: '100%', justifyContent: 'center', padding: '10px', background: 'var(--accent)', color: '#fff' }}
                           onClick={() => {
                             if (!row.split_data || !row.split_data.members) return;
@@ -2977,7 +2978,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                             const unpaidAmount = members
                               .filter(m => m.name.toLowerCase() !== 'you' && !m.paid)
                               .reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
-                            
+
                             myAmount += unpaidAmount;
                             updateRow(row.id, 'amount', Math.round(myAmount));
                           }}
@@ -2989,12 +2990,12 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div style={{ flex: '3 1 400px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>Members (Parsed from screenshot)</label>
-                        <button 
-                          className="action-btn secondary" 
+                        <button
+                          className="action-btn secondary"
                           style={{ padding: '4px 10px', fontSize: '0.75rem' }}
                           onClick={() => {
                             const currentSplit = row.split_data || { members: [], loading: false, total_amount: 0 };
@@ -3002,16 +3003,16 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                           }}
                         >+ Add Member</button>
                       </div>
-                      
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '8px' }}>
                         {(!row.split_data || !row.split_data.members || row.split_data.members.length === 0) ? (
                           <div style={{ fontSize: '0.9rem', color: 'var(--text3)', fontStyle: 'italic', padding: '1rem', textAlign: 'center' }}>No members added. Fetch from folder or enter manually.</div>
                         ) : (
                           row.split_data.members.map((m, idx) => (
                             <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--card)', padding: '8px', borderRadius: '6px' }}>
-                              <input 
-                                type="text" 
-                                className="bulk-inp" 
+                              <input
+                                type="text"
+                                className="bulk-inp"
                                 style={{ flex: 2, background: 'transparent', border: '1px solid var(--border)' }}
                                 value={m.name}
                                 placeholder="Name"
@@ -3021,9 +3022,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                                   updateRow(row.id, 'split_data', { ...row.split_data, members: newM });
                                 }}
                               />
-                              <input 
-                                type="number" 
-                                className="bulk-inp" 
+                              <input
+                                type="number"
+                                className="bulk-inp"
                                 style={{ flex: 1, background: 'transparent', border: '1px solid var(--border)' }}
                                 value={m.amount}
                                 placeholder="Amount"
@@ -3050,13 +3051,13 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                                 onClick={() => {
                                   const newM = [...row.split_data.members];
                                   newM[idx].paid = !newM[idx].paid;
-                                  
+
                                   let myAmount = 0;
                                   const youMember = newM.find(m => m.name.toLowerCase() === 'you');
                                   if (youMember) myAmount += parseFloat(youMember.amount) || 0;
                                   myAmount += newM.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
-                                  
-                                  setRows(prevRows => prevRows.map(r => 
+
+                                  setRows(prevRows => prevRows.map(r =>
                                     r.id === row.id ? {
                                       ...r,
                                       amount: myAmount > 0 ? Math.round(myAmount) : r.amount,
@@ -3067,7 +3068,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                               >
                                 {m.paid ? 'PAID' : 'UNPAID'}
                               </button>
-                              <button 
+                              <button
                                 className="bulk-del-btn"
                                 style={{ padding: '4px', background: 'transparent' }}
                                 onClick={() => {
@@ -3164,9 +3165,9 @@ function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onR
           <div className="modal-title">{isCopy ? '📋 Duplicate Transaction' : '✏️ Edit Transaction'}</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <div className="modal-body" style={{ padding: '1.5rem' }}>
+        <div className="modal-body">
 
-          <div className="bulk-grid bulk-row" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: 'var(--bg2)', border: 'none' }}>
+          <div className="modal-form-grid">
             <div className="form-group">
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Account</label>
               <CustomSelect
@@ -3744,10 +3745,10 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content bulk-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">✏️ Bulk Edit Transactions</div>
+          <div className="modal-title">{isCopy ? '📋 Bulk Duplicate Transactions' : '✏️ Bulk Edit Transactions'}</div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
+        <div className="modal-body bulk-modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '1rem' }}>
 
           <div className="bulk-grid bulk-header">
             <span>Account</span><span>Date</span><span>Type</span><span>Category</span><span>Amount (₹)</span><span>Note</span><span style={{ textAlign: 'center' }} title="Exclude from Analyser">🙈</span>
@@ -3779,19 +3780,21 @@ function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh
               }} />
               <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
 
-              <button
-                className="bulk-hide-btn"
-                onClick={() => updateRow(row.id, 'exclude_analytics', !row.exclude_analytics)}
-                style={{
-                  background: row.exclude_analytics ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg3)',
-                  border: row.exclude_analytics ? '1px solid var(--neg)' : '1px solid var(--border)',
-                  color: row.exclude_analytics ? 'var(--neg)' : 'var(--text2)',
-                  borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '40px', padding: 0, transition: 'all 0.2s', margin: 0
-                }}
-                title={row.exclude_analytics ? "Excluded from Analytics" : "Included in Analytics"}
-              >
-                {row.exclude_analytics ? '🙈' : '👁️'}
-              </button>
+              <div className="bulk-actions-wrapper">
+                <button
+                  className="bulk-hide-btn"
+                  onClick={() => updateRow(row.id, 'exclude_analytics', !row.exclude_analytics)}
+                  style={{
+                    background: row.exclude_analytics ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg3)',
+                    border: row.exclude_analytics ? '1px solid var(--neg)' : '1px solid var(--border)',
+                    color: row.exclude_analytics ? 'var(--neg)' : 'var(--text2)',
+                    borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '40px', padding: 0, transition: 'all 0.2s', margin: 0, width: '100%'
+                  }}
+                  title={row.exclude_analytics ? "Excluded from Analytics" : "Included in Analytics"}
+                >
+                  {row.exclude_analytics ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
           ))}
 
@@ -6251,7 +6254,7 @@ export default function App() {
   // --- Theme & Accent Logic ---
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [accent, setAccent] = useState(localStorage.getItem('dt_accent') || 'indigo');
-  
+
   // --- SabDekho Settings ---
   const [showMovies, setShowMovies] = useState(localStorage.getItem('dt_show_movies') === 'true');
   const [lbxUsername, setLbxUsername] = useState(localStorage.getItem('dt_lbx_username') || 'sabarishh14');
@@ -6279,17 +6282,17 @@ export default function App() {
         },
         body: JSON.stringify({ username: lbxUsername })
       });
-      
+
       if (!response.body) throw new Error("No response body");
-      
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let finalData = null;
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value, { stream: true });
         const lines = chunk.split('\n').filter(Boolean);
         for (const line of lines) {
@@ -6302,7 +6305,7 @@ export default function App() {
             } else if (data.message) {
               setLbxSyncStatus(`Error: ${data.message}`);
             }
-          } catch(e) {}
+          } catch (e) { }
         }
       }
 
@@ -6438,7 +6441,7 @@ export default function App() {
 
   const fetchAll = useCallback(async (showLoading = false, attempt = 1) => {
     if (showLoading) setAppLoading(true);
-    
+
     const addLog = (msg) => {
       setLoadingLogs(prev => {
         const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -6451,7 +6454,7 @@ export default function App() {
         setLoadingLogs([]); // reset
         addLog("Initializing startup sequence...");
       }
-      
+
       // Trigger Lazy Cron before fetching data so UI gets the updated values
       if (getToken()) {
         if (showLoading) addLog("Authenticating & verifying background tasks...");
@@ -6472,7 +6475,7 @@ export default function App() {
       };
 
       if (showLoading) addLog("Connecting to LifeTrack database...");
-      
+
       // Fire ALL 6 requests in parallel
       const [acc, phy, inv, manAssets, txRes, listRes, catRes] = await Promise.all([
         fetchWithCheck(`${API}/accounts`, 'Accounts'),
@@ -6505,12 +6508,12 @@ export default function App() {
         addLog(`Server unavailable (${e.message.split(':')[0] || 'timeout'}). Retrying in 3s... (Attempt ${attempt}/5)`);
       }
       console.warn("Server is asleep or database is booting. Retrying in 3 seconds...", e.message);
-      
+
       if (attempt >= 5) {
         if (showLoading) addLog("Max connection attempts reached. Backend is unreachable. Please try again later.");
         return;
       }
-      
+
       // The loading screen stays up, and we try again automatically!
       setTimeout(() => fetchAll(showLoading, attempt + 1), 3000);
     }
@@ -6758,9 +6761,9 @@ export default function App() {
                   {/* SabDekho Settings */}
                   <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
                     <div className="menu-section-title">SabDekho Settings</div>
-                    
+
                     <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Show Movies</span>
+                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Movies</span>
                       <div className={`toggle-switch ${showMovies ? 'active' : ''}`}>
                         <div className="toggle-knob" />
                       </div>
@@ -6768,11 +6771,11 @@ export default function App() {
 
                     {showMovies && (
                       <div className="lbx-sync-container">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="lbx-input"
-                          value={lbxUsername} 
-                          onChange={e => setLbxUsername(e.target.value)} 
+                          value={lbxUsername}
+                          onChange={e => setLbxUsername(e.target.value)}
                           placeholder="Letterboxd Username"
                         />
                         <button className="lbx-btn" onClick={syncLetterboxd} disabled={lbxSyncing}>
