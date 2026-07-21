@@ -5343,3 +5343,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     justify-content: center;
   }
 }
+.tv-controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem; }
+.tv-pagination { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+@media (max-width: 768px) {
+  .tv-controls-header { flex-direction: column; justify-content: center; align-items: center; }
+  .tv-filters { justify-content: center; }
+}

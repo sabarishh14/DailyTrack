@@ -6,7 +6,8 @@ import os
 from datetime import datetime, date
 import json
 import re
-import pytz # <-- Add this line
+import pytz
+from sqlalchemy.orm import joinedload
 import requests
 import hashlib
 import csv 
@@ -2286,6 +2287,132 @@ def sync_letterboxd_rss():
             yield json.dumps({"success": False, "message": str(e)}) + "\n"
 
     return Response(generate(), mimetype='application/x-ndjson')
+
+@app.route('/api/media/library', methods=['GET'])
+@require_api_key
+def get_media_library():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    media_type = request.args.get('type', 'all')
+    status_filter = request.args.get('status', 'all')
+    
+    combined = []
+    
+    if media_type in ['all', 'movie']:
+        movies = Movie.query.all()
+        for m in movies:
+            if status_filter != 'all' and m.status != status_filter:
+                continue
+            combined.append({
+                "id": m.id,
+                "tmdb_id": m.tmdb_id,
+                "name": m.name,
+                "poster_path": m.poster_path,
+                "status": m.status,
+                "added_on": m.added_on,
+                "type": "movie"
+            })
+            
+    if media_type in ['all', 'tv']:
+        shows = TvShow.query.all()
+        for s in shows:
+            if status_filter != 'all' and s.status != status_filter:
+                continue
+            combined.append({
+                "id": s.id,
+                "tmdb_id": s.tmdb_id,
+                "name": s.name,
+                "poster_path": s.poster_path,
+                "status": s.status,
+                "added_on": s.added_on,
+                "type": "tv"
+            })
+            
+    # Sort by added_on DESC, then by id DESC
+    combined.sort(key=lambda x: (x['added_on'] or datetime.min, x['id']), reverse=True)
+    
+    # Now convert datetime to string after sorting
+    for item in combined:
+        if item['added_on']:
+            item['added_on'] = item['added_on'].isoformat()
+    
+    total_count = len(combined)
+    paginated = combined[offset:offset+limit]
+    
+    return jsonify({
+        "success": True, 
+        "shows": paginated, 
+        "total_count": total_count,
+        "hasMore": (offset + limit) < total_count
+    })
+
+@app.route('/api/media/diary', methods=['GET'])
+@require_api_key
+def get_media_diary():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    media_type = request.args.get('type', 'all')
+    
+    combined = []
+    
+    if media_type in ['all', 'movie']:
+        logs = MovieDiaryLog.query.options(joinedload(MovieDiaryLog.movie)).all()
+        for log in logs:
+            combined.append({
+                "id": log.id,
+                "show_id": log.movie_id,
+                "tmdb_id": log.movie.tmdb_id if log.movie else None,
+                "show_name": log.movie.name if log.movie else "Unknown",
+                "poster_path": log.movie.poster_path if log.movie else None,
+                "date": log.date,
+                "rating": log.rating,
+                "review": log.review,
+                "liked": log.liked,
+                "rewatch": log.rewatch,
+                "tags": log.tags,
+                "created_at": log.created_at,
+                "type": "movie"
+            })
+            
+    if media_type in ['all', 'tv']:
+        logs = TvDiaryLog.query.options(joinedload(TvDiaryLog.tv_show)).all()
+        for log in logs:
+            combined.append({
+                "id": log.id,
+                "show_id": log.tv_show_id,
+                "tmdb_id": log.tv_show.tmdb_id if log.tv_show else None,
+                "show_name": log.tv_show.name if log.tv_show else "Unknown",
+                "poster_path": log.tv_show.poster_path if log.tv_show else None,
+                "season_number": log.season_number,
+                "episode_number": log.episode_number,
+                "date": log.date,
+                "rating": log.rating,
+                "review": log.review,
+                "liked": log.liked,
+                "rewatch": log.rewatch,
+                "tags": log.tags,
+                "created_at": log.created_at,
+                "type": "tv"
+            })
+            
+    # Sort by date DESC, then created_at DESC
+    combined.sort(key=lambda x: (x['date'] or date.min, x['created_at'] or datetime.min), reverse=True)
+    
+    for item in combined:
+        if item['date']:
+            item['date'] = item['date'].isoformat() if hasattr(item['date'], 'isoformat') else str(item['date'])
+        if item['created_at']:
+            item['created_at'] = item['created_at'].isoformat() if hasattr(item['created_at'], 'isoformat') else str(item['created_at'])
+    
+    total_count = len(combined)
+    paginated = combined[offset:offset+limit]
+    
+    return jsonify({
+        "success": True, 
+        "logs": paginated, 
+        "total_count": total_count,
+        "hasMore": (offset + limit) < total_count
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

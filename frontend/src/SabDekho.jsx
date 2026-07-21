@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -119,13 +119,22 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   // Pagination (Frontend)
   const [showsPage, setShowsPage] = useState(1);
   const [diaryPage, setDiaryPage] = useState(1);
-  const ITEMS_PER_PAGE = 30;
+  const [showsTotalCount, setShowsTotalCount] = useState(0);
+  const [diaryTotalCount, setDiaryTotalCount] = useState(0);
+  const ITEMS_PER_PAGE = 60;
 
   // Reset pagination when filters change
   useEffect(() => {
     setShowsPage(1);
     setDiaryPage(1);
   }, [mediaType, statusFilter, view, showMovies]);
+
+  // Reset media type if movies are disabled while in movie mode
+  useEffect(() => {
+    if (!showMovies && mediaType === 'movie') {
+      setMediaType('all');
+    }
+  }, [showMovies, mediaType]);
 
   // Calendar
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -139,49 +148,39 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   // ─── FETCHERS ─────────────────────────────────────────────────────────
   const fetchShows = useCallback(async () => {
     try {
-      const [tvRes, movRes] = await Promise.all([
-        fetch(`${API}/tv/shows`, { headers: hdrs() }).then(r => r.json()),
-        showMovies ? fetch(`${API}/movies`, { headers: hdrs() }).then(r => r.json()) : Promise.resolve({ success: true, movies: [] })
-      ]);
-      let combined = [];
-      if (tvRes.success) combined = [...combined, ...tvRes.shows.map(s => ({ ...s, type: 'tv' }))];
-      if (movRes.success) combined = [...combined, ...movRes.movies.map(s => ({ ...s, type: 'movie' }))];
-      combined.sort((a, b) => {
-        const timeDiff = new Date(b.added_on) - new Date(a.added_on);
-        // If items were added within 1 hour of each other (like during a bulk import or sync), 
-        // the items inserted FIRST (smaller ID) are actually the newest ones from the top of the CSV/RSS.
-        if (Math.abs(timeDiff) < 1000 * 60 * 60) {
-          return a.id - b.id;
-        }
-        return timeDiff;
-      });
-      setShows(combined);
+      // Determine what to ask the backend based on toggles
+      const typeParam = mediaType === 'all' ? (showMovies ? 'all' : 'tv') : mediaType;
+      const r = await fetch(`${API}/media/library?limit=${ITEMS_PER_PAGE}&offset=${(showsPage - 1) * ITEMS_PER_PAGE}&type=${typeParam}&status=${statusFilter}`, { headers: hdrs() });
+      const data = await r.json();
+      if (data.success) {
+        setShows(data.shows || []);
+        setShowsTotalCount(data.total_count || 0);
+      }
     } catch (e) { console.error(e); }
-  }, [API, hdrs, showMovies]);
+  }, [API, hdrs, showMovies, mediaType, statusFilter, showsPage]);
 
   const fetchDiary = useCallback(async () => {
     try {
-      const [tvRes, movRes] = await Promise.all([
-        fetch(`${API}/tv/diary`, { headers: hdrs() }).then(r => r.json()),
-        showMovies ? fetch(`${API}/movies/diary`, { headers: hdrs() }).then(r => r.json()) : Promise.resolve({ success: true, logs: [] })
-      ]);
-      let combined = [];
-      if (tvRes.success) combined = [...combined, ...tvRes.logs.map(l => ({ ...l, type: 'tv' }))];
-      if (movRes.success) combined = [...combined, ...movRes.logs.map(l => ({ ...l, type: 'movie' }))];
-      combined.sort((a, b) => {
-        const dateDiff = new Date(b.date) - new Date(a.date);
-        return dateDiff !== 0 ? dateDiff : new Date(b.created_at) - new Date(a.created_at);
-      });
-      setDiaryLogs(combined);
+      const typeParam = mediaType === 'all' ? (showMovies ? 'all' : 'tv') : mediaType;
+      // We limit diary to 20 per page so it's not too long
+      const DIARY_PER_PAGE = 20;
+      const r = await fetch(`${API}/media/diary?limit=${DIARY_PER_PAGE}&offset=${(diaryPage - 1) * DIARY_PER_PAGE}&type=${typeParam}`, { headers: hdrs() });
+      const data = await r.json();
+      if (data.success) {
+        setDiaryLogs(data.logs || []);
+        setDiaryTotalCount(data.total_count || 0);
+      }
     } catch (e) { console.error(e); }
-  }, [API, hdrs, showMovies]);
+  }, [API, hdrs, showMovies, mediaType, diaryPage]);
+
   useEffect(() => {
-    if (!loading) setIsSyncing(true); // Don't set syncing if we are already showing the full screen loader
-    Promise.all([fetchShows(), fetchDiary()]).then(() => {
-      setLoading(false);
-      setIsSyncing(false);
-    });
-  }, [fetchShows, fetchDiary, refreshTrigger]);
+    if (!loading) setIsSyncing(true);
+    if (view === 'library') {
+      fetchShows().then(() => { setLoading(false); setIsSyncing(false); });
+    } else {
+      fetchDiary().then(() => { setLoading(false); setIsSyncing(false); });
+    }
+  }, [fetchShows, fetchDiary, refreshTrigger, view]);
 
   // ─── DEBOUNCED SEARCH ─────────────────────────────────────────────────
   useEffect(() => {
@@ -517,66 +516,57 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     else setLogEpisodes(all);
   };
 
-  const filteredShows = shows.filter(s => {
-    if (!showMovies && s.type === 'movie') return false;
-    const passType = (mediaType === 'all' || s.type === mediaType);
-    const passStatus = statusFilter === 'all' || s.status === statusFilter;
-    return passType && passStatus;
-  });
-  const statusCounts = shows.reduce((acc, s) => {
-    if (mediaType === 'all' || s.type === mediaType) {
-      acc[s.status] = (acc[s.status] || 0) + 1;
-    }
-    return acc;
-  }, {});
-
+  // We no longer need local filtering since the backend handles it. 
+  // However, we still need to process the diary logs into dates safely using useMemo!
   const fmtDate = (str) => { const d = new Date(str); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`; };
 
-  const filteredDiaryLogs = [...diaryLogs]
-    .filter(l => showMovies || l.type !== 'movie')
-    .filter(l => mediaType === 'all' || l.type === mediaType);
+  const filteredShows = shows;
 
-  const groupedDiary = filteredDiaryLogs.reduce((acc, l) => {
-    if (!acc[l.date]) acc[l.date] = [];
+  const filteredDiaryLogs = diaryLogs;
 
-    const existing = acc[l.date].find(e =>
-      e.type === l.type &&
-      e.show_id === l.show_id &&
-      e.review === l.review &&
-      e.rating === l.rating &&
-      e.tags === l.tags &&
-      (
-        (e.episode_number !== null && l.episode_number !== null && e.season_number === l.season_number) ||
-        (e.episode_number === null && l.episode_number === null && e.season_number !== null && l.season_number !== null)
-      )
-    );
+  const groupedDiary = useMemo(() => {
+    return filteredDiaryLogs.reduce((acc, l) => {
+      if (!acc[l.date]) acc[l.date] = [];
 
-    if (existing) {
-      existing.log_ids.push(l.id);
-      if (existing.episode_number !== null) {
-        if (!existing.episodes) existing.episodes = [existing.episode_number];
-        if (!existing.episodes.includes(l.episode_number)) {
-          existing.episodes.push(l.episode_number);
-          existing.episodes.sort((a, b) => a - b);
+      const existing = acc[l.date].find(e =>
+        e.type === l.type &&
+        e.show_id === l.show_id &&
+        e.review === l.review &&
+        e.rating === l.rating &&
+        e.tags === l.tags &&
+        (
+          (e.episode_number !== null && l.episode_number !== null && e.season_number === l.season_number) ||
+          (e.episode_number === null && l.episode_number === null && e.season_number !== null && l.season_number !== null)
+        )
+      );
+
+      if (existing) {
+        existing.log_ids.push(l.id);
+        if (existing.episode_number !== null) {
+          if (!existing.episodes) existing.episodes = [existing.episode_number];
+          if (!existing.episodes.includes(l.episode_number)) {
+            existing.episodes.push(l.episode_number);
+            existing.episodes.sort((a, b) => a - b);
+          }
+        } else {
+          if (!existing.seasons) existing.seasons = [existing.season_number];
+          if (!existing.seasons.includes(l.season_number)) {
+            existing.seasons.push(l.season_number);
+            existing.seasons.sort((a, b) => a - b);
+          }
         }
       } else {
-        if (!existing.seasons) existing.seasons = [existing.season_number];
-        if (!existing.seasons.includes(l.season_number)) {
-          existing.seasons.push(l.season_number);
-          existing.seasons.sort((a, b) => a - b);
-        }
+        acc[l.date].push({
+          ...l,
+          log_ids: [l.id],
+          episodes: l.episode_number !== null ? [l.episode_number] : null,
+          seasons: (l.season_number !== null && l.episode_number === null) ? [l.season_number] : null
+        });
       }
-    } else {
-      acc[l.date].push({
-        ...l,
-        log_ids: [l.id],
-        episodes: l.episode_number !== null ? [l.episode_number] : null,
-        seasons: (l.season_number !== null && l.episode_number === null) ? [l.season_number] : null
-      });
-    }
 
-    return acc;
-  }, {});
+      return acc;
+    }, {});
+  }, [filteredDiaryLogs]);
 
   if (loading) return (
     <div className="tv-loading-screen">
@@ -607,19 +597,19 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
               </button>
             ))}
           </div>
-          {isSyncing && (
+          {(isSyncing || loading || searchLoading) && (
             <div className="tv-sync-indicator">
               <div className="tv-loading-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
-              Syncing Library...
+              Loading...
             </div>
           )}
         </div>
         <div className="tv-header-actions">
           {showMovies && (
             <div className="tv-media-toggle">
-              <button className={mediaType === 'all' ? 'active' : ''} onClick={() => { setMediaType('all'); setStatusFilter('WATCHING'); }}>🍿 All</button>
-              <button className={mediaType === 'movie' ? 'active' : ''} onClick={() => { setMediaType('movie'); setStatusFilter('WATCHING'); }}>🎬 Movies</button>
-              <button className={mediaType === 'tv' ? 'active' : ''} onClick={() => { setMediaType('tv'); setStatusFilter('WATCHING'); }}>📺 TV Shows</button>
+              <button className={mediaType === 'all' ? 'active' : ''} onClick={() => { setMediaType('all'); }}>🍿 All</button>
+              <button className={mediaType === 'movie' ? 'active' : ''} onClick={() => { setMediaType('movie'); if (statusFilter === 'DROPPED') setStatusFilter('WATCHED'); }}>🎬 Movies</button>
+              <button className={mediaType === 'tv' ? 'active' : ''} onClick={() => { setMediaType('tv'); }}>📺 TV Shows</button>
             </div>
           )}
         </div>
@@ -655,22 +645,22 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
           </div>
 
           {/* Filters & Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="tv-controls-header">
             <div className="tv-filters" style={{ marginBottom: 0 }}>
               {[
-                { key: 'WATCHING', label: 'Watching', count: statusCounts['WATCHING'] || 0 },
-                { key: 'TO WATCH', label: 'To Watch', count: statusCounts['TO WATCH'] || 0 },
-                { key: 'WATCHED', label: 'Watched', count: statusCounts['WATCHED'] || 0 },
-                { key: 'DROPPED', label: 'Dropped', count: statusCounts['DROPPED'] || 0 },
-              ].filter(f => f.count > 0).map(f => (
+                { key: 'WATCHING', label: 'Watching' },
+                { key: 'TO WATCH', label: 'To Watch' },
+                { key: 'WATCHED', label: 'Watched' },
+                { key: 'DROPPED', label: 'Dropped' },
+              ].map(f => (
                 <button key={f.key} className={`tv-filter-pill ${statusFilter === f.key ? 'active' : ''}`} onClick={() => setStatusFilter(f.key)}>
-                  {f.label} <span className="tv-filter-count">{f.count}</span>
+                  {f.label}
                 </button>
               ))}
             </div>
 
-            {filteredShows.length > ITEMS_PER_PAGE && (
-              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+            {showsTotalCount > ITEMS_PER_PAGE && (
+              <div className="tv-pagination">
                 <button
                   onClick={() => setShowsPage(prev => Math.max(1, prev - 1))}
                   disabled={showsPage === 1}
@@ -679,8 +669,8 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                   ←
                 </button>
 
-                {Array.from({ length: Math.min(5, Math.ceil(filteredShows.length / ITEMS_PER_PAGE)) }, (_, i) => {
-                  const totalPages = Math.ceil(filteredShows.length / ITEMS_PER_PAGE);
+                {Array.from({ length: Math.min(5, Math.ceil(showsTotalCount / ITEMS_PER_PAGE)) }, (_, i) => {
+                  const totalPages = Math.ceil(showsTotalCount / ITEMS_PER_PAGE);
                   let pageNum;
                   if (totalPages <= 5) pageNum = i + 1;
                   else if (showsPage < 3) pageNum = i + 1;
@@ -705,9 +695,9 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                 })}
 
                 <button
-                  onClick={() => setShowsPage(prev => Math.min(Math.ceil(filteredShows.length / ITEMS_PER_PAGE), prev + 1))}
-                  disabled={showsPage === Math.ceil(filteredShows.length / ITEMS_PER_PAGE)}
-                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === Math.ceil(filteredShows.length / ITEMS_PER_PAGE) ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === Math.ceil(filteredShows.length / ITEMS_PER_PAGE) ? 'var(--text2)' : 'var(--text)', cursor: showsPage === Math.ceil(filteredShows.length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+                  onClick={() => setShowsPage(prev => Math.min(Math.ceil(showsTotalCount / ITEMS_PER_PAGE), prev + 1))}
+                  disabled={showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE)}
+                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'var(--text2)' : 'var(--text)', cursor: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
                 >
                   →
                 </button>
@@ -717,10 +707,10 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
 
           {/* Grid */}
           <div className="tv-poster-grid">
-            {filteredShows.slice((showsPage - 1) * ITEMS_PER_PAGE, showsPage * ITEMS_PER_PAGE).map(show => (
+            {filteredShows.map(show => (
               <div key={`${show.type}-${show.id}`} className="tv-poster-card" onClick={() => openModal(show)}>
                 <div className="tv-poster-img-wrap">
-                  {show.poster_path ? <img src={`${TMDB_IMG}/w300${show.poster_path}`} alt={show.name} loading="lazy" style={show.isAdding ? { filter: 'blur(4px) grayscale(0.5)' } : {}} /> : <div className="tv-poster-fallback"><span>{show.type === 'movie' ? '🎬' : '📺'}</span>{show.name}</div>}
+                  {show.poster_path ? <img src={`${TMDB_IMG}/w185${show.poster_path}`} alt={show.name} loading="lazy" style={show.isAdding ? { filter: 'blur(4px) grayscale(0.5)' } : {}} /> : <div className="tv-poster-fallback"><span>{show.type === 'movie' ? '🎬' : '📺'}</span>{show.name}</div>}
                   <div className="tv-poster-gradient" />
                   {show.isAdding && (
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 10 }}>
@@ -745,7 +735,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
             )}
           </div>
 
-          {/* Empty Space for bottom padding since pagination is moved to top */}
+{/* Empty Space for bottom padding since pagination is moved to top */}
           <div style={{ height: '6rem' }} />
         </div>
       )}
@@ -760,7 +750,6 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
               <div className="tv-diary-list-container">
                 {Object.keys(groupedDiary)
                   .sort((a, b) => new Date(b) - new Date(a))
-                  .slice((diaryPage - 1) * ITEMS_PER_PAGE, diaryPage * ITEMS_PER_PAGE)
                   .map(date => {
                     const logs = groupedDiary[date];
                     return (
@@ -825,50 +814,48 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                   })}
               </div>
 
-              {Object.keys(groupedDiary).length > ITEMS_PER_PAGE && (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.35rem', marginTop: '1.5rem', marginBottom: '4rem' }}>
-                  <button
-                    onClick={() => setDiaryPage(prev => Math.max(1, prev - 1))}
-                    disabled={diaryPage === 1}
-                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: diaryPage === 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: diaryPage === 1 ? 'var(--text2)' : 'var(--text)', cursor: diaryPage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
-                  >
-                    ←
-                  </button>
+              <div className="tv-pagination" style={{ marginTop: '1.5rem', marginBottom: '4rem' }}>
+                <button
+                  onClick={() => setDiaryPage(prev => Math.max(1, prev - 1))}
+                  disabled={diaryPage === 1}
+                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: diaryPage === 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: diaryPage === 1 ? 'var(--text2)' : 'var(--text)', cursor: diaryPage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+                >
+                  ← Prev
+                </button>
+                
+                {Array.from({ length: Math.min(5, Math.ceil(diaryTotalCount / 20)) }, (_, i) => {
+                  const totalPages = Math.ceil(diaryTotalCount / 20);
+                  let pageNum;
+                  if (totalPages <= 5) pageNum = i + 1;
+                  else if (diaryPage < 3) pageNum = i + 1;
+                  else if (diaryPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                  else pageNum = diaryPage - 2 + i;
 
-                  {Array.from({ length: Math.min(5, Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE)) }, (_, i) => {
-                    const totalPages = Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE);
-                    let pageNum;
-                    if (totalPages <= 5) pageNum = i + 1;
-                    else if (diaryPage < 3) pageNum = i + 1;
-                    else if (diaryPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                    else pageNum = diaryPage - 2 + i;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setDiaryPage(pageNum)}
+                      style={{
+                        padding: '0.35rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+                        border: pageNum === diaryPage ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: pageNum === diaryPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
+                        color: pageNum === diaryPage ? 'var(--accent)' : 'var(--text2)',
+                        fontWeight: pageNum === diaryPage ? 600 : 400
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
 
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setDiaryPage(pageNum)}
-                        style={{
-                          padding: '0.35rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-                          border: pageNum === diaryPage ? '1px solid var(--accent)' : '1px solid var(--border)',
-                          background: pageNum === diaryPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
-                          color: pageNum === diaryPage ? 'var(--accent)' : 'var(--text2)',
-                          fontWeight: pageNum === diaryPage ? 600 : 400
-                        }}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    onClick={() => setDiaryPage(prev => Math.min(Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE), prev + 1))}
-                    disabled={diaryPage === Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE)}
-                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: diaryPage === Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE) ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: diaryPage === Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE) ? 'var(--text2)' : 'var(--text)', cursor: diaryPage === Math.ceil(Object.keys(groupedDiary).length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
-                  >
-                    →
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={() => setDiaryPage(prev => Math.min(Math.ceil(diaryTotalCount / 20), prev + 1))}
+                  disabled={diaryPage === Math.ceil(diaryTotalCount / 20) || diaryTotalCount === 0}
+                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: diaryPage === Math.ceil(diaryTotalCount / 20) || diaryTotalCount === 0 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: diaryPage === Math.ceil(diaryTotalCount / 20) || diaryTotalCount === 0 ? 'var(--text2)' : 'var(--text)', cursor: diaryPage === Math.ceil(diaryTotalCount / 20) || diaryTotalCount === 0 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+                >
+                  Next →
+                </button>
+              </div>
             </>
           )}
         </div>
