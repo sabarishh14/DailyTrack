@@ -1845,7 +1845,19 @@ def add_tv_show():
         
     existing = TvShow.query.filter_by(tmdb_id=tmdb_id).first()
     if existing:
-        return jsonify({"success": False, "message": "Show already tracked", "id": existing.id}), 400
+        if existing.status == 'NONE' and status != 'NONE':
+            existing.status = status
+            db.session.commit()
+            
+        return jsonify({
+            "success": True, 
+            "message": "Show already tracked", 
+            "id": existing.id,
+            "show": {
+                "id": existing.id, "tmdb_id": existing.tmdb_id, "name": existing.name, 
+                "poster_path": existing.poster_path, "status": existing.status, "type": "tv"
+            }
+        })
         
     new_show = TvShow(
         tmdb_id=tmdb_id,
@@ -1857,12 +1869,21 @@ def add_tv_show():
     db.session.add(new_show)
     db.session.flush() # to get new_show.id
     
-    activity = TvActivityLog(tv_show_id=new_show.id, action=f"Added to library as {status}")
-    db.session.add(activity)
+    if status != 'NONE':
+        activity = TvActivityLog(tv_show_id=new_show.id, action=f"Added to library as {status}")
+        db.session.add(activity)
     
     db.session.commit()
     
-    return jsonify({"success": True, "message": "Show added", "id": new_show.id})
+    return jsonify({
+        "success": True, 
+        "message": "Show added", 
+        "id": new_show.id,
+        "show": {
+            "id": new_show.id, "tmdb_id": new_show.tmdb_id, "name": new_show.name, 
+            "poster_path": new_show.poster_path, "status": new_show.status, "type": "tv"
+        }
+    })
 
 @app.route('/api/tv/shows/<int:show_id>', methods=['PUT', 'DELETE'])
 @require_api_key
@@ -2003,7 +2024,7 @@ def get_movie_details(tmdb_id):
 @app.route('/api/movies', methods=['GET'])
 @require_api_key
 def get_movies():
-    movies = Movie.query.order_by(Movie.added_on.desc()).all()
+    movies = Movie.query.filter(Movie.status != 'NONE').order_by(Movie.added_on.desc()).all()
     result = []
     for m in movies:
         result.append({
@@ -2026,13 +2047,35 @@ def add_movie():
     status = data.get('status', 'TO WATCH')
     if not tmdb_id or not name:
         return jsonify({"success": False, "message": "tmdb_id and name are required"}), 400
+    
     existing = Movie.query.filter_by(tmdb_id=tmdb_id).first()
     if existing:
-        return jsonify({"success": False, "message": "Movie already tracked", "id": existing.id}), 400
+        if existing.status == 'NONE' and status != 'NONE':
+            existing.status = status
+            db.session.commit()
+            
+        return jsonify({
+            "success": True, 
+            "message": "Movie already tracked", 
+            "id": existing.id,
+            "show": {
+                "id": existing.id, "tmdb_id": existing.tmdb_id, "name": existing.name, 
+                "poster_path": existing.poster_path, "status": existing.status, "type": "movie"
+            }
+        })
+
     new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status)
     db.session.add(new_movie)
     db.session.commit()
-    return jsonify({"success": True, "message": "Movie added", "id": new_movie.id})
+    return jsonify({
+        "success": True, 
+        "message": "Movie added", 
+        "id": new_movie.id,
+        "show": {
+            "id": new_movie.id, "tmdb_id": new_movie.tmdb_id, "name": new_movie.name, 
+            "poster_path": new_movie.poster_path, "status": new_movie.status, "type": "movie"
+        }
+    })
 
 @app.route('/api/movies/<int:movie_id>', methods=['PUT', 'DELETE'])
 @require_api_key
@@ -2299,32 +2342,48 @@ def get_media_library():
     combined = []
     
     if media_type in ['all', 'movie']:
-        movies = Movie.query.all()
-        for m in movies:
+        from sqlalchemy.sql import func
+        movies = db.session.query(Movie, func.max(MovieDiaryLog.date).label('latest_log')).outerjoin(MovieDiaryLog, Movie.id == MovieDiaryLog.movie_id).group_by(Movie.id).all()
+        for m, latest_log in movies:
+            if m.status == 'NONE':
+                continue
             if status_filter != 'all' and m.status != status_filter:
                 continue
+            
+            sort_date = m.added_on
+            if latest_log:
+                sort_date = datetime.combine(latest_log, datetime.min.time())
+                
             combined.append({
                 "id": m.id,
                 "tmdb_id": m.tmdb_id,
                 "name": m.name,
                 "poster_path": m.poster_path,
                 "status": m.status,
-                "added_on": m.added_on,
+                "added_on": sort_date,
                 "type": "movie"
             })
             
     if media_type in ['all', 'tv']:
-        shows = TvShow.query.all()
-        for s in shows:
+        from sqlalchemy.sql import func
+        shows = db.session.query(TvShow, func.max(TvDiaryLog.date).label('latest_log')).outerjoin(TvDiaryLog, TvShow.id == TvDiaryLog.tv_show_id).group_by(TvShow.id).all()
+        for s, latest_log in shows:
+            if s.status == 'NONE':
+                continue
             if status_filter != 'all' and s.status != status_filter:
                 continue
+            
+            sort_date = s.added_on
+            if latest_log:
+                sort_date = datetime.combine(latest_log, datetime.min.time())
+
             combined.append({
                 "id": s.id,
                 "tmdb_id": s.tmdb_id,
                 "name": s.name,
                 "poster_path": s.poster_path,
                 "status": s.status,
-                "added_on": s.added_on,
+                "added_on": sort_date,
                 "type": "tv"
             })
             
@@ -2353,10 +2412,15 @@ def get_media_diary():
     offset = request.args.get('offset', 0, type=int)
     media_type = request.args.get('type', 'all')
     
+    show_id = request.args.get('show_id', type=int)
+    
     combined = []
     
     if media_type in ['all', 'movie']:
-        logs = MovieDiaryLog.query.options(joinedload(MovieDiaryLog.movie)).all()
+        query = MovieDiaryLog.query.options(joinedload(MovieDiaryLog.movie))
+        if show_id and media_type == 'movie':
+            query = query.filter_by(movie_id=show_id)
+        logs = query.all()
         for log in logs:
             combined.append({
                 "id": log.id,
@@ -2375,7 +2439,10 @@ def get_media_diary():
             })
             
     if media_type in ['all', 'tv']:
-        logs = TvDiaryLog.query.options(joinedload(TvDiaryLog.tv_show)).all()
+        query = TvDiaryLog.query.options(joinedload(TvDiaryLog.tv_show))
+        if show_id and media_type == 'tv':
+            query = query.filter_by(tv_show_id=show_id)
+        logs = query.all()
         for log in logs:
             combined.append({
                 "id": log.id,

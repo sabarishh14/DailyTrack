@@ -121,6 +121,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   const [diaryPage, setDiaryPage] = useState(1);
   const [showsTotalCount, setShowsTotalCount] = useState(0);
   const [diaryTotalCount, setDiaryTotalCount] = useState(0);
+  const [selectedShowLogs, setSelectedShowLogs] = useState([]);
   const ITEMS_PER_PAGE = 60;
 
   // Reset pagination when filters change
@@ -212,37 +213,23 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   // ─── ACTIONS ──────────────────────────────────────────────────────────
   const addShow = async (tmdbShow) => {
     setShowDropdown(false); setSearchQuery('');
-
-    // Switch to 'TO WATCH' tab so the user instantly sees what they added
-    setStatusFilter('TO WATCH');
-    setShowsPage(1); // Reset to page 1 to see the newest item at the top
-
-    // Optimistic UI insert
-    const optimisticShow = {
-      id: 'temp-' + tmdbShow.id,
-      tmdb_id: tmdbShow.id,
-      name: tmdbShow.title || tmdbShow.name,
-      poster_path: tmdbShow.poster_path,
-      status: 'TO WATCH',
-      type: tmdbShow.media_type === 'movie' ? 'movie' : 'tv',
-      isAdding: true,
-      added_on: new Date().toISOString()
-    };
-    setShows(prev => [optimisticShow, ...prev]);
+    setSearchLoading(true);
 
     try {
       const endpoint = tmdbShow.media_type === 'movie' ? '/movies' : '/tv/shows';
       const r = await fetch(`${API}${endpoint}`, {
         method: 'POST', headers: hdrs(),
-        body: JSON.stringify({ tmdb_id: tmdbShow.id, name: optimisticShow.name, poster_path: tmdbShow.poster_path, status: 'TO WATCH' })
+        body: JSON.stringify({ tmdb_id: tmdbShow.id, name: tmdbShow.title || tmdbShow.name, poster_path: tmdbShow.poster_path, status: 'NONE' })
       });
       const d = await r.json();
-      if (d.success) fetchShows();
-      else setShows(prev => prev.filter(s => s.id !== optimisticShow.id)); // revert on error
+      if (d.success && d.show) {
+        // Open the modal with the DB object without forcing a reload or optimistic UI update yet
+        openModal(d.show);
+      }
     } catch (e) {
       console.error(e);
-      setShows(prev => prev.filter(s => s.id !== optimisticShow.id)); // revert on error
     }
+    setSearchLoading(false);
   };
 
   const openModal = async (show) => {
@@ -252,17 +239,30 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     setEditingLogIds(null);
     setEditingLog(null);
 
-    if (show.type === 'movie') {
-      const hasLogged = diaryLogs.some(l => l.show_id === show.id && l.type === 'movie');
-      setLogRewatch(hasLogged);
-    } else {
+    if (show.type !== 'movie') {
       setLogRewatch(false);
     }
     setModalView('log');
     try {
       const endpoint = show.type === 'movie' ? `/movies/details/${show.tmdb_id}` : `/tv/details/${show.tmdb_id}`;
-      const r = await fetch(`${API}${endpoint}`, { headers: hdrs() });
+      const [r, logsR] = await Promise.all([
+        fetch(`${API}${endpoint}`, { headers: hdrs() }),
+        fetch(`${API}/media/diary?type=${show.type}&show_id=${show.id}`, { headers: hdrs() })
+      ]);
       const d = await r.json();
+      const logsD = await logsR.json();
+      
+      let fetchedLogs = [];
+      if (logsD.success) {
+        fetchedLogs = logsD.logs || [];
+        setSelectedShowLogs(fetchedLogs);
+      } else {
+        setSelectedShowLogs([]);
+      }
+      
+      if (show.type === 'movie') {
+        setLogRewatch(fetchedLogs.length > 0);
+      }
       if (d.success) {
         setShowDetails(d.data);
         if (show.type === 'tv') {
@@ -328,12 +328,21 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
       alert("You can only mark this show as WATCHED if you have logged all episodes or an entire season.");
       return;
     }
-    setSelectedShow(prev => ({ ...prev, status }));
-    setShows(prev => prev.map(s => (s.id === selectedShow.id && s.type === selectedShow.type) ? { ...s, status } : s));
     try {
       const endpoint = selectedShow.type === 'movie' ? `/movies/${selectedShow.id}` : `/tv/shows/${selectedShow.id}`;
-      await fetch(`${API}${endpoint}`, { method: 'PUT', headers: hdrs(), body: JSON.stringify({ status }) });
-    } catch (e) { console.error(e); fetchShows(); }
+      await fetch(`${API}${endpoint}`, {
+        method: 'PUT', headers: hdrs(),
+        body: JSON.stringify({ status })
+      });
+      setSelectedShow(prev => ({ ...prev, status }));
+      setShows(prev => {
+        if (prev.some(s => s.id === selectedShow.id)) {
+          return prev.map(s => s.id === selectedShow.id ? { ...s, status } : s);
+        } else {
+          return [{ ...selectedShow, status }, ...prev];
+        }
+      });
+    } catch (e) { console.error(e); }
   };
 
   const deleteShow = async () => {
@@ -435,10 +444,18 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   };
 
   const editLog = async (log) => {
-    const show = shows.find(s => s.id === log.show_id && s.type === log.type);
-    if (!show) return;
+    let show = shows.find(s => s.id === log.show_id && s.type === log.type);
+    if (!show) {
+      show = {
+        id: log.show_id,
+        tmdb_id: log.tmdb_id,
+        name: log.show_name,
+        poster_path: log.poster_path,
+        type: log.type,
+      };
+    }
     await openModal(show);
-    setEditingLogIds(log.log_ids);
+    setEditingLogIds([log.id]); // use log.id since that is what backend expects for deletion / updating
     setEditingLog(log);
     setLogDate(log.date);
     setLogSeasons(log.seasons || (log.season_number != null ? [log.season_number] : []));
@@ -577,7 +594,6 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
 
   // ─── RENDER ───────────────────────────────────────────────────────────
   // --- CALCULATE MODAL SUMMARY ---
-  const selectedShowLogs = selectedShow ? diaryLogs.filter(l => l.show_id === selectedShow.id && l.type === selectedShow.type) : [];
   const selectedShowRated = selectedShowLogs.filter(l => l.rating > 0);
   const selectedShowAvg = selectedShowRated.length > 0 ? (selectedShowRated.reduce((acc, l) => acc + l.rating, 0) / selectedShowRated.length).toFixed(1) : null;
 
@@ -630,13 +646,13 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                 {searchResults.slice(0, 8).map(r => {
                   const added = shows.some(s => s.tmdb_id === r.id);
                   return (
-                    <div key={r.id} className={`tv-search-item ${added ? 'added' : ''}`} onClick={() => !added && addShow(r)}>
+                    <div key={r.id} className={`tv-search-item ${added ? 'added' : ''}`} onClick={() => addShow(r)}>
                       {r.poster_path ? <img src={`${TMDB_IMG}/w92${r.poster_path}`} alt="" /> : <div className="tv-search-item-noposter">{r.media_type === 'movie' ? '🎬' : '📺'}</div>}
                       <div className="tv-search-item-info">
                         <span className="tv-search-item-name">{r.name || r.title}</span>
                         <span className="tv-search-item-year">{r.media_type === 'movie' ? '🎬' : '📺'} {(r.first_air_date || r.release_date)?.split('-')[0] || 'N/A'}</span>
                       </div>
-                      {added ? <span className="tv-search-item-badge">In Library</span> : <span className="tv-search-item-add">+ Add</span>}
+                      {added && <span className="tv-search-item-badge">In Library</span>}
                     </div>
                   );
                 })}
@@ -770,7 +786,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                                   </h4>
                                   <div className="tv-diary-entry-actions">
                                     <button onClick={() => editLog(log)} title="Edit Log">✏️</button>
-                                    <button onClick={() => deleteLog(log.log_ids)} title="Delete Log">🗑️</button>
+                                    <button onClick={() => deleteLog([log.id], log.type)} title="Delete Log">🗑️</button>
                                   </div>
                                 </div>
                                 <div className="tv-diary-entry-meta">
@@ -1117,7 +1133,7 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                           <button onClick={() => { editLog(log); setModalView('log'); }} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Log">✏️</button>
-                          <button onClick={() => deleteLog(log.log_ids, log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
+                          <button onClick={() => deleteLog([log.id], log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
                         </div>
                       </div>
 
