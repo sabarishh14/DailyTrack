@@ -2670,6 +2670,258 @@ function AutocompleteInput({ value, onChange, options, placeholder }) {
   );
 }
 
+// --- NEW COMPONENTS FOR CINEMA TRANSACTIONS ---
+function TmdbMovieSearchInput({ value, onChange, onSelectMovie, placeholder }) {
+  const [query, setQuery] = useState(value || '');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    setQuery(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const searchTmdb = async (q) => {
+    if (!q.trim()) { setResults([]); setIsOpen(false); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/movies/search?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResults(data.results);
+        setIsOpen(true);
+      }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const isSelected = useRef(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    if (!isOpen) setActiveIndex(-1);
+  }, [isOpen]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isSelected.current && query) {
+        searchTmdb(query);
+      }
+      isSelected.current = false;
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const handleKeyDown = (e) => {
+    if (!isOpen || results.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      const r = results[activeIndex];
+      isSelected.current = true;
+      onSelectMovie(r);
+      setQuery(`Movie (${r.title})`);
+      onChange(`Movie (${r.title})`);
+      setIsOpen(false);
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', minWidth: '150px' }}>
+      <input
+        type="text"
+        className="bulk-inp"
+        placeholder={placeholder || "Search TMDB..."}
+        value={query}
+        onChange={e => {
+          setQuery(e.target.value);
+          onChange(e.target.value);
+        }}
+        onFocus={() => { if (results.length > 0) setIsOpen(true); }}
+        onKeyDown={handleKeyDown}
+      />
+      {loading && <div style={{ position: 'absolute', right: '10px', top: '8px', fontSize: '12px' }}>⏳</div>}
+
+      {isOpen && results.length > 0 && (
+        <div className="custom-dropdown" style={{ minWidth: '250px' }}>
+          {results.map((r, idx) => (
+            <div
+              key={r.tmdb_id}
+              className={`custom-dropdown-item ${idx === activeIndex ? 'active-item' : ''}`}
+              style={{ display: 'flex', gap: '12px', alignItems: 'center' }}
+              onMouseEnter={() => setActiveIndex(idx)}
+              onClick={() => {
+                isSelected.current = true;
+                onSelectMovie(r);
+                setQuery(`Movie (${r.title})`);
+                onChange(`Movie (${r.title})`);
+                setIsOpen(false);
+              }}
+            >
+              {r.poster_path ? (
+                <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="poster" style={{ width: '36px', height: '54px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }} />
+              ) : (
+                <div style={{ width: '36px', height: '54px', background: 'var(--border2)', borderRadius: '4px', flexShrink: 0 }} />
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text3)' }}>{r.year}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TagPillInput({ value, onChange }) {
+  const [inputVal, setInputVal] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [allTags, setAllTags] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const tags = Array.isArray(value) ? value : [];
+
+  useEffect(() => {
+    fetch(`${API}/movies/tags`, { headers: { 'Authorization': `Bearer ${getToken()}` } })
+      .then(r => r.json())
+      .then(d => { if (d.success) setAllTags(d.tags); })
+      .catch(e => console.error(e));
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    if (val.includes(',')) {
+      const newTags = val.split(',').map(t => t.trim()).filter(Boolean);
+      if (newTags.length > 0) {
+        onChange([...tags, ...newTags]);
+      }
+      setInputVal('');
+      setIsOpen(false);
+    } else {
+      setInputVal(val);
+      if (val.trim()) {
+        const filtered = allTags.filter(t => t.toLowerCase().includes(val.toLowerCase()) && !tags.includes(t));
+        setSuggestions(filtered);
+        setIsOpen(filtered.length > 0);
+      } else {
+        setIsOpen(false);
+      }
+    }
+  };
+
+  const removeTag = (indexToRemove) => {
+    onChange(tags.filter((_, i) => i !== indexToRemove));
+  };
+
+  const addSuggestion = (tag) => {
+    if (!tags.includes(tag)) {
+      onChange([...tags, tag]);
+    }
+    setInputVal('');
+    setIsOpen(false);
+  };
+
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    if (!isOpen) setActiveIndex(-1);
+  }, [isOpen]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {tags.map((t, i) => (
+            <div key={i} style={{ background: 'var(--accent)', color: '#fff', padding: '4px 10px', borderRadius: '16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {t}
+              <span onClick={() => removeTag(i)} style={{ cursor: 'pointer', fontWeight: 'bold' }}>×</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div ref={wrapperRef} style={{ position: 'relative' }}>
+        <input
+          type="text"
+          className="bulk-inp"
+          placeholder="Add tag and press comma..."
+          value={inputVal}
+          onChange={handleInputChange}
+          onKeyDown={e => {
+            if (isOpen && suggestions.length > 0) {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+                return;
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveIndex(prev => (prev > 0 ? prev - 1 : -1));
+                return;
+              } else if (e.key === 'Enter' && activeIndex >= 0) {
+                e.preventDefault();
+                addSuggestion(suggestions[activeIndex]);
+                return;
+              } else if (e.key === 'Escape') {
+                setIsOpen(false);
+                return;
+              }
+            }
+            if (e.key === 'Enter' && inputVal.trim()) {
+              e.preventDefault();
+              addSuggestion(inputVal.trim());
+            }
+          }}
+          style={{ width: '100%', maxWidth: '400px' }}
+        />
+        {isOpen && (
+          <div className="custom-dropdown" style={{ maxWidth: '400px' }}>
+            {suggestions.map((s, idx) => (
+              <div
+                key={s}
+                className={`custom-dropdown-item ${idx === activeIndex ? 'active-item' : ''}`}
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => addSuggestion(s)}
+              >
+                {s}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+// ----------------------
+
 function AddTab({ accounts, transactions, categories, onAdd }) {
   const today = new Date().toISOString().split('T')[0];
 
@@ -2687,6 +2939,8 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     heading: '',
     description: '',
     amount: '',
+    movie_tags: [],
+    movie_data: null,
     isSplit: false,
     split_data: { total_amount: 0, members: [], gdrive_link: '', loading: false }
   });
@@ -2705,6 +2959,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState(null);
 
   // MAGICAL AUTO-SAVE: Saves to local storage every time you type a letter
   useEffect(() => {
@@ -2712,7 +2967,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   }, [rows]);
 
   const updateRow = (id, field, value) => {
-    setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
+    setRows(prevRows => prevRows.map(row => row.id === id ? { ...row, [field]: value } : row));
   };
 
   const addRow = () => {
@@ -2722,6 +2977,8 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       id: Date.now() + Math.random(),
       amount: '',
       description: '',
+      movie_tags: [],
+      movie_data: null,
       isSplit: false,
       split_data: { total_amount: 0, members: [], gdrive_link: '', loading: false }
     }]);
@@ -2787,6 +3044,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     }
 
     setLoading(true);
+    setSubmitMessage(null);
     try {
       const payload = evaluatedRows.map(r => {
         const catName = r.heading.trim();
@@ -2802,7 +3060,10 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           heading: catName,
           description: r.description.trim() || "",
           amount: parseFloat(r.amount),
-          exclude_analytics: isAutoExclude
+          exclude_analytics: isAutoExclude,
+          movie_tags: r.movie_tags,
+          movie_data: r.movie_data,
+          lbx_username: localStorage.getItem('dt_lbx_username') || 'sabarishh14'
         };
 
         if (r.isSplit && r.split_data && r.split_data.members.length > 0) {
@@ -2819,21 +3080,23 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       });
 
       if (res.ok) {
+        const data = await res.json();
         onAdd();
         setSuccess(true);
+        setSubmitMessage({ type: 'success', text: data.message || "Successfully saved!" });
         // Wipe local storage draft only on successful save
         localStorage.removeItem('dt_draft_txs');
         setTimeout(() => {
           setSuccess(false);
+          setSubmitMessage(null);
           setRows([createEmptyRow()]);
-        }, 1500);
+        }, 3000);
       } else {
         const errText = await res.text();
-        alert(`Failed to save. Server returned: ${res.status}\n${errText.substring(0, 100)}`);
+        setSubmitMessage({ type: 'error', text: `Failed to save. Server returned: ${res.status}\n${errText.substring(0, 100)}` });
       }
     } catch (e) {
-      // The custom alert tells the user their data is completely safe
-      alert("Network error: " + e.message + "\n\nDon't worry, your typed data is safely auto-saved! Just wait a few seconds for the server to wake up and try again.");
+      setSubmitMessage({ type: 'error', text: "Network error: " + e.message + "\nDon't worry, your typed data is safely auto-saved!" });
     } finally {
       setLoading(false);
     }
@@ -2859,6 +3122,22 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           </button>
         </div>
       </div>
+
+      {submitMessage && (
+        <div style={{
+          padding: '12px 16px',
+          marginBottom: '1rem',
+          borderRadius: '8px',
+          background: submitMessage.type === 'error' ? 'rgba(255, 60, 60, 0.1)' : 'rgba(40, 200, 100, 0.1)',
+          border: `1px solid ${submitMessage.type === 'error' ? 'rgba(255, 60, 60, 0.3)' : 'rgba(40, 200, 100, 0.3)'}`,
+          color: submitMessage.type === 'error' ? '#ff6b6b' : '#2ecc71',
+          whiteSpace: 'pre-wrap',
+          animation: 'fadeIn 0.2s ease',
+          fontWeight: '500'
+        }}>
+          {submitMessage.text}
+        </div>
+      )}
 
       <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
         <div className="add-table-inner">
@@ -2909,12 +3188,21 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                   }}
                 />
 
-                <AutocompleteInput
-                  value={row.description}
-                  onChange={val => updateRow(row.id, 'description', val)}
-                  options={recentDescriptions}
-                  placeholder="Optional note..."
-                />
+                {row.heading.trim().toLowerCase() === 'cinema' ? (
+                  <TmdbMovieSearchInput
+                    value={row.description}
+                    onChange={val => updateRow(row.id, 'description', val)}
+                    onSelectMovie={movie => updateRow(row.id, 'movie_data', movie)}
+                    placeholder="Search movie..."
+                  />
+                ) : (
+                  <AutocompleteInput
+                    value={row.description}
+                    onChange={val => updateRow(row.id, 'description', val)}
+                    options={recentDescriptions}
+                    placeholder="Optional note..."
+                  />
+                )}
 
                 <div className="bulk-actions-wrapper" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <button
@@ -2934,6 +3222,16 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                   </button>
                 </div>
               </div>
+
+              {row.heading.trim().toLowerCase() === 'cinema' && (
+                <div style={{ margin: '0.5rem 0 1rem 0', padding: '1rem', background: 'var(--bg2)', borderRadius: '8px', border: '1px dashed var(--accent)' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text2)', marginBottom: '0.5rem' }}>🎬 Movie Tags</div>
+                  <TagPillInput
+                    value={row.movie_tags}
+                    onChange={tags => updateRow(row.id, 'movie_tags', tags)}
+                  />
+                </div>
+              )}
 
               {row.isSplit && (
                 <div style={{ margin: '0.5rem 0 1rem 0', padding: '1.25rem', background: 'var(--bg2)', borderRadius: '12px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
