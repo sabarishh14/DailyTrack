@@ -76,7 +76,7 @@ function StarDisplay({ value, size = 13 }) {
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
 export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
-  const [view, setView] = useState('library'); // library | diary | activity
+  const [view, setView] = useState('library'); // library | diary | stats
   const [shows, setShows] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +123,11 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
   const [diaryTotalCount, setDiaryTotalCount] = useState(0);
   const [selectedShowLogs, setSelectedShowLogs] = useState([]);
   const ITEMS_PER_PAGE = 60;
+
+  // Stats
+  const [statsData, setStatsData] = useState(null);
+  const [statsYear, setStatsYear] = useState(String(new Date().getFullYear()));
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -178,8 +183,10 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
     if (!loading) setIsSyncing(true);
     if (view === 'library') {
       fetchShows().then(() => { setLoading(false); setIsSyncing(false); });
-    } else {
+    } else if (view === 'diary') {
       fetchDiary().then(() => { setLoading(false); setIsSyncing(false); });
+    } else if (view === 'stats') {
+      setLoading(false); setIsSyncing(false);
     }
   }, [fetchShows, fetchDiary, refreshTrigger, view]);
 
@@ -606,7 +613,8 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
           <div className="tv-tabs">
             {[
               { id: 'library', icon: '📚', label: 'Library' },
-              { id: 'diary', icon: '📅', label: 'Diary' }
+              { id: 'diary', icon: '📅', label: 'Diary' },
+              ...(showMovies ? [{ id: 'stats', icon: '📊', label: 'Stats' }] : [])
             ].map(t => (
               <button key={t.id} className={`tv-tab ${view === t.id ? 'active' : ''}`} onClick={() => setView(t.id)}>
                 <span className="tv-tab-icon">{t.icon}</span> {t.label}
@@ -1155,6 +1163,271 @@ export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) 
           </div>
         </div>
       )}
+      {/* ─── STATS ─── */}
+      {view === 'stats' && showMovies && (
+        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATS VIEW — Letterboxd-Inspired Movie Stats
+// ═══════════════════════════════════════════════════════════════════════
+
+const TMDB_IMG_STATS = 'https://image.tmdb.org/t/p';
+
+function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading }) {
+  const [error, setError] = useState(null);
+  const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
+
+  const fetchStats = useCallback(async (year) => {
+    setStatsLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(`${API}/movies/stats?year=${year}`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await r.json();
+      if (data.success) {
+        setStatsData(data);
+      } else {
+        setError(data.message || 'Failed to load stats');
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setStatsLoading(false);
+  }, [API, getToken, setStatsData, setStatsLoading]);
+
+  useEffect(() => {
+    fetchStats(statsYear);
+    setHighestRatedFilter('current');
+  }, [statsYear, fetchStats]);
+
+  const handleYearChange = (e) => {
+    setStatsYear(e.target.value);
+  };
+
+  // Render star icons for a given rating
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      if (rating >= i) {
+        stars.push(<span key={i} className="star-filled">★</span>);
+      } else if (rating >= i - 0.5) {
+        stars.push(<span key={i} className="star-filled">½</span>);
+      }
+    }
+    return stars;
+  };
+
+  if (statsLoading && !statsData) {
+    return (
+      <div className="stats-loading">
+        <div className="tv-loading-spinner" style={{ width: '32px', height: '32px', borderWidth: '3px' }} />
+        <span>Loading your stats...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="stats-loading">
+        <span style={{ fontSize: '2rem' }}>😕</span>
+        <span>{error}</span>
+      </div>
+    );
+  }
+
+  if (!statsData) return null;
+
+  const d = statsData;
+  const maxWeek = Math.max(...d.by_week, 1);
+  const maxDay = Math.max(...d.by_day, 1);
+  const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  // Rating distribution for chart
+  const ratingKeys = ['0.5', '1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0'];
+  const ratingValues = ratingKeys.map(k => d.rating_distribution[k] || d.rating_distribution[String(parseFloat(k))] || 0);
+  const maxRating = Math.max(...ratingValues, 1);
+
+  // Highest Rated Selection
+  let highestRatedList = d.highest_rated || [];
+  if (statsYear !== 'all') {
+    highestRatedList = highestRatedFilter === 'current' ? (d.highest_rated_current || []) : (d.highest_rated_older || []);
+  }
+
+  return (
+    <div className="stats-container">
+      {/* ─── HERO ─── */}
+      <div className="stats-hero">
+        <div className="stats-year-display">{statsYear === 'all' ? '∞' : statsYear}</div>
+        <div className="stats-year-selector">
+          <span>📅</span>
+          <select value={statsYear} onChange={handleYearChange}>
+            {(d.available_years || []).map(y => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
+            <option value="all">All Time</option>
+          </select>
+          <span>▾</span>
+        </div>
+        <div className="stats-subtitle">
+          {statsYear === 'all' ? 'Your all-time movie journey' : `Your ${statsYear} year in film`}
+        </div>
+        {statsLoading && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div className="tv-loading-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block' }} />
+          </div>
+        )}
+      </div>
+
+      {/* ─── SUMMARY COUNTERS ─── */}
+      <div className="stats-counters">
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.total_entries}</div>
+          <div className="stats-counter-label">Diary Entries</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.total_reviews}</div>
+          <div className="stats-counter-label">Reviews</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.total_likes}</div>
+          <div className="stats-counter-label">Likes</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.total_hours}</div>
+          <div className="stats-counter-label">Hours</div>
+        </div>
+      </div>
+
+      {/* ─── HIGHEST RATED ─── */}
+      {highestRatedList.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">🏆 Highest Rated Films</span>
+            {statsYear !== 'all' && (
+              <div className="stats-section-toggles">
+                <button 
+                  className={`stats-toggle-btn ${highestRatedFilter === 'current' ? 'active' : ''}`}
+                  onClick={() => setHighestRatedFilter('current')}
+                >
+                  {statsYear}
+                </button>
+                <button 
+                  className={`stats-toggle-btn ${highestRatedFilter === 'older' ? 'active' : ''}`}
+                  onClick={() => setHighestRatedFilter('older')}
+                >
+                  Older
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="stats-poster-grid">
+            {highestRatedList.map(m => (
+              <div key={m.movie_id} className="stats-poster-item">
+                <div className="stats-poster-img-wrap">
+                  {m.poster_path ? (
+                    <img src={`${TMDB_IMG_STATS}/w342${m.poster_path}`} alt={m.name} loading="lazy" />
+                  ) : (
+                    <div className="stats-no-poster">🎬</div>
+                  )}
+                </div>
+                <div className="stats-poster-rating">{renderStars(m.rating)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── BY WEEK ─── */}
+      <div className="stats-section">
+        <div className="stats-section-header">
+          <span className="stats-section-title">📈 By Week</span>
+        </div>
+        <div className="stats-week-chart">
+          <div className="stats-week-bars">
+            {d.by_week.map((count, i) => (
+              <div
+                key={i}
+                className="stats-week-bar"
+                style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0' }}
+                data-count={`W${i + 1}: ${count} films`}
+              />
+            ))}
+          </div>
+          <div className="stats-week-labels">
+            <span>Jan</span>
+            <span>Apr</span>
+            <span>Jul</span>
+            <span>Oct</span>
+            <span>Dec</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── AVERAGES ─── */}
+      <div className="stats-section">
+        <div className="stats-averages">
+          <div className="stats-avg-item">
+            <div className="stats-avg-value">{d.films_logged}</div>
+            <div className="stats-avg-label">Films logged</div>
+          </div>
+          <span className="stats-avg-arrow">→</span>
+          <div className="stats-avg-item">
+            <div className="stats-avg-value">{d.avg_per_month}</div>
+            <div className="stats-avg-label">Average per month</div>
+          </div>
+          <span className="stats-avg-arrow">→</span>
+          <div className="stats-avg-item">
+            <div className="stats-avg-value">{d.avg_per_week}</div>
+            <div className="stats-avg-label">Average per week</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── BOTTOM GRID ─── */}
+      <div className="stats-bottom-grid">
+        {/* Day of week */}
+        <div>
+          <div className="stats-section-header">
+            <span className="stats-section-title">📅 By Day</span>
+          </div>
+          <div className="stats-day-chart">
+            {d.by_day.map((count, i) => (
+              <div key={i} className="stats-day-bar-wrap">
+                <div
+                  className={`stats-day-bar ${i >= 5 ? 'weekend' : ''}`}
+                  style={{ height: count > 0 ? `${Math.max(4, (count / maxDay) * 80)}px` : '4px' }}
+                  title={`${count} films`}
+                />
+                <span className="stats-day-label">{dayLabels[i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Rating distribution */}
+        <div>
+          <div className="stats-section-header">
+            <span className="stats-section-title">⭐ Ratings</span>
+          </div>
+          <div className="stats-rating-chart">
+            {ratingKeys.map((k, i) => (
+              <div key={k} className="stats-rating-bar-wrap">
+                <div
+                  className="stats-rating-bar"
+                  style={{ height: ratingValues[i] > 0 ? `${Math.max(4, (ratingValues[i] / maxRating) * 80)}px` : '4px' }}
+                  data-count={`${ratingValues[i]} films`}
+                />
+                <span className="stats-rating-label">{k.replace('.0', '').replace('.5', '½')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

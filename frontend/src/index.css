@@ -5349,3 +5349,549 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .tv-controls-header { flex-direction: column; justify-content: center; align-items: center; }
   .tv-filters { justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOVIE STATS PAGE — Letterboxd-Inspired
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.stats-container {
+  padding-bottom: 6rem;
+}
+
+/* ─── HERO ─── */
+.stats-hero {
+  position: relative;
+  text-align: center;
+  padding: 3rem 1.5rem 2.5rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12) 0%, rgba(var(--accent3-rgb), 0.08) 50%, rgba(var(--accent2-rgb), 0.1) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.stats-hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 8px,
+    rgba(var(--accent-rgb), 0.03) 8px,
+    rgba(var(--accent-rgb), 0.03) 9px
+  );
+  pointer-events: none;
+}
+
+.stats-year-display {
+  font-family: 'Syne', sans-serif;
+  font-size: 5rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  letter-spacing: -2px;
+}
+
+.stats-year-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(var(--accent-rgb), 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  color: var(--accent-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stats-year-selector:hover {
+  background: rgba(var(--accent-rgb), 0.25);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.stats-year-selector select {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 0.5rem;
+}
+
+.stats-year-selector select option {
+  background: var(--bg2);
+  color: var(--text);
+}
+
+.stats-subtitle {
+  color: var(--text2);
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+/* ─── COUNTERS ─── */
+.stats-counters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.stats-counter-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  text-align: center;
+  transition: all 0.25s;
+}
+
+.stats-counter-card:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.stats-counter-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.stats-counter-label {
+  font-size: 0.75rem;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 0.4rem;
+  font-weight: 500;
+}
+
+/* ─── SECTION ─── */
+.stats-section {
+  margin-bottom: 2.5rem;
+}
+
+.stats-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stats-section-toggles {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(255,255,255,0.05);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.stats-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stats-toggle-btn:hover {
+  color: var(--text);
+}
+
+.stats-toggle-btn.active {
+  background: var(--card2);
+  color: var(--accent-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ─── HIGHEST RATED POSTER GRID ─── */
+.stats-poster-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 12px;
+}
+
+.stats-poster-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-poster-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stats-poster-img-wrap:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.25);
+}
+
+.stats-poster-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stats-poster-img-wrap .stats-no-poster {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card2);
+  color: var(--text2);
+  font-size: 1.5rem;
+}
+
+.stats-poster-rating {
+  font-size: 0.7rem;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stats-poster-rating .star-filled {
+  color: #f59e0b;
+}
+
+.stats-poster-name {
+  font-size: 0.72rem;
+  color: var(--text3);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── WEEK CHART ─── */
+.stats-week-chart {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.stats-week-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  margin-bottom: 0.5rem;
+}
+
+.stats-week-bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(to top, rgba(var(--accent2-rgb), 0.7), rgba(var(--accent-rgb), 0.9));
+  transition: all 0.3s;
+  position: relative;
+  cursor: default;
+}
+
+.stats-week-bar:hover {
+  background: linear-gradient(to top, rgba(var(--accent2-rgb), 1), rgba(var(--accent-rgb), 1));
+  filter: brightness(1.2);
+}
+
+.stats-week-bar:hover::after {
+  content: attr(data-count);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  border: 1px solid var(--border2);
+  z-index: 10;
+}
+
+.stats-week-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text2);
+  font-size: 0.75rem;
+}
+
+/* ─── AVERAGES ROW ─── */
+.stats-averages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.stats-avg-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stats-avg-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stats-avg-label {
+  font-size: 0.75rem;
+  color: var(--text2);
+}
+
+.stats-avg-arrow {
+  color: var(--text2);
+  font-size: 1.2rem;
+}
+
+/* ─── DAY OF WEEK CHART ─── */
+.stats-day-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.stats-day-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-day-bar {
+  width: 36px;
+  border-radius: 4px 4px 0 0;
+  background: var(--text2);
+  transition: all 0.3s;
+  min-height: 4px;
+}
+
+.stats-day-bar.weekend {
+  background: rgba(var(--accent2-rgb), 0.7);
+}
+
+.stats-day-label {
+  font-size: 0.7rem;
+  color: var(--text2);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ─── RATING DISTRIBUTION ─── */
+.stats-rating-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.stats-rating-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 50px;
+}
+
+.stats-rating-bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to top, rgba(245, 158, 11, 0.5), rgba(245, 158, 11, 0.9));
+  transition: all 0.3s;
+  min-height: 4px;
+  position: relative;
+}
+
+.stats-rating-bar:hover {
+  filter: brightness(1.3);
+}
+
+.stats-rating-bar:hover::after {
+  content: attr(data-count);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  border: 1px solid var(--border2);
+  z-index: 10;
+}
+
+.stats-rating-label {
+  font-size: 0.65rem;
+  color: var(--text2);
+}
+
+/* ─── LOADING ─── */
+.stats-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem;
+  color: var(--text2);
+}
+
+/* ─── BOTTOM GRID ─── */
+.stats-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STATS — RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1200px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-year-display {
+    font-size: 3.5rem;
+  }
+
+  .stats-counters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-counter-value {
+    font-size: 2rem;
+  }
+
+  .stats-poster-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  .stats-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-averages {
+    gap: 1rem;
+  }
+
+  .stats-avg-value {
+    font-size: 1.6rem;
+  }
+
+  .stats-hero {
+    padding: 2rem 1rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .stats-counters {
+    gap: 0.5rem;
+  }
+
+  .stats-counter-card {
+    padding: 0.75rem;
+  }
+
+  .stats-counter-value {
+    font-size: 1.6rem;
+  }
+
+  .stats-counter-label {
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+  }
+
+  .stats-day-bar {
+    width: 28px;
+  }
+
+  .stats-week-bars {
+    height: 80px;
+  }
+}

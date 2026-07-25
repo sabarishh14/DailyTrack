@@ -336,6 +336,8 @@ class Movie(db.Model):
     name = db.Column(db.String(255), nullable=False)
     poster_path = db.Column(db.String(255))
     status = db.Column(db.String(50), default="TO WATCH") # WATCHED, TO WATCH
+    runtime = db.Column(db.Integer, nullable=True)  # Runtime in minutes, fetched from TMDB
+    release_year = db.Column(db.Integer, nullable=True) # Release year of the movie
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 
 class MovieDiaryLog(db.Model):
@@ -632,11 +634,25 @@ def add_transaction():
                     
                     movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
                     if not movie:
+                        # Try to fetch runtime from TMDB
+                        runtime_val = None
+                        try:
+                            tmdb_headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
+                            detail_r = requests.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", headers=tmdb_headers, timeout=5).json()
+                            runtime_val = detail_r.get('runtime')
+                            rel_date = detail_r.get('release_date')
+                            if rel_date and len(rel_date) >= 4:
+                                release_year_val = int(rel_date[:4])
+                        except Exception:
+                            pass
+                        
                         movie = Movie(
                             tmdb_id=tmdb_id,
                             name=movie_title,
                             poster_path=movie_data.get('poster_path'),
-                            status='WATCHED'
+                            status='WATCHED',
+                            runtime=runtime_val,
+                            release_year=release_year_val if 'release_year_val' in locals() else None
                         )
                         db.session.add(movie)
                         db.session.flush()
@@ -682,6 +698,7 @@ def add_transaction():
             added_count += 1
             
         db.session.commit()
+        invalidate_stats_cache()
         
         msg = f"Successfully added {added_count} transactions & updated balances!"
         if 'movie_link_successes' in locals() and movie_link_successes:
@@ -2126,6 +2143,183 @@ def get_movie_tags():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+# --- MOVIE STATS CACHE ---
+_stats_cache = {}
+
+def invalidate_stats_cache():
+    """Call this whenever diary logs change (add/delete/RSS sync)."""
+    global _stats_cache
+    _stats_cache.clear()
+
+@app.route('/api/movies/stats', methods=['GET'])
+@require_api_key
+def get_movie_stats():
+    from sqlalchemy.sql import func, extract
+    
+    year_param = request.args.get('year', str(datetime.now().year))
+    
+    # Check cache
+    if year_param in _stats_cache:
+        return jsonify(_stats_cache[year_param])
+    
+    try:
+        # Get available years
+        year_rows = db.session.query(
+            extract('year', MovieDiaryLog.date).label('yr')
+        ).distinct().all()
+        available_years = sorted([int(r.yr) for r in year_rows if r.yr], reverse=True)
+        
+        # Base query
+        query = db.session.query(MovieDiaryLog).options(joinedload(MovieDiaryLog.movie))
+        
+        if year_param != 'all':
+            try:
+                yr = int(year_param)
+                query = query.filter(extract('year', MovieDiaryLog.date) == yr)
+            except ValueError:
+                pass
+        
+        logs = query.all()
+        
+        # --- Compute stats ---
+        total_entries = len(logs)
+        total_reviews = sum(1 for l in logs if l.review and l.review.strip())
+        total_likes = sum(1 for l in logs if l.liked)
+        
+        # Total hours from runtime
+        total_minutes = 0
+        for l in logs:
+            if l.movie and l.movie.runtime:
+                total_minutes += l.movie.runtime
+        total_hours = round(total_minutes / 60, 1)
+        
+        # Unique films
+        unique_movie_ids = set(l.movie_id for l in logs)
+        films_logged = len(unique_movie_ids)
+        
+        # Averages
+        if year_param == 'all' and available_years:
+            num_months = max(1, (datetime.now().year - min(available_years)) * 12 + datetime.now().month)
+            num_weeks = max(1, num_months * 4.33)
+        elif year_param != 'all':
+            try:
+                yr = int(year_param)
+                if yr == datetime.now().year:
+                    from datetime import date as dt_date
+                    jan1 = dt_date(yr, 1, 1)
+                    today = dt_date.today()
+                    days_elapsed = max(1, (today - jan1).days)
+                    num_months = max(1, days_elapsed / 30.44)
+                    num_weeks = max(1, days_elapsed / 7)
+                else:
+                    num_months = 12
+                    num_weeks = 52
+            except ValueError:
+                num_months = 12
+                num_weeks = 52
+        else:
+            num_months = 12
+            num_weeks = 52
+        
+        avg_per_month = round(films_logged / num_months, 1)
+        avg_per_week = round(films_logged / num_weeks, 1)
+        
+        # Highest rated films (top 14, unique movies, highest rating first)
+        # To include rewatches that might not have been rated this year, we get the all-time max rating for all movies logged this year.
+        unique_movie_ids = list(set(l.movie_id for l in logs))
+        movie_best_rating = {}
+        
+        if unique_movie_ids:
+            all_time_ratings = db.session.query(
+                MovieDiaryLog.movie_id, func.max(MovieDiaryLog.rating)
+            ).filter(
+                MovieDiaryLog.movie_id.in_(unique_movie_ids),
+                MovieDiaryLog.rating > 0
+            ).group_by(MovieDiaryLog.movie_id).all()
+            
+            best_rating_map = {r[0]: r[1] for r in all_time_ratings if r[1]}
+            
+            for l in logs:
+                mid = l.movie_id
+                if mid in best_rating_map and mid not in movie_best_rating:
+                    movie_best_rating[mid] = {
+                        'movie_id': mid,
+                        'tmdb_id': l.movie.tmdb_id if l.movie else None,
+                        'name': l.movie.name if l.movie else 'Unknown',
+                        'poster_path': l.movie.poster_path if l.movie else None,
+                        'rating': best_rating_map[mid],
+                        'release_year': l.movie.release_year if l.movie else None
+                    }
+        
+        all_rated = sorted(movie_best_rating.values(), key=lambda x: -x['rating'])
+        highest_rated = all_rated[:14]
+        highest_rated_current = []
+        highest_rated_older = []
+        
+        if year_param != 'all':
+            yr = int(year_param)
+            current = [m for m in all_rated if m['release_year'] == yr][:14]
+            older = [m for m in all_rated if m['release_year'] is not None and m['release_year'] < yr][:14]
+            # Fallback if release_year is missing: treat as older
+            older += [m for m in all_rated if m['release_year'] is None][:14 - len(older)]
+            highest_rated_current = sorted(current, key=lambda x: -x['rating'])
+            highest_rated_older = sorted(older, key=lambda x: -x['rating'])[:14]
+        else:
+            highest_rated_current = highest_rated
+            highest_rated_older = []
+        
+        # Films by week (ISO week number -> count)
+        by_week = [0] * 53  # weeks 0-52
+        for l in logs:
+            if l.date:
+                wk = l.date.isocalendar()[1]
+                if 1 <= wk <= 52:
+                    by_week[wk] += 1
+        by_week = by_week[1:53]  # weeks 1-52
+        
+        # By day of week (Monday=0 ... Sunday=6)
+        by_day = [0] * 7
+        for l in logs:
+            if l.date:
+                dow = l.date.weekday()  # Monday=0, Sunday=6
+                by_day[dow] += 1
+        
+        # Rating distribution (0.5, 1, 1.5, ..., 5)
+        rating_dist = {}
+        for l in logs:
+            if l.rating and l.rating > 0:
+                r_key = str(l.rating)
+                rating_dist[r_key] = rating_dist.get(r_key, 0) + 1
+        
+        result = {
+            "success": True,
+            "year": year_param,
+            "available_years": available_years,
+            "total_entries": total_entries,
+            "total_reviews": total_reviews,
+            "total_likes": total_likes,
+            "total_hours": total_hours,
+            "films_logged": films_logged,
+            "avg_per_month": avg_per_month,
+            "avg_per_week": avg_per_week,
+            "highest_rated": highest_rated,
+            "highest_rated_current": highest_rated_current,
+            "highest_rated_older": highest_rated_older,
+            "by_week": by_week,
+            "by_day": by_day,
+            "rating_distribution": rating_dist
+        }
+        
+        # Cache the result
+        _stats_cache[year_param] = result
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"Stats error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/api/movies/details/<int:tmdb_id>', methods=['GET'])
 @require_api_key
 def get_movie_details(tmdb_id):
@@ -2195,7 +2389,13 @@ def add_movie():
             }
         })
 
-    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status)
+    rel_year = None
+    try:
+        if 'year' in data and data['year']:
+            rel_year = int(str(data['year'])[:4])
+    except:
+        pass
+    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status, release_year=rel_year)
     db.session.add(new_movie)
     db.session.commit()
     return jsonify({
@@ -2266,6 +2466,7 @@ def add_movie_diary():
     )
     db.session.add(new_log)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
 
 @app.route('/api/movies/diary', methods=['PUT'])
@@ -2283,6 +2484,7 @@ def update_movie_diary():
     if 'tags' in data: update_data['tags'] = data['tags'] or None
     MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True})
 
 @app.route('/api/movies/diary', methods=['DELETE'])
@@ -2293,6 +2495,7 @@ def delete_movie_diary():
         return jsonify({"success": False, "message": "log_ids required"}), 400
     MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).delete(synchronize_session=False)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True})
 
 from flask import stream_with_context, Response
@@ -2399,14 +2602,42 @@ def _perform_rss_sync_generator(username, fast_mode=False):
                     tmdb_id = first_result['id']
                     movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
                     if not movie:
+                        # Fetch runtime and release_year from TMDB movie details
+                        runtime_val = None
+                        rel_year_val = None
+                        try:
+                            detail_r = tmdb_session.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", timeout=timeout_secs).json()
+                            runtime_val = detail_r.get('runtime')
+                            rel_date = detail_r.get('release_date')
+                            if rel_date and len(rel_date) >= 4:
+                                rel_year_val = int(rel_date[:4])
+                        except Exception:
+                            pass
+                        
+                        # Fallback to first_result for release year if details failed
+                        if not rel_year_val and first_result.get('release_date'):
+                            try:
+                                rel_year_val = int(first_result.get('release_date')[:4])
+                            except:
+                                pass
+
                         movie = Movie(
                             tmdb_id=tmdb_id,
                             name=first_result.get('title') or film_title,
                             poster_path=first_result.get('poster_path'),
-                            status='WATCHED'
+                            status='WATCHED',
+                            runtime=runtime_val,
+                            release_year=rel_year_val
                         )
                         db.session.add(movie)
                         db.session.flush() # Get ID
+                    elif not movie.runtime:
+                        # Backfill runtime if missing
+                        try:
+                            detail_r = tmdb_session.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", timeout=timeout_secs).json()
+                            movie.runtime = detail_r.get('runtime')
+                        except Exception:
+                            pass
                     added_movies += 1
                 else:
                     continue # Couldn't find in TMDB
@@ -2447,6 +2678,7 @@ def _perform_rss_sync_generator(username, fast_mode=False):
                     added_logs += 1 # Count as a modified log for user feedback
 
         db.session.commit()
+        invalidate_stats_cache()
         yield json.dumps({"status": "complete", "success": True, "added_movies": added_movies, "added_logs": added_logs}) + "\n"
 
     except Exception as e:
