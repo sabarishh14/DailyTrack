@@ -801,9 +801,10 @@ def save_split():
             split = Split(transaction_id=transaction_id, total_amount=total_amount, members=members)
             db.session.add(split)
             
-        if new_tx_amount is not None:
-            tx = Transaction.query.get(transaction_id)
-            if tx and tx.amount != float(new_tx_amount):
+        # Load the transaction to mark it as unsynced
+        tx = Transaction.query.get(transaction_id)
+        if tx:
+            if new_tx_amount is not None and tx.amount != float(new_tx_amount):
                 # 1. Revert old amount
                 account = Account.query.filter_by(account=tx.account).first()
                 if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
@@ -821,6 +822,9 @@ def save_split():
                         account.balance += tx.amount
                     elif tx.type.lower() in ['debit', 'savings']:
                         account.balance -= tx.amount
+            
+            # 4. Always mark as unsynced so it gets pushed to Sheets
+            tx.synced = False
             
         db.session.commit()
         return jsonify({"success": True, "split": {"id": split.id, "total_amount": split.total_amount, "members": split.members}})
