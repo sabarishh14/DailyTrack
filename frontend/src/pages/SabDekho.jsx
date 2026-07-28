@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo , memo } from 'react';
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -75,7 +75,7 @@ function StarDisplay({ value, size = 13 }) {
 }
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
-export default function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
+function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   const [view, setView] = useState('library'); // library | diary | stats
   const [shows, setShows] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
@@ -1431,3 +1431,5 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
     </div>
   );
 }
+
+export default memo(SabDekho);
