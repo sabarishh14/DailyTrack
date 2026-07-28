@@ -6641,8 +6641,11 @@ const FloatingChatWidget = ({ getToken }) => {
   const [query, setQuery] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [height, setHeight] = useState(500);
+  const [width, setWidth] = useState(350);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isResizing = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -6673,9 +6676,42 @@ const FloatingChatWidget = ({ getToken }) => {
     setChatLoading(false);
   };
 
+  const handleMouseDown = (e, direction) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startY = e.clientY;
+    const startX = e.clientX;
+    const startHeight = height;
+    const startWidth = width;
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isResizing.current) return;
+      
+      if (direction === 'top' || direction === 'top-left') {
+        const diffY = startY - moveEvent.clientY;
+        const newHeight = Math.max(300, Math.min(window.innerHeight - 100, startHeight + diffY));
+        setHeight(newHeight);
+      }
+      
+      if (direction === 'left' || direction === 'top-left') {
+        const diffX = startX - moveEvent.clientX;
+        const newWidth = Math.max(250, Math.min(window.innerWidth - 40, startWidth + diffX));
+        setWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <>
-      {/* Floating Button */}
       <button 
         className="floating-chat-btn" 
         onClick={() => setIsOpen(!isOpen)}
@@ -6684,10 +6720,34 @@ const FloatingChatWidget = ({ getToken }) => {
         ✨
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
-        <div className="floating-chat-window">
-          <div className="chat-header">
+        <div className="floating-chat-window" style={{ height: `${height}px`, width: `${width}px` }}>
+          {/* Top-Left Corner Handle */}
+          <div 
+            onMouseDown={(e) => handleMouseDown(e, 'top-left')}
+            style={{
+              height: '15px', width: '15px', cursor: 'nwse-resize',
+              position: 'absolute', top: 0, left: 0, zIndex: 12
+            }}
+          />
+          {/* Top Handle */}
+          <div 
+            onMouseDown={(e) => handleMouseDown(e, 'top')}
+            style={{
+              height: '8px', width: 'calc(100% - 15px)', cursor: 'ns-resize',
+              position: 'absolute', top: 0, left: '15px', zIndex: 11
+            }}
+          />
+          {/* Left Handle */}
+          <div 
+            onMouseDown={(e) => handleMouseDown(e, 'left')}
+            style={{
+              height: 'calc(100% - 15px)', width: '8px', cursor: 'ew-resize',
+              position: 'absolute', top: '15px', left: 0, zIndex: 11
+            }}
+          />
+
+          <div className="chat-header" style={{ paddingTop: '12px', paddingLeft: '12px' }}>
             <span style={{fontSize: '1.2rem', marginRight: '8px'}}>✨</span> 
             <span style={{fontWeight: 600}}>Nagapandi</span>
             <button className="chat-close" onClick={() => setIsOpen(false)}>×</button>
@@ -6730,6 +6790,8 @@ const FloatingChatWidget = ({ getToken }) => {
     </>
   );
 };
+
+
 
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
