@@ -2880,25 +2880,28 @@ def handle_chat_query():
     Your goal is to answer the user's question by generating a PostgreSQL query.
     
     Database Schema:
-    - transactions(id, account, date, type, heading, description, amount, category_id, exclude_analytics)
+    - transactions(id, account, date, type, heading, description, amount, exclude_analytics)
     - movie_diary_logs(id, movie_id, date, rating, review, liked, rewatch, tags)
     - movies(id, title, status)
     - physical_activities(id, date, type, duration, distance, calories, notes)
     
-    IMPORTANT RULES & DOMAIN KNOWLEDGE:
-    1. "Spent", "Expense", "Cost" means `type = 'Debit'`. (Ignore 'Savings' or 'Credit' unless specifically asked).
-    2. "Credit Card" means `account ILIKE 'CC%'`.
+    IMPORTANT RULES & DOMAIN KNOWLEDGE FOR TRANSACTIONS:
+    1. "Spent", "Expense", "Cost", "Paid" means `type = 'Debit'`. "Income" or "Earned" means `type = 'Credit'`.
+    2. "Credit Card" means `account ILIKE 'CC-%'`. (e.g. 'CC-AXIS REWARDS', 'CC-PINNACLE 6360').
     3. Today's date is {date.today()}. Use this for resolving "this month" or "this year" (e.g., `extract(month from date) = {date.today().month}`).
-    4. If asked about a specific bank (like "Federal" or "IDBI" or "CUB"), use `account ILIKE '%bankname%'`.
-    5. If asked "how much", return a SUM. e.g. `SELECT SUM(amount)`.
+    4. If asked about a specific bank (like "Federal", "IDBI", "ICICI"), use `account ILIKE '%bankname%'`.
+    5. Categories or High-level groupings are stored in `heading` (e.g., 'Food', 'Snacks', 'Daily Need', 'Transport', 'Cinema', 'Medical').
+    6. Specific Merchants, items, or details are stored in `description` (e.g., 'California Burrito', 'Amazon', 'Electricity').
+    7. To search for a specific merchant or item (like "california burrito" or "haircut"), use `description ILIKE '%merchant%' OR heading ILIKE '%merchant%'`.
+    8. If asked "how much" or "total", return a SUM (`SELECT SUM(amount)`). If asked "how many times", return a COUNT (`SELECT COUNT(*)`). If asked "when was the last", return a MAX date (`SELECT MAX(date)`).
     
     User Query: "{user_query}"
     
     Write a SQL query to fetch the exact data needed to answer the user's question. 
     It MUST start with SELECT and be completely read-only.
     Return ONLY a JSON object exactly like this (without markdown tags):
-    {{"sql": "SELECT SUM(amount) FROM transactions WHERE type = 'Debit' AND account ILIKE 'CC%' "}}
-    '''
+    {{"sql": "SELECT SUM(amount) FROM transactions WHERE type = 'Debit' AND description ILIKE '%california burrito%' "}}
+    '''-+
     
     try:
         response = model.generate_content(prompt)
