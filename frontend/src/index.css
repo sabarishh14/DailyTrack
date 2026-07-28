@@ -5895,3 +5895,95 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     height: 80px;
   }
 }
+
+/* ==========================================================================
+   GLOBAL SEARCH (COMMAND PALETTE)
+   ========================================================================== */
+.global-search-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 15vh;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.global-search-container {
+  width: 90%;
+  max-width: 600px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.global-search-input {
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  font-size: 1.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+  font-family: 'Inter', 'DM Sans', sans-serif;
+  border-bottom: 1px solid var(--border);
+}
+
+.global-search-input::placeholder {
+  color: var(--text3);
+}
+
+.global-search-results {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.global-search-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: background 0.1s;
+}
+
+.global-search-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.global-search-item.active .global-search-type {
+  background: rgba(255,255,255,0.2) !important;
+  color: #fff !important;
+}
+
+/* Scrollbar for search results */
+.global-search-results::-webkit-scrollbar {
+  width: 6px;
+}
+.global-search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+.global-search-results::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}

@@ -75,27 +75,52 @@ function doPost(e) {
         const txDate = new Date(date);
         txDate.setHours(0, 0, 0, 0);
         const formattedType = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : "";
-        const lastUsed = sheet.getLastRow();
-
-        // Check if ID already exists (EDIT LOGIC)
+        // Check if ID already exists anywhere (EDIT LOGIC)
+        let foundSheet = null;
         let existingRow = -1;
-        if (lastUsed >= 2) {
-          const idValues = sheet.getRange(2, 10, lastUsed - 1, 1).getValues(); // Col J
-          for (let i = 0; i < idValues.length; i++) {
-            if (idValues[i][0] == id) { existingRow = i + 2; break; }
+        
+        for (const s of ss.getSheets()) {
+          const sLastUsed = s.getLastRow();
+          if (sLastUsed >= 2 && s.getMaxColumns() >= 10) {
+            const idValues = s.getRange(2, 10, sLastUsed - 1, 1).getValues(); 
+            for (let i = 0; i < idValues.length; i++) {
+              if (idValues[i][0] == id) { 
+                 existingRow = i + 2; 
+                 foundSheet = s; 
+                 break; 
+              }
+            }
+          }
+          if (foundSheet) break;
+        }
+
+        if (foundSheet && existingRow !== -1) {
+          const existingDateRaw = foundSheet.getRange(existingRow, 1).getValue();
+          let existingDate = new Date(existingDateRaw);
+          existingDate.setHours(0, 0, 0, 0);
+
+          if (foundSheet.getName() === sheetName && existingDate.getTime() === txDate.getTime()) {
+            // Update in place
+            foundSheet.getRange(existingRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
+            foundSheet.getRange(existingRow, (sheetName === "IDBI" || sheetName === "CreditCard") ? 9 : 8).setValue(account);
+            inserted++;
+            SpreadsheetApp.flush();
+            return; 
+          } else {
+            // Date or sheet changed. Delete old row.
+            foundSheet.deleteRow(existingRow);
+            if (existingRow > 2 && existingRow <= foundSheet.getLastRow()) {
+              const fName = foundSheet.getName();
+              if (fName === "IDBI" || fName === "CreditCard") foundSheet.getRange(existingRow - 1, 7, 1, 2).copyTo(foundSheet.getRange(existingRow, 7, 1, 2));
+              else foundSheet.getRange(existingRow - 1, 7).copyTo(foundSheet.getRange(existingRow, 7));
+            }
+            // Fall through to insert in correct sheet / date
           }
         }
 
-        if (existingRow !== -1) {
-          sheet.getRange(existingRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
-          sheet.getRange(existingRow, sheetName === "IDBI" ? 9 : 8).setValue(account);
-          inserted++;
-          SpreadsheetApp.flush();
-          return; 
-        }
-
-        // Chronological insertion (NEW TRANSACTION LOGIC)
-        const colA = sheet.getRange(1, 1, lastUsed).getValues();
+        // Chronological insertion (NEW OR MOVED TRANSACTION LOGIC)
+        const lastUsed = sheet.getLastRow();
+        const colA = sheet.getRange(1, 1, lastUsed || 1).getValues();
         let lastDataRow = 0;
         for (let i = colA.length - 1; i >= 0; i--) {
           if (colA[i][0] !== "") { lastDataRow = i + 1; break; }
@@ -115,8 +140,12 @@ function doPost(e) {
         sheet.insertRowBefore(insertRow);
         sheet.getRange(insertRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
         const sourceRow = (insertRow > 2) ? insertRow - 1 : (lastDataRow >= 2 ? insertRow + 1 : 0);
+        
+        if (sourceRow > 0) {
+          sheet.getRange(sourceRow, 1, 1, 6).copyTo(sheet.getRange(insertRow, 1, 1, 6), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+        }
 
-        if (sheetName === "IDBI") {
+        if (sheetName === "IDBI" || sheetName === "CreditCard") {
           if (sourceRow > 0) {
             sheet.getRange(sourceRow, 7, 1, 2).copyTo(sheet.getRange(insertRow, 7, 1, 2)); 
             if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7, 1, 2).copyTo(sheet.getRange(insertRow + 1, 7, 1, 2));
@@ -164,7 +193,7 @@ function doPost(e) {
       if (rowIndex !== -1) {
         sheet.deleteRow(rowIndex);
         if (rowIndex > 2 && rowIndex <= sheet.getLastRow()) {
-          if (sheetName === "IDBI") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
+          if (sheetName === "IDBI" || sheetName === "CreditCard") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
           else sheet.getRange(rowIndex - 1, 7).copyTo(sheet.getRange(rowIndex, 7));
         }
         SpreadsheetApp.flush();
@@ -278,7 +307,7 @@ function doPost(e) {
         rowsToDelete.sort((a, b) => b - a).forEach(rowIndex => {
           sheet.deleteRow(rowIndex);
           if (rowIndex > 2 && rowIndex <= sheet.getLastRow()) {
-            if (sheetName === "IDBI") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
+            if (sheetName === "IDBI" || sheetName === "CreditCard") sheet.getRange(rowIndex - 1, 7, 1, 2).copyTo(sheet.getRange(rowIndex, 7, 1, 2));
             else sheet.getRange(rowIndex - 1, 7).copyTo(sheet.getRange(rowIndex, 7));
           }
           deletedCount++;

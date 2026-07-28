@@ -718,7 +718,7 @@ function CustomSelect({ value, onChange, options, icon, placeholder, width = 'au
 }
 
 // ─── MONEY TAB ───────────────────────────────────────────────────────────
-function MoneyTab({ accounts, transactions, categories, onRefresh }) {
+function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionTx, setGlobalActionTx }) {
   const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
 
@@ -769,7 +769,14 @@ function MoneyTab({ accounts, transactions, categories, onRefresh }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const [actionMenuTx, setActionMenuTx] = useState(null); // <-- ADD THIS NEW STATE
+  const [actionMenuTx, setActionMenuTx] = useState(null);
+  useEffect(() => {
+    if (globalActionTx) {
+      setActionMenuTx(globalActionTx);
+      setGlobalActionTx(null);
+    }
+  }, [globalActionTx, setGlobalActionTx]);
+ // <-- ADD THIS NEW STATE
   const [captureMode, setCaptureMode] = useState(null);
   const [captureColors, setCaptureColors] = useState(null);
   const posterRef = useRef(null);
@@ -6483,10 +6490,117 @@ const MemoizedGymTab = memo(GymTab);
 const MemoizedInvestTab = memo(InvestTab);
 const MemoizedSabDekho = memo(SabDekho);
 
+
+// ─── GLOBAL SEARCH COMPONENT ────────────────────────────────────────────────
+const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction }) => {
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuery('');
+      setActiveIndex(0);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const q = query.toLowerCase();
+  
+  const navMatches = TABS.filter(t => t.label.toLowerCase().includes(q) || t.id.toString() === q)
+    .map(t => ({ type: 'NAV', id: `nav-${t.id}`, label: `Go to ${t.label}`, action: () => onNavigate(t.id), icon: t.icon }));
+
+  const quickActions = [
+    { type: 'ACTION', id: 'act-1', label: 'Toggle Theme', action: () => onAction('theme'), icon: '🎨' },
+    { type: 'ACTION', id: 'act-2', label: 'Toggle Balances Visibility', action: () => onAction('balances'), icon: '👁️' },
+  ].filter(a => a.label.toLowerCase().includes(q));
+
+  const txMatches = q ? transactions.filter(t => 
+    (t.description || '').toLowerCase().includes(q) || 
+    t.amount.toString().includes(q) || 
+    (t.category_id || '').toLowerCase().includes(q)
+  ).slice(0, 10).map(t => ({ 
+    type: 'TX', id: `tx-${t.id}`, 
+    label: `${t.description} (₹${t.amount}) • ${new Date(t.date).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'})}`, 
+    action: () => onEditTx(t), 
+    icon: '💸' 
+  })) : [];
+
+  const results = [...navMatches, ...quickActions, ...txMatches];
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % results.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + results.length) % results.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (results[activeIndex]) {
+        results[activeIndex].action();
+        onClose();
+      }
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="global-search-backdrop" onClick={onClose}>
+      <div className="global-search-container" onClick={e => e.stopPropagation()}>
+        <input 
+          ref={inputRef}
+          className="global-search-input"
+          placeholder="Search anywhere... (Nav, Transactions, Actions)"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
+          onKeyDown={handleKeyDown}
+        />
+        <div className="global-search-results">
+          {results.length === 0 && <div style={{padding: '1rem', color: 'var(--text2)'}}>No results found.</div>}
+          {results.map((res, idx) => (
+            <div 
+              key={res.id} 
+              className={`global-search-item ${idx === activeIndex ? 'active' : ''}`}
+              onClick={() => { res.action(); onClose(); }}
+              onMouseEnter={() => setActiveIndex(idx)}
+            >
+              <span style={{marginRight: '10px'}}>{res.icon}</span>
+              <span style={{flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{res.label}</span>
+              <span style={{marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text2)', background: 'var(--bg3)', padding: '2px 6px', borderRadius: '4px'}}>{res.type}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── MAIN APP ───────────────────────────────────────────────────────────
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
   const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token')); const [tab, setTab] = useState(0);
+
+  // 🚀 GLOBAL SEARCH STATES
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [globalSearchEditTx, setGlobalSearchEditTx] = useState(null);
+  const [globalActionTx, setGlobalActionTx] = useState(null);
+
+  // 🚀 GLOBAL SEARCH KEYBOARD LISTENER
+  useEffect(() => {
+    const handleCmdK = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleCmdK);
+    return () => window.removeEventListener('keydown', handleCmdK);
+  }, []);
+
   const [loadingLogs, setLoadingLogs] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -6834,7 +6948,7 @@ export default function App() {
       <>
         {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
         <div style={{ display: tab === 1 ? 'contents' : 'none' }}>
-          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} />
+          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} globalActionTx={globalActionTx} setGlobalActionTx={setGlobalActionTx} />
         </div>
         {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
         {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}
@@ -7019,6 +7133,16 @@ export default function App() {
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
 
+            {/* 0. Global Search Button */}
+            <button
+              className="action-btn secondary"
+              style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: '1.2rem', cursor: 'pointer' }}
+              onClick={() => setIsSearchOpen(true)}
+              title="Global Search (Cmd+K)"
+            >
+              🔍
+            </button>
+
             {/* 1. Theme Toggle (Animated Pill) */}
             <button
               className={`theme-toggle ${theme === 'light' ? 'light' : ''}`}
@@ -7127,6 +7251,31 @@ export default function App() {
         <SecretAdminModal onClose={() => setIsSecretMenuOpen(false)} />
       )}
 
+
+      {/* 🚀 GLOBAL SEARCH UI */}
+      <GlobalSearchModal 
+        isOpen={isSearchOpen} 
+        onClose={() => setIsSearchOpen(false)} 
+        transactions={transactions} 
+        onNavigate={(id) => setTab(id)} 
+        onEditTx={(tx) => { setTab(1); setGlobalActionTx(tx); }}
+        onAction={(action) => {
+          if (action === 'theme') setTheme(theme === 'dark' ? 'light' : 'dark');
+          if (action === 'balances') setShowBalances(!showBalances);
+        }}
+      />
+      
+      {globalSearchEditTx && (
+        <EditTransactionModal
+          tx={globalSearchEditTx}
+          categories={categories}
+          recentDescriptions={[]}
+          onClose={() => setGlobalSearchEditTx(null)}
+          onRefresh={fetchAll}
+          isCopy={false}
+        />
+      )}
+      
       {/* 📱 Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
         {TABS.map(t => (
