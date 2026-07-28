@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo , memo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import CustomSelect from '../components/CustomSelect';
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -258,7 +259,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       ]);
       const d = await r.json();
       const logsD = await logsR.json();
-      
+
       let fetchedLogs = [];
       if (logsD.success) {
         fetchedLogs = logsD.logs || [];
@@ -266,7 +267,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       } else {
         setSelectedShowLogs([]);
       }
-      
+
       if (show.type === 'movie') {
         setLogRewatch(fetchedLogs.length > 0);
       }
@@ -462,7 +463,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       };
     }
     await openModal(show);
-    setEditingLogIds([log.id]); // use log.id since that is what backend expects for deletion / updating
+    setEditingLogIds(log.log_ids || [log.id]);
     setEditingLog(log);
     setLogDate(log.date);
     setLogSeasons(log.seasons || (log.season_number != null ? [log.season_number] : []));
@@ -591,6 +592,31 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       return acc;
     }, {});
   }, [filteredDiaryLogs]);
+
+  const groupedModalLogs = useMemo(() => {
+    const grouped = selectedShowLogs.reduce((acc, l) => {
+      if (!acc[l.date]) acc[l.date] = [];
+      const existing = acc[l.date].find(e =>
+        e.type === l.type && e.show_id === l.show_id && e.review === l.review && e.rating === l.rating && e.tags === l.tags &&
+        ((e.episode_number !== null && l.episode_number !== null && e.season_number === l.season_number) ||
+         (e.episode_number === null && l.episode_number === null && e.season_number !== null && l.season_number !== null))
+      );
+      if (existing) {
+        existing.log_ids.push(l.id);
+        if (existing.episode_number !== null) {
+          if (!existing.episodes) existing.episodes = [existing.episode_number];
+          if (!existing.episodes.includes(l.episode_number)) { existing.episodes.push(l.episode_number); existing.episodes.sort((a, b) => a - b); }
+        } else {
+          if (!existing.seasons) existing.seasons = [existing.season_number];
+          if (!existing.seasons.includes(l.season_number)) { existing.seasons.push(l.season_number); existing.seasons.sort((a, b) => a - b); }
+        }
+      } else {
+        acc[l.date].push({ ...l, log_ids: [l.id], episodes: l.episode_number !== null ? [l.episode_number] : null, seasons: (l.season_number !== null && l.episode_number === null) ? [l.season_number] : null });
+      }
+      return acc;
+    }, {});
+    return Object.values(grouped).flat().sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [selectedShowLogs]);
 
   if (loading) return (
     <div className="tv-loading-screen">
@@ -759,7 +785,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
             )}
           </div>
 
-{/* Empty Space for bottom padding since pagination is moved to top */}
+          {/* Empty Space for bottom padding since pagination is moved to top */}
           <div style={{ height: '6rem' }} />
         </div>
       )}
@@ -794,7 +820,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                                   </h4>
                                   <div className="tv-diary-entry-actions">
                                     <button onClick={() => editLog(log)} title="Edit Log">✏️</button>
-                                    <button onClick={() => deleteLog([log.id], log.type)} title="Delete Log">🗑️</button>
+                                    <button onClick={() => deleteLog(log.log_ids || [log.id], log.type)} title="Delete Log">🗑️</button>
                                   </div>
                                 </div>
                                 <div className="tv-diary-entry-meta">
@@ -846,7 +872,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                 >
                   ← Prev
                 </button>
-                
+
                 {Array.from({ length: Math.min(5, Math.ceil(diaryTotalCount / 20)) }, (_, i) => {
                   const totalPages = Math.ceil(diaryTotalCount / 20);
                   let pageNum;
@@ -942,7 +968,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                   <div className="tv-modal-stats-row" style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent)', fontWeight: 600 }}>
                       <span>📝</span>
-                      <span>{selectedShowLogs.length} Log{selectedShowLogs.length !== 1 ? 's' : ''}</span>
+                      <span>{groupedModalLogs.length} Log{groupedModalLogs.length !== 1 ? 's' : ''}</span>
                     </div>
                     {selectedShowAvg && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: 600 }}>
@@ -964,7 +990,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               </button>
               {selectedShowLogs.length > 0 && (
                 <button className={modalView === 'diary' ? 'active' : ''} onClick={() => setModalView('diary')}>
-                  <span>📖</span><span> Diary ({selectedShowLogs.length})</span>
+                  <span>📖</span><span> Diary ({groupedModalLogs.length})</span>
                 </button>
               )}
               <button className={modalView === 'details' ? 'active' : ''} onClick={() => setModalView('details')}>
@@ -1122,12 +1148,17 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               <div className="tv-modal-details-section" style={{ padding: '1.25rem 1.5rem 1.5rem' }}>
                 <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem' }}>Your Logs</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '50vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                  {selectedShowLogs.sort((a, b) => new Date(b.date) - new Date(a.date)).map(log => (
+                  {groupedModalLogs.map(log => (
                     <div key={log.id} className="tv-modal-diary-entry" style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg2)', borderRadius: '12px', padding: '1.25rem', border: '1px solid var(--border)', transition: 'transform 0.2s, border-color 0.2s' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: log.review || log.tags ? '0.65rem' : '0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
-                            {log.type === 'tv' ? (log.season_number ? (log.episode_number ? `S${log.season_number} E${log.episode_number}` : `Season ${log.season_number}`) : 'Show') : 'Movie'}
+                            {log.type === 'tv' ? (
+                              log.season_number !== null && log.episodes ? `S${log.season_number} E${log.episodes.join(', ')}`
+                              : log.seasons && log.seasons.length > 1 ? `Seasons ${log.seasons.join(', ')}`
+                              : log.season_number !== null ? `Season ${log.season_number}`
+                              : 'Show'
+                            ) : 'Movie'}
                             <span style={{ color: 'var(--text3)', marginLeft: '8px', fontSize: '0.75rem', fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{fmtDate(log.date)}</span>
                           </div>
 
@@ -1141,7 +1172,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                           <button onClick={() => { editLog(log); setModalView('log'); }} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Log">✏️</button>
-                          <button onClick={() => deleteLog([log.id], log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
+                          <button onClick={() => deleteLog(log.log_ids || [log.id], log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
                         </div>
                       </div>
 
@@ -1165,7 +1196,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       )}
       {/* ─── STATS ─── */}
       {view === 'stats' && showMovies && (
-        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} />
+        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} />
       )}
     </div>
   );
@@ -1177,9 +1208,11 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
 
 const TMDB_IMG_STATS = 'https://image.tmdb.org/t/p';
 
-function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading }) {
+function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal }) {
   const [error, setError] = useState(null);
   const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
+  const [theatreFilter, setTheatreFilter] = useState('all');
+  const [showAllTheatreTags, setShowAllTheatreTags] = useState(false);
 
   const fetchStats = useCallback(async (year) => {
     setStatsLoading(true);
@@ -1263,15 +1296,15 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
       {/* ─── HERO ─── */}
       <div className="stats-hero">
         <div className="stats-year-display">{statsYear === 'all' ? '∞' : statsYear}</div>
-        <div className="stats-year-selector">
-          <span>📅</span>
-          <select value={statsYear} onChange={handleYearChange}>
-            {(d.available_years || []).map(y => (
-              <option key={y} value={String(y)}>{y}</option>
-            ))}
-            <option value="all">All Time</option>
-          </select>
-          <span>▾</span>
+        <div style={{ width: '120px', margin: '0 auto 8px', position: 'relative', zIndex: 10 }}>
+          <CustomSelect
+            value={statsYear}
+            onChange={(val) => setStatsYear(val)}
+            options={[
+              { value: 'all', label: 'All Time' },
+              ...(d.available_years || []).map(y => ({ value: String(y), label: String(y) }))
+            ]}
+          />
         </div>
         <div className="stats-subtitle">
           {statsYear === 'all' ? 'Your all-time movie journey' : `Your ${statsYear} year in film`}
@@ -1310,13 +1343,13 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
             <span className="stats-section-title">🏆 Highest Rated Films</span>
             {statsYear !== 'all' && (
               <div className="stats-section-toggles">
-                <button 
+                <button
                   className={`stats-toggle-btn ${highestRatedFilter === 'current' ? 'active' : ''}`}
                   onClick={() => setHighestRatedFilter('current')}
                 >
                   {statsYear}
                 </button>
-                <button 
+                <button
                   className={`stats-toggle-btn ${highestRatedFilter === 'older' ? 'active' : ''}`}
                   onClick={() => setHighestRatedFilter('older')}
                 >
@@ -1327,7 +1360,75 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           </div>
           <div className="stats-poster-grid">
             {highestRatedList.map(m => (
-              <div key={m.movie_id} className="stats-poster-item">
+              <div 
+                key={m.movie_id} 
+                className="stats-poster-item"
+                onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="stats-poster-img-wrap">
+                  {m.poster_path ? (
+                    <img src={`${TMDB_IMG_STATS}/w342${m.poster_path}`} alt={m.name} loading="lazy" />
+                  ) : (
+                    <div className="stats-no-poster">🎬</div>
+                  )}
+                </div>
+                <div className="stats-poster-rating">{renderStars(m.rating)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── THEATRE EXPERIENCES ─── */}
+      {d.theatre_stats && d.theatre_stats.movies.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header" style={{ marginBottom: '0.75rem' }}>
+            <span className="stats-section-title">🍿 Theatre Experiences <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>({d.theatre_stats.total_visits})</span></span>
+          </div>
+          
+          {Object.keys(d.theatre_stats.supplementary_tags || {}).length > 0 && (
+            <div className="stats-theatre-filters">
+              <button 
+                className={`stats-theatre-pill ${theatreFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setTheatreFilter('all')}
+              >
+                ALL <span>{d.theatre_stats.total_visits}</span>
+              </button>
+              {Object.entries(d.theatre_stats.supplementary_tags)
+                .sort((a, b) => b[1] - a[1]) // sort by frequency
+                .slice(0, showAllTheatreTags ? undefined : 6)
+                .map(([tag, count]) => (
+                <button 
+                  key={tag}
+                  className={`stats-theatre-pill ${theatreFilter === tag ? 'active' : ''}`}
+                  onClick={() => setTheatreFilter(tag)}
+                >
+                  {tag.toUpperCase()} <span>{count}</span>
+                </button>
+              ))}
+              {Object.keys(d.theatre_stats.supplementary_tags).length > 6 && (
+                <button 
+                  className="stats-theatre-pill" 
+                  onClick={() => setShowAllTheatreTags(!showAllTheatreTags)}
+                  style={{ background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)', opacity: 0.8 }}
+                >
+                  {showAllTheatreTags ? '- Show Less' : '+ Show More'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="stats-poster-grid stats-theatre-grid">
+            {d.theatre_stats.movies
+              .filter(m => theatreFilter === 'all' || m.tags.includes(theatreFilter))
+              .map((m, i) => (
+              <div 
+                key={`${m.movie_id}-${i}`} // i because could be multiple watches
+                className="stats-poster-item"
+                onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className="stats-poster-img-wrap">
                   {m.poster_path ? (
                     <img src={`${TMDB_IMG_STATS}/w342${m.poster_path}`} alt={m.name} loading="lazy" />
@@ -1401,7 +1502,7 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
                 <div
                   className={`stats-day-bar ${i >= 5 ? 'weekend' : ''}`}
                   style={{ height: count > 0 ? `${Math.max(4, (count / maxDay) * 80)}px` : '4px' }}
-                  title={`${count} films`}
+                  data-count={`${count} films`}
                 />
                 <span className="stats-day-label">{dayLabels[i]}</span>
               </div>

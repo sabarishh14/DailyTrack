@@ -2256,18 +2256,18 @@ def get_movie_stats():
                     }
         
         all_rated = sorted(movie_best_rating.values(), key=lambda x: -x['rating'])
-        highest_rated = all_rated[:14]
+        highest_rated = all_rated[:20]
         highest_rated_current = []
         highest_rated_older = []
         
         if year_param != 'all':
             yr = int(year_param)
-            current = [m for m in all_rated if m['release_year'] == yr][:14]
-            older = [m for m in all_rated if m['release_year'] is not None and m['release_year'] < yr][:14]
+            current = [m for m in all_rated if m['release_year'] == yr][:20]
+            older = [m for m in all_rated if m['release_year'] is not None and m['release_year'] < yr][:20]
             # Fallback if release_year is missing: treat as older
-            older += [m for m in all_rated if m['release_year'] is None][:14 - len(older)]
+            older += [m for m in all_rated if m['release_year'] is None][:20 - len(older)]
             highest_rated_current = sorted(current, key=lambda x: -x['rating'])
-            highest_rated_older = sorted(older, key=lambda x: -x['rating'])[:14]
+            highest_rated_older = sorted(older, key=lambda x: -x['rating'])
         else:
             highest_rated_current = highest_rated
             highest_rated_older = []
@@ -2295,6 +2295,41 @@ def get_movie_stats():
                 r_key = str(l.rating)
                 rating_dist[r_key] = rating_dist.get(r_key, 0) + 1
         
+        # --- Theatre Stats ---
+        theatre_movies = []
+        supplementary_tags = {}
+        total_visits = 0
+        
+        for l in logs:
+            if not l.tags:
+                continue
+            tags = [t.strip().lower() for t in l.tags.split(',') if t.strip()]
+            is_theatre = any(t == 'overall-theatres' or t.startswith('theatres-') for t in tags)
+            
+            if is_theatre:
+                total_visits += 1
+                movie_tags = [t for t in tags if t != 'overall-theatres' and not t.startswith('theatres-')]
+                for mt in movie_tags:
+                    supplementary_tags[mt] = supplementary_tags.get(mt, 0) + 1
+                
+                if l.movie:
+                    theatre_movies.append({
+                        'log_id': l.id,
+                        'movie_id': l.movie_id,
+                        'tmdb_id': l.movie.tmdb_id,
+                        'name': l.movie.name,
+                        'poster_path': l.movie.poster_path,
+                        'rating': l.rating,
+                        'release_year': l.movie.release_year,
+                        'tags': movie_tags
+                    })
+                    
+        theatre_stats = {
+            "total_visits": total_visits,
+            "supplementary_tags": supplementary_tags,
+            "movies": theatre_movies
+        }
+        
         result = {
             "success": True,
             "year": year_param,
@@ -2311,7 +2346,8 @@ def get_movie_stats():
             "highest_rated_older": highest_rated_older,
             "by_week": by_week,
             "by_day": by_day,
-            "rating_distribution": rating_dist
+            "rating_distribution": rating_dist,
+            "theatre_stats": theatre_stats
         }
         
         # Cache the result
