@@ -776,7 +776,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       setGlobalActionTx(null);
     }
   }, [globalActionTx, setGlobalActionTx]);
- // <-- ADD THIS NEW STATE
+  // <-- ADD THIS NEW STATE
   const [captureMode, setCaptureMode] = useState(null);
   const [captureColors, setCaptureColors] = useState(null);
   const posterRef = useRef(null);
@@ -6492,15 +6492,19 @@ const MemoizedSabDekho = memo(SabDekho);
 
 
 // ─── GLOBAL SEARCH COMPONENT ────────────────────────────────────────────────
-const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction }) => {
+const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction, getToken, enableNagapandi }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatResponse, setChatResponse] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setActiveIndex(0);
+      setChatResponse(null);
+      setChatLoading(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -6508,7 +6512,7 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
   if (!isOpen) return null;
 
   const q = query.toLowerCase();
-  
+
   const navMatches = TABS.filter(t => t.label.toLowerCase().includes(q) || t.id.toString() === q)
     .map(t => ({ type: 'NAV', id: `nav-${t.id}`, label: `Go to ${t.label}`, action: () => onNavigate(t.id), icon: t.icon }));
 
@@ -6517,18 +6521,44 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
     { type: 'ACTION', id: 'act-2', label: 'Toggle Balances Visibility', action: () => onAction('balances'), icon: '👁️' },
   ].filter(a => a.label.toLowerCase().includes(q));
 
-  const txMatches = q ? transactions.filter(t => 
-    (t.description || '').toLowerCase().includes(q) || 
-    t.amount.toString().includes(q) || 
+  const txMatches = q ? transactions.filter(t =>
+    (t.description || '').toLowerCase().includes(q) ||
+    t.amount.toString().includes(q) ||
     (t.category_id || '').toLowerCase().includes(q)
-  ).slice(0, 10).map(t => ({ 
-    type: 'TX', id: `tx-${t.id}`, 
-    label: `${t.description} (₹${t.amount}) • ${new Date(t.date).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'})}`, 
-    action: () => onEditTx(t), 
-    icon: '💸' 
+  ).slice(0, 10).map(t => ({
+    type: 'TX', id: `tx-${t.id}`,
+    label: `${t.description} (₹${t.amount}) • ${new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    action: () => onEditTx(t),
+    icon: '💸'
   })) : [];
 
-  const results = [...navMatches, ...quickActions, ...txMatches];
+  const handleAskAI = async () => {
+    if (!query.trim()) return;
+    setChatLoading(true);
+    setChatResponse(null);
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ query })
+      });
+      const data = await res.json();
+      setChatResponse(data.success ? data.result : data.message);
+    } catch (e) {
+      setChatResponse("Failed to connect to Nagapandi.");
+    }
+    setChatLoading(false);
+  };
+
+  const aiMatch = (enableNagapandi && q.length > 2) ? [{
+    type: 'NAGAPANDI',
+    id: 'ai-ask',
+    label: `Ask Nagapandi: "${query}"`,
+    action: handleAskAI,
+    icon: '✨'
+  }] : [];
+
+  const results = [...aiMatch, ...navMatches, ...quickActions, ...txMatches];
 
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
@@ -6540,8 +6570,12 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (results[activeIndex]) {
-        results[activeIndex].action();
-        onClose();
+        if (results[activeIndex].type === 'NAGAPANDI') {
+          results[activeIndex].action();
+        } else {
+          results[activeIndex].action();
+          onClose();
+        }
       }
     } else if (e.key === 'Escape') {
       onClose();
@@ -6551,31 +6585,149 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
   return (
     <div className="global-search-backdrop" onClick={onClose}>
       <div className="global-search-container" onClick={e => e.stopPropagation()}>
-        <input 
+        <input
           ref={inputRef}
           className="global-search-input"
-          placeholder="Search anywhere... (Nav, Transactions, Actions)"
+          placeholder="Search anywhere or ask Nagapandi... (Cmd+K)"
           value={query}
-          onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
+          onChange={e => { setQuery(e.target.value); setActiveIndex(0); setChatResponse(null); }}
           onKeyDown={handleKeyDown}
         />
-        <div className="global-search-results">
-          {results.length === 0 && <div style={{padding: '1rem', color: 'var(--text2)'}}>No results found.</div>}
-          {results.map((res, idx) => (
-            <div 
-              key={res.id} 
-              className={`global-search-item ${idx === activeIndex ? 'active' : ''}`}
-              onClick={() => { res.action(); onClose(); }}
-              onMouseEnter={() => setActiveIndex(idx)}
-            >
-              <span style={{marginRight: '10px'}}>{res.icon}</span>
-              <span style={{flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{res.label}</span>
-              <span style={{marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text2)', background: 'var(--bg3)', padding: '2px 6px', borderRadius: '4px'}}>{res.type}</span>
+
+        {chatLoading && (
+          <div className="nagapandi-response loading" style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text2)' }}>
+            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', marginRight: '8px' }}>✨</span> Nagapandi is thinking...
+          </div>
+        )}
+
+        {chatResponse && (
+          <div className="nagapandi-response" style={{ padding: '1.5rem', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.2rem' }}>✨</span> Nagapandi
             </div>
-          ))}
-        </div>
+            <div style={{ color: 'var(--text)', lineHeight: 1.5 }}>{chatResponse}</div>
+          </div>
+        )}
+
+        {(!chatLoading && !chatResponse) && (
+          <div className="global-search-results">
+            {results.length === 0 && <div style={{ padding: '1rem', color: 'var(--text2)' }}>No results found.</div>}
+            {results.map((res, idx) => (
+              <div
+                key={res.id}
+                className={`global-search-item ${idx === activeIndex ? 'active' : ''}`}
+                onClick={() => {
+                  if (res.type === 'NAGAPANDI') res.action();
+                  else { res.action(); onClose(); }
+                }}
+                onMouseEnter={() => setActiveIndex(idx)}
+              >
+                <span style={{ marginRight: '10px' }}>{res.icon}</span>
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: res.type === 'NAGAPANDI' ? 600 : 400 }}>{res.label}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: res.type === 'NAGAPANDI' ? '#fff' : 'var(--text2)', background: res.type === 'NAGAPANDI' ? 'linear-gradient(45deg, #a855f7, #ec4899)' : 'var(--bg3)', padding: '2px 6px', borderRadius: '4px' }}>{res.type}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
+  );
+};
+
+
+// ─── FLOATING CHAT WIDGET ────────────────────────────────────────────────
+const FloatingChatWidget = ({ getToken }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, chatLoading]);
+
+  useEffect(() => {
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [isOpen]);
+
+  const handleAsk = async () => {
+    if (!query.trim()) return;
+    const userMsg = query;
+    setQuery('');
+    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+    setChatLoading(true);
+
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ query: userMsg })
+      });
+      const data = await res.json();
+      setChatHistory(prev => [...prev, { role: 'ai', text: data.success ? data.result : data.message }]);
+    } catch (e) {
+      setChatHistory(prev => [...prev, { role: 'ai', text: "Failed to connect to Nagapandi." }]);
+    }
+    setChatLoading(false);
+  };
+
+  return (
+    <>
+      {/* Floating Button */}
+      <button 
+        className="floating-chat-btn" 
+        onClick={() => setIsOpen(!isOpen)}
+        title="Chat with Nagapandi"
+      >
+        ✨
+      </button>
+
+      {/* Chat Window */}
+      {isOpen && (
+        <div className="floating-chat-window">
+          <div className="chat-header">
+            <span style={{fontSize: '1.2rem', marginRight: '8px'}}>✨</span> 
+            <span style={{fontWeight: 600}}>Nagapandi</span>
+            <button className="chat-close" onClick={() => setIsOpen(false)}>×</button>
+          </div>
+          
+          <div className="chat-messages">
+            {chatHistory.length === 0 && (
+              <div style={{color: 'var(--text3)', textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem'}}>
+                Ask me anything about your finances, health, or movies!
+              </div>
+            )}
+            {chatHistory.map((msg, i) => (
+              <div key={i} className={`chat-bubble ${msg.role}`}>
+                {msg.text}
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="chat-bubble ai loading">
+                <span className="spinner">✨</span> Thinking...
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="chat-input-area">
+            <input 
+              ref={inputRef}
+              type="text" 
+              placeholder="Ask a question..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAsk()}
+            />
+            <button onClick={handleAsk} disabled={chatLoading || !query.trim()}>
+              ➤
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -6669,6 +6821,12 @@ export default function App() {
 
   // --- SabDekho Settings ---
   const [showMovies, setShowMovies] = useState(localStorage.getItem('dt_show_movies') === 'true');
+  const [enableNagapandi, setEnableNagapandi] = useState(localStorage.getItem('dt_enable_nagapandi') === 'true');
+  const toggleNagapandi = () => {
+    const val = !enableNagapandi;
+    setEnableNagapandi(val);
+    localStorage.setItem('dt_enable_nagapandi', val);
+  };
   const [lbxUsername, setLbxUsername] = useState(localStorage.getItem('dt_lbx_username') || 'sabarishh14');
   const [lbxSyncing, setLbxSyncing] = useState(false);
   const [lbxSyncStatus, setLbxSyncStatus] = useState('');
@@ -7182,7 +7340,16 @@ export default function App() {
 
                   {/* SabDekho Settings */}
                   <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                    <div className="menu-section-title">SabDekho Settings</div>
+                    <div className="menu-section-title">Features</div>
+
+                    <div className="toggle-container" onClick={toggleNagapandi} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>✨ Nagapandi AI</span>
+                      <div className={`toggle-switch ${enableNagapandi ? 'active' : ''}`}>
+                        <div className="toggle-knob" />
+                      </div>
+                    </div>
+                    
+                    <div className="menu-section-title" style={{marginTop: '1rem'}}>SabDekho Settings</div>
 
                     <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Movies</span>
@@ -7253,18 +7420,18 @@ export default function App() {
 
 
       {/* 🚀 GLOBAL SEARCH UI */}
-      <GlobalSearchModal 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-        transactions={transactions} 
-        onNavigate={(id) => setTab(id)} 
+      <GlobalSearchModal getToken={getToken}
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        transactions={transactions}
+        onNavigate={(id) => setTab(id)}
         onEditTx={(tx) => { setTab(1); setGlobalActionTx(tx); }}
         onAction={(action) => {
           if (action === 'theme') setTheme(theme === 'dark' ? 'light' : 'dark');
           if (action === 'balances') setShowBalances(!showBalances);
         }}
       />
-      
+
       {globalSearchEditTx && (
         <EditTransactionModal
           tx={globalSearchEditTx}
@@ -7275,7 +7442,8 @@ export default function App() {
           isCopy={false}
         />
       )}
-      
+
+      {enableNagapandi && <FloatingChatWidget getToken={getToken} />}
       {/* 📱 Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
         {TABS.map(t => (
