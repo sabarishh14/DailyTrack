@@ -2881,9 +2881,9 @@ def handle_chat_query():
     
     Database Schema:
     - transactions(id, account, date, type, heading, description, amount, exclude_analytics)
-    - movie_diary_logs(id, movie_id, date, rating, review, liked, rewatch, tags)
-    - movies(id, title, status)
-    - physical_activities(id, date, type, duration, distance, calories, notes)
+    - movie_diary_logs(id, movie_id, date, rating, review, liked, tags, created_at, rewatch)
+    - movies(id, tmdb_id, name, poster_path, status, added_on, runtime, release_year)
+    - physical_activity(id, date, gym, badminton, table_tennis, cricket, others, description)
     
     IMPORTANT RULES & DOMAIN KNOWLEDGE FOR TRANSACTIONS:
     1. "Spent", "Expense", "Cost", "Paid" means `type = 'Debit'`. "Income" or "Earned" means `type = 'Credit'`.
@@ -2901,7 +2901,7 @@ def handle_chat_query():
     It MUST start with SELECT and be completely read-only.
     Return ONLY a JSON object exactly like this (without markdown tags):
     {{"sql": "SELECT SUM(amount) FROM transactions WHERE type = 'Debit' AND description ILIKE '%california burrito%' "}}
-    '''-+
+    '''
     
     try:
         response = model.generate_content(prompt)
