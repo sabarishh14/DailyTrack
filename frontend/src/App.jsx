@@ -24,7 +24,9 @@ import FloatingChatWidget from './components/FloatingChatWidget';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
-  const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token')); const [tab, setTab] = useState(0);
+  const [appLoading, setAppLoading] = useState(!!localStorage.getItem('dt_token'));
+  const [tab, setTab] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 🚀 GLOBAL SEARCH STATES
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -358,6 +360,9 @@ export default function App() {
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
       if (catRes && catRes.success) setCategories(catRes.categories);
 
+      // Also trigger SabDekho refresh
+      setSabDekhoRefresh(prev => prev + 1);
+
       if (showLoading) setAppLoading(false);
     } catch (e) {
       if (e.message === "UNAUTHORIZED") {
@@ -581,6 +586,26 @@ export default function App() {
           <div className="topbar-title">{TAB_TITLES[tab]}</div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
 
+            {/* -1. Refresh Button */}
+            <button
+              className="action-btn secondary"
+              style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: '1.2rem', cursor: isRefreshing ? 'default' : 'pointer', transition: 'transform 0.3s' }}
+              onClick={async () => {
+                if (isRefreshing) return;
+                setIsRefreshing(true);
+                await fetchAll(false);
+                setIsRefreshing(false);
+              }}
+              title="Reload Data"
+            >
+              <svg
+                style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }}
+                width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.26l5.08 5.08" />
+              </svg>
+            </button>
+
             {/* 0. Global Search Button */}
             <button
               className="action-btn secondary"
@@ -638,8 +663,8 @@ export default function App() {
                         <div className="toggle-knob" />
                       </div>
                     </div>
-                    
-                    <div className="menu-section-title" style={{marginTop: '1rem'}}>SabDekho Settings</div>
+
+                    <div className="menu-section-title" style={{ marginTop: '1rem' }}>SabDekho Settings</div>
 
                     <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Movies</span>

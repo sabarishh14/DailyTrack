@@ -1196,7 +1196,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       )}
       {/* ─── STATS ─── */}
       {view === 'stats' && showMovies && (
-        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} />
+        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} refreshTrigger={refreshTrigger} />
       )}
     </div>
   );
@@ -1208,7 +1208,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
 
 const TMDB_IMG_STATS = 'https://image.tmdb.org/t/p';
 
-function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal }) {
+function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, refreshTrigger }) {
   const [error, setError] = useState(null);
   const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
   const [theatreFilter, setTheatreFilter] = useState('all');
@@ -1236,7 +1236,7 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
   useEffect(() => {
     fetchStats(statsYear);
     setHighestRatedFilter('current');
-  }, [statsYear, fetchStats]);
+  }, [statsYear, fetchStats, refreshTrigger]);
 
   const handleYearChange = (e) => {
     setStatsYear(e.target.value);
