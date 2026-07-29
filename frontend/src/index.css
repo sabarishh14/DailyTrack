@@ -5442,7 +5442,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* ─── COUNTERS ─── */
 .stats-counters {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
   margin-bottom: 2.5rem;
 }
@@ -5543,7 +5543,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* ─── HIGHEST RATED POSTER GRID ─── */
 .stats-poster-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(12, 1fr);
   gap: 12px;
 }
 
@@ -5947,6 +5947,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
   }
+
+@media (min-width: 1440px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(14, 1fr);
+  }
+}
+
+@media (min-width: 1600px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(16, 1fr);
+  }
+}
+
+@media (min-width: 1800px) {
+  .stats-poster-grid {
+    grid-template-columns: repeat(18, 1fr);
+  }
+}
 
   .stats-counters {
     gap: 0.5rem;

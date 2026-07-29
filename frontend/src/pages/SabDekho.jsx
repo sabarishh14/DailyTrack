@@ -1255,6 +1255,26 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
     return stars;
   };
 
+  const filteredAndGroupedTheatreMovies = useMemo(() => {
+    if (!statsData || !statsData.theatre_stats || !statsData.theatre_stats.movies) return [];
+    
+    // Filter first, so counts are accurate for the specific filter
+    const filtered = statsData.theatre_stats.movies.filter(m => 
+      theatreFilter === 'all' || m.tags.includes(theatreFilter)
+    );
+
+    const map = {};
+    filtered.forEach(m => {
+      if (!map[m.movie_id]) {
+        map[m.movie_id] = { ...m, visitCount: 0, allTags: new Set() };
+      }
+      map[m.movie_id].visitCount += 1;
+      m.tags.forEach(t => map[m.movie_id].allTags.add(t));
+    });
+    
+    return Object.values(map).map(m => ({ ...m, tags: Array.from(m.allTags) }));
+  }, [statsData, theatreFilter]);
+
   if (statsLoading && !statsData) {
     return (
       <div className="stats-loading">
@@ -1334,6 +1354,12 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           <div className="stats-counter-value">{d.total_hours}</div>
           <div className="stats-counter-label">Hours</div>
         </div>
+        {d.theatre_stats && d.theatre_stats.total_visits > 0 && (
+          <div className="stats-counter-card">
+            <div className="stats-counter-value">{d.theatre_stats.total_visits}</div>
+            <div className="stats-counter-label">Theatre Visits</div>
+          </div>
+        )}
       </div>
 
       {/* ─── HIGHEST RATED ─── */}
@@ -1420,11 +1446,9 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           )}
 
           <div className="stats-poster-grid stats-theatre-grid">
-            {d.theatre_stats.movies
-              .filter(m => theatreFilter === 'all' || m.tags.includes(theatreFilter))
-              .map((m, i) => (
+            {filteredAndGroupedTheatreMovies.map((m) => (
               <div 
-                key={`${m.movie_id}-${i}`} // i because could be multiple watches
+                key={m.movie_id}
                 className="stats-poster-item"
                 onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}
                 style={{ cursor: 'pointer' }}
@@ -1434,6 +1458,23 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
                     <img src={`${TMDB_IMG_STATS}/w342${m.poster_path}`} alt={m.name} loading="lazy" />
                   ) : (
                     <div className="stats-no-poster">🎬</div>
+                  )}
+                  {m.visitCount > 1 && (
+                    <div className="tv-ep-badge" style={{ 
+                      position: 'absolute', 
+                      top: 6, 
+                      right: 6, 
+                      fontSize: '0.8rem', 
+                      padding: '0.2rem 0.5rem', 
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.8)',
+                      backgroundColor: 'var(--accent)',
+                      color: '#000',
+                      fontWeight: '800',
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      borderRadius: '50%'
+                    }}>
+                      {m.visitCount}
+                    </div>
                   )}
                 </div>
                 <div className="stats-poster-rating">{renderStars(m.rating)}</div>

@@ -1,19 +1,20 @@
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
-import { createPortal } from "react-dom";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import SabDekho from '../pages/SabDekho';
-
+import { useState, useEffect, useRef } from "react";
 
 export default function LoadingScreen({ logs = [] }) {
   const [showWakeMsg, setShowWakeMsg] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const logsEndRef = useRef(null);
 
   useEffect(() => {
     // Show wake up message if loading takes more than 3 seconds
-    const timer = setTimeout(() => setShowWakeMsg(true), 3000);
-    return () => clearTimeout(timer);
+    const wakeTimer = setTimeout(() => setShowWakeMsg(true), 3000);
+    // Smoothly expand the logo after a longer pause (850ms) to let DT strike
+    const expTimer = setTimeout(() => setExpanded(true), 850);
+
+    return () => {
+      clearTimeout(wakeTimer);
+      clearTimeout(expTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -22,7 +23,30 @@ export default function LoadingScreen({ logs = [] }) {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: '1.5rem', padding: '1rem' }}>
-      <span className="logo-name" style={{ fontSize: '2rem' }}>DailyTrack</span>
+      
+      <div className="logo-name" style={{ fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span>D</span>
+        <span 
+          style={{ 
+            display: 'inline-block',
+            maxWidth: expanded ? '150px' : '0px', 
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            transition: 'max-width 1.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >aily</span>
+        <span>T</span>
+        <span 
+          style={{ 
+            display: 'inline-block',
+            maxWidth: expanded ? '150px' : '0px', 
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            transition: 'max-width 1.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >rack</span>
+      </div>
+
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         {[0, 1, 2].map(i => (
           <div key={i} style={{
@@ -33,6 +57,7 @@ export default function LoadingScreen({ logs = [] }) {
           }} />
         ))}
       </div>
+      
       {showWakeMsg && (
         <div style={{ color: 'var(--text2)', fontSize: '0.9rem', marginTop: '1rem', animation: 'fadeIn 0.5s ease', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '600px' }}>
           <div>
