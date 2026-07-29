@@ -499,23 +499,48 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
 
   const isEpisodeWatched = (ep) => {
     if (!selectedShow || logSeasons.length !== 1) return false;
-    const showLogs = diaryLogs.filter(l => l.show_id === selectedShow.id);
-    return showLogs.some(l => l.season_number === logSeasons[0] && l.episode_number === ep);
+    const showLogs = selectedShowLogs;
+    return showLogs.some(l => {
+      if (l.seasons && l.seasons.includes(logSeasons[0])) return true;
+      if (l.season_number === null) return true; // Entire show logged
+      if (l.season_number === logSeasons[0] && (!l.episodes || l.episodes.length === 0) && l.episode_number === undefined) return true;
+      if (l.season_number === logSeasons[0] && l.episodes && l.episodes.includes(ep)) return true;
+      if (l.season_number === logSeasons[0] && l.episode_number === ep) return true;
+      if (l.season_number === logSeasons[0] && l.episode_number === null) return true;
+      return false;
+    });
   };
 
   const isSeasonWatched = (seasonNum) => {
     if (!selectedShow || !showDetails) return false;
-    const showLogs = diaryLogs.filter(l => l.show_id === selectedShow.id && l.type === 'tv');
+    const showLogs = selectedShowLogs.filter(l => l.type === 'tv');
+
+    // Check if full show or multiple seasons logged
+    if (showLogs.some(l => l.seasons && l.seasons.includes(seasonNum))) return true;
+    if (showLogs.some(l => l.season_number === null)) return true; // Entire show logged
 
     // Check if full season is logged
-    const fullSeasonLogged = showLogs.some(l => l.season_number === seasonNum && l.episode_number === null);
+    const fullSeasonLogged = showLogs.some(l =>
+      (l.season_number === seasonNum && (!l.episodes || l.episodes.length === 0) && l.episode_number === undefined) ||
+      (l.season_number === seasonNum && l.episode_number === null)
+    );
     if (fullSeasonLogged) return true;
 
     // Check if all episodes are logged
     const seasonData = showDetails.seasons.find(s => s.season_number === seasonNum);
     if (!seasonData || seasonData.episode_count === 0) return false;
 
-    const loggedEps = new Set(showLogs.filter(l => l.season_number === seasonNum && l.episode_number !== null).map(l => l.episode_number));
+    const loggedEps = new Set();
+    showLogs.forEach(l => {
+      if (l.season_number === seasonNum) {
+        if (l.episodes && l.episodes.length > 0) {
+          l.episodes.forEach(e => loggedEps.add(e));
+        } else if (l.episode_number !== null && l.episode_number !== undefined) {
+          loggedEps.add(l.episode_number);
+        }
+      }
+    });
+
     return loggedEps.size >= seasonData.episode_count;
   };
 
@@ -599,7 +624,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       const existing = acc[l.date].find(e =>
         e.type === l.type && e.show_id === l.show_id && e.review === l.review && e.rating === l.rating && e.tags === l.tags &&
         ((e.episode_number !== null && l.episode_number !== null && e.season_number === l.season_number) ||
-         (e.episode_number === null && l.episode_number === null && e.season_number !== null && l.season_number !== null))
+          (e.episode_number === null && l.episode_number === null && e.season_number !== null && l.season_number !== null))
       );
       if (existing) {
         existing.log_ids.push(l.id);
@@ -1155,9 +1180,9 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                           <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
                             {log.type === 'tv' ? (
                               log.season_number !== null && log.episodes ? `S${log.season_number} E${log.episodes.join(', ')}`
-                              : log.seasons && log.seasons.length > 1 ? `Seasons ${log.seasons.join(', ')}`
-                              : log.season_number !== null ? `Season ${log.season_number}`
-                              : 'Show'
+                                : log.seasons && log.seasons.length > 1 ? `Seasons ${log.seasons.join(', ')}`
+                                  : log.season_number !== null ? `Season ${log.season_number}`
+                                    : 'Show'
                             ) : 'Movie'}
                             <span style={{ color: 'var(--text3)', marginLeft: '8px', fontSize: '0.75rem', fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{fmtDate(log.date)}</span>
                           </div>
@@ -1257,9 +1282,9 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
 
   const filteredAndGroupedTheatreMovies = useMemo(() => {
     if (!statsData || !statsData.theatre_stats || !statsData.theatre_stats.movies) return [];
-    
+
     // Filter first, so counts are accurate for the specific filter
-    const filtered = statsData.theatre_stats.movies.filter(m => 
+    const filtered = statsData.theatre_stats.movies.filter(m =>
       theatreFilter === 'all' || m.tags.includes(theatreFilter)
     );
 
@@ -1271,7 +1296,7 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
       map[m.movie_id].visitCount += 1;
       m.tags.forEach(t => map[m.movie_id].allTags.add(t));
     });
-    
+
     return Object.values(map).map(m => ({ ...m, tags: Array.from(m.allTags) }));
   }, [statsData, theatreFilter]);
 
@@ -1386,8 +1411,8 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           </div>
           <div className="stats-poster-grid">
             {highestRatedList.map(m => (
-              <div 
-                key={m.movie_id} 
+              <div
+                key={m.movie_id}
                 className="stats-poster-item"
                 onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}
                 style={{ cursor: 'pointer' }}
@@ -1412,10 +1437,10 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           <div className="stats-section-header" style={{ marginBottom: '0.75rem' }}>
             <span className="stats-section-title">🍿 Theatre Experiences <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>({d.theatre_stats.total_visits})</span></span>
           </div>
-          
+
           {Object.keys(d.theatre_stats.supplementary_tags || {}).length > 0 && (
             <div className="stats-theatre-filters">
-              <button 
+              <button
                 className={`stats-theatre-pill ${theatreFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setTheatreFilter('all')}
               >
@@ -1425,17 +1450,17 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
                 .sort((a, b) => b[1] - a[1]) // sort by frequency
                 .slice(0, showAllTheatreTags ? undefined : 6)
                 .map(([tag, count]) => (
-                <button 
-                  key={tag}
-                  className={`stats-theatre-pill ${theatreFilter === tag ? 'active' : ''}`}
-                  onClick={() => setTheatreFilter(tag)}
-                >
-                  {tag.toUpperCase()} <span>{count}</span>
-                </button>
-              ))}
+                  <button
+                    key={tag}
+                    className={`stats-theatre-pill ${theatreFilter === tag ? 'active' : ''}`}
+                    onClick={() => setTheatreFilter(tag)}
+                  >
+                    {tag.toUpperCase()} <span>{count}</span>
+                  </button>
+                ))}
               {Object.keys(d.theatre_stats.supplementary_tags).length > 6 && (
-                <button 
-                  className="stats-theatre-pill" 
+                <button
+                  className="stats-theatre-pill"
                   onClick={() => setShowAllTheatreTags(!showAllTheatreTags)}
                   style={{ background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)', opacity: 0.8 }}
                 >
@@ -1447,7 +1472,7 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
 
           <div className="stats-poster-grid stats-theatre-grid">
             {filteredAndGroupedTheatreMovies.map((m) => (
-              <div 
+              <div
                 key={m.movie_id}
                 className="stats-poster-item"
                 onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}
@@ -1460,12 +1485,12 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
                     <div className="stats-no-poster">🎬</div>
                   )}
                   {m.visitCount > 1 && (
-                    <div className="tv-ep-badge" style={{ 
-                      position: 'absolute', 
-                      top: 6, 
-                      right: 6, 
-                      fontSize: '0.8rem', 
-                      padding: '0.2rem 0.5rem', 
+                    <div className="tv-ep-badge" style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      fontSize: '0.8rem',
+                      padding: '0.2rem 0.5rem',
                       boxShadow: '0 4px 10px rgba(0,0,0,0.8)',
                       backgroundColor: 'var(--accent)',
                       color: '#000',
