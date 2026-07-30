@@ -2272,15 +2272,25 @@ def get_movie_stats():
             highest_rated_current = highest_rated
             highest_rated_older = []
         
-        # Films by week (day of year based -> count)
-        by_week = [0] * 53  # weeks 0-52
+        # Films by week (ISO week number -> count)
+        by_week = [0] * 54  # weeks 0-53
         for l in logs:
             if l.date:
-                # Calculate week based on day of year (Jan 1-7 = week 1, etc.)
-                wk = (l.date.timetuple().tm_yday - 1) // 7 + 1
-                if wk > 52:
-                    wk = 52
-                by_week[wk] += 1
+                iso_yr, iso_wk, _ = l.date.isocalendar()
+                wk = iso_wk
+                
+                # If early Jan falls in previous year's week 52/53, bundle into week 1
+                if l.date.month == 1 and wk >= 52:
+                    wk = 1
+                # If late Dec falls in next year's week 1, bundle into week 53
+                elif l.date.month == 12 and wk == 1:
+                    wk = 53
+                    
+                if 1 <= wk <= 53:
+                    by_week[wk] += 1
+                    
+        # Bundle week 53 into 52 so chart has exactly 52 bars
+        by_week[52] += by_week[53]
         by_week = by_week[1:53]  # weeks 1-52
         
         # By day of week (Monday=0 ... Sunday=6)
