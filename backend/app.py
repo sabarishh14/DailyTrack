@@ -2272,13 +2272,15 @@ def get_movie_stats():
             highest_rated_current = highest_rated
             highest_rated_older = []
         
-        # Films by week (ISO week number -> count)
+        # Films by week (day of year based -> count)
         by_week = [0] * 53  # weeks 0-52
         for l in logs:
             if l.date:
-                wk = l.date.isocalendar()[1]
-                if 1 <= wk <= 52:
-                    by_week[wk] += 1
+                # Calculate week based on day of year (Jan 1-7 = week 1, etc.)
+                wk = (l.date.timetuple().tm_yday - 1) // 7 + 1
+                if wk > 52:
+                    wk = 52
+                by_week[wk] += 1
         by_week = by_week[1:53]  # weeks 1-52
         
         # By day of week (Monday=0 ... Sunday=6)
