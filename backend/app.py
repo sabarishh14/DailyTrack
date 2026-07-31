@@ -446,7 +446,7 @@ def sync_db_to_sheets():
         }
 
         print(f"📡 Sending {len(unsynced)} transactions to Google Sheets...")
-        response = requests.post(SHEETS_URL, json=payload, timeout=60)
+        response = requests.post(SHEETS_URL, json=payload, timeout=120)
         
         if response.status_code == 200:
             # 3. Mark as synced so we don't send duplicates next time

@@ -104,7 +104,6 @@ function doPost(e) {
             foundSheet.getRange(existingRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
             foundSheet.getRange(existingRow, (sheetName === "IDBI" || sheetName === "CreditCard") ? 9 : 8).setValue(account);
             inserted++;
-            SpreadsheetApp.flush();
             return; 
           } else {
             // Date or sheet changed. Delete old row.
@@ -161,8 +160,9 @@ function doPost(e) {
 
         sheet.getRange(insertRow, 10, 1, 2).setValues([[id, createdAt]]);
         inserted++;
-        SpreadsheetApp.flush(); 
       });
+      
+      SpreadsheetApp.flush(); // Flush once at the end
 
       const msg = errors.length > 0 ? `${inserted} inserted. Skipped missing: ${[...new Set(errors)].join(", ")}` : `${inserted} transactions processed`;
       return ContentService.createTextOutput(JSON.stringify({status: "success", message: msg})).setMimeType(ContentService.MimeType.JSON);
