@@ -18,6 +18,8 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
   const currentYearLabel = new Date().getFullYear().toString();
 
   const [expanded, setExpanded] = useState(false);
+  const [splitsExpanded, setSplitsExpanded] = useState(false);
+  const [settlingPerson, setSettlingPerson] = useState(null);
   const [editingTx, setEditingTx] = useState(null);
   const [copyingTx, setCopyingTx] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -190,6 +192,47 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       allTypes: [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1))
     };
   }, [transactions]);
+
+  // Optimistic split overrides — local state for instant UI
+  const [splitOverrides, setSplitOverrides] = useState({});
+
+  // Split dashboard computed data (merges optimistic overrides)
+  const { activeSplits, settledSplits, splitBalances, totalOwed } = useMemo(() => {
+    const active = [];
+    const settled = [];
+    const bals = {};
+    let owed = 0;
+
+    transactions.forEach(t => {
+      const effectiveSplit = splitOverrides[t.id] || t.split;
+      if (!effectiveSplit || !effectiveSplit.members || effectiveSplit.members.length === 0) return;
+      const txWithSplit = { ...t, split: effectiveSplit };
+      const allPaid = effectiveSplit.members.every(m => m.paid);
+      if (allPaid) {
+        settled.push(txWithSplit);
+      } else {
+        active.push(txWithSplit);
+        effectiveSplit.members.forEach(m => {
+          if (!m.paid && m.name.toLowerCase() !== 'you') {
+            const amt = parseFloat(m.amount) || 0;
+            if (amt > 0) {
+              bals[m.name] = (bals[m.name] || 0) + amt;
+              owed += amt;
+            }
+          }
+        });
+      }
+    });
+
+    active.sort((a, b) => new Date(b.date) - new Date(a.date));
+    settled.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const balsArr = Object.entries(bals)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount);
+
+    return { activeSplits: active, settledSplits: settled, splitBalances: balsArr, totalOwed: owed };
+  }, [transactions, splitOverrides]);
 
   // Multi-select toggle functions
   // Helper to check match based on 3-State filtering
@@ -851,6 +894,70 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
     }
   };
 
+  // Splits: Settle all for a person (optimistic)
+  const handleSettlePerson = (personName) => {
+    if (!window.confirm(`Settle all splits for ${personName}?`)) return;
+    setSettlingPerson(personName);
+
+    // Build all overrides + API calls at once
+    const overrides = {};
+    const apiCalls = [];
+    for (const t of activeSplits) {
+      let changed = false;
+      const newMembers = t.split.members.map(m => {
+        if (m.name === personName && !m.paid) { changed = true; return { ...m, paid: true }; }
+        return m;
+      });
+      if (changed) {
+        overrides[t.id] = { ...t.split, members: newMembers };
+        let myAmount = 0;
+        const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
+        if (youMember) myAmount += parseFloat(youMember.amount) || 0;
+        myAmount += newMembers.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((s, m) => s + (parseFloat(m.amount) || 0), 0);
+        const finalAmount = myAmount > 0 ? Math.round(myAmount) : t.amount;
+        apiCalls.push(
+          fetch(`${API}/splits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({ transaction_id: t.id, total_amount: t.split.total_amount, members: newMembers, transaction_amount: finalAmount })
+          })
+        );
+      }
+    }
+
+    // Instant UI update
+    setSplitOverrides(prev => ({ ...prev, ...overrides }));
+    setSettlingPerson(null);
+
+    // Fire all APIs in parallel in background
+    Promise.all(apiCalls).catch(err => alert('Error settling: ' + err.message));
+  };
+
+  // Splits: Toggle individual member paid status (optimistic)
+  const handleToggleSplitPaid = (t, memberIdx) => {
+    const newMembers = [...t.split.members];
+    newMembers[memberIdx] = { ...newMembers[memberIdx], paid: !newMembers[memberIdx].paid };
+
+    // Instant UI update
+    setSplitOverrides(prev => ({ ...prev, [t.id]: { ...t.split, members: newMembers } }));
+
+    // Fire API in background
+    let myAmount = 0;
+    const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
+    if (youMember) myAmount += parseFloat(youMember.amount) || 0;
+    myAmount += newMembers.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((s, m) => s + (parseFloat(m.amount) || 0), 0);
+    const finalAmount = myAmount > 0 ? Math.round(myAmount) : t.amount;
+    fetch(`${API}/splits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      body: JSON.stringify({ transaction_id: t.id, total_amount: t.split.total_amount, members: newMembers, transaction_amount: finalAmount })
+    }).catch(err => {
+      // Revert on error
+      setSplitOverrides(prev => { const n = { ...prev }; delete n[t.id]; return n; });
+      alert('Error updating split: ' + err.message);
+    });
+  };
+
   return (
     <div>
       {/* Spending Analyzer Section - Collapsible */}
@@ -1245,6 +1352,200 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       </div>
 
 
+      {/* Splits Section - Collapsible, same style as Spending Analyser */}
+      {(activeSplits.length > 0 || settledSplits.length > 0) && (
+        <div className="analyser-card">
+          <div
+            className={`analyser-header ${splitsExpanded ? 'open' : ''}`}
+            onClick={() => setSplitsExpanded(!splitsExpanded)}
+          >
+            <div className="analyser-header-left">
+              <div className="analyser-header-icon" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>🤝</div>
+              <div>
+                <div className="analyser-header-title">Splits</div>
+                <div className="analyser-header-sub" style={{ display: splitsExpanded ? 'none' : 'block' }}>
+                  {totalOwed > 0
+                    ? <span>{splitBalances.length} {splitBalances.length === 1 ? 'person owes' : 'people owe'} you <span style={{ color: 'var(--pos)', fontWeight: 700 }}>{fmt(totalOwed)}</span></span>
+                    : <span style={{ color: 'var(--pos)' }}>All settled up ✓</span>
+                  }
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {/* Quick counters */}
+              {!splitsExpanded && activeSplits.length > 0 && (
+                <span className="splits-badge splits-badge-active">{activeSplits.length} active</span>
+              )}
+              {!splitsExpanded && settledSplits.length > 0 && (
+                <span className="splits-badge splits-badge-settled">{settledSplits.length} settled</span>
+              )}
+              <span className={`analyser-chevron ${splitsExpanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
+            </div>
+          </div>
+
+          {splitsExpanded && (
+            <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
+
+              {/* Person Balance Cards */}
+              {splitBalances.length > 0 && (
+                <div className="splits-people-grid">
+                  {splitBalances.map(b => (
+                    <div key={b.name} className="splits-person-card">
+                      <div className="splits-person-avatar">{b.name.charAt(0).toUpperCase()}</div>
+                      <div className="splits-person-info">
+                        <div className="splits-person-name">{b.name}</div>
+                        <div className="splits-person-amount">{fmt(b.amount)}</div>
+                      </div>
+                      <button
+                        className="splits-settle-btn"
+                        onClick={() => handleSettlePerson(b.name)}
+                        disabled={settlingPerson === b.name}
+                      >
+                        {settlingPerson === b.name ? (
+                          <span className="splits-settle-spinner">⏳</span>
+                        ) : (
+                          <>✓ Settle</>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Total owed summary */}
+              {totalOwed > 0 && (
+                <div className="splits-total-bar">
+                  <span style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>Total owed to you</span>
+                  <span style={{ color: 'var(--pos)', fontWeight: 700, fontSize: '1.1rem' }}>{fmt(totalOwed)}</span>
+                </div>
+              )}
+
+              {/* Active / Settled tabs */}
+              <div className="splits-tab-bar">
+                <button
+                  className={`splits-tab-btn ${!settledSplits.length || activeSplits.length > 0 ? 'active' : ''}`}
+                  onClick={() => {
+                    document.getElementById('splits-active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }}
+                  style={{ cursor: 'default' }}
+                >
+                  Active ({activeSplits.length})
+                </button>
+                {settledSplits.length > 0 && (
+                  <button
+                    className="splits-tab-btn"
+                    onClick={() => {
+                      document.getElementById('splits-settled')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }}
+                    style={{ cursor: 'default' }}
+                  >
+                    Settled ({settledSplits.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Active Splits */}
+              {activeSplits.length > 0 && (
+                <div id="splits-active" style={{ marginBottom: '1.5rem' }}>
+                  <div className="splits-list">
+                    {activeSplits.map(t => {
+                      const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+                      return (
+                        <div key={t.id} className="splits-tx-card">
+                          <div className="splits-tx-top">
+                            <div className="splits-tx-left">
+                              <div className="splits-tx-desc">{t.description || t.heading || '—'}</div>
+                              <div className="splits-tx-meta">{dateStr} &middot; {t.account} &middot; {t.heading}</div>
+                            </div>
+                            <div className="splits-tx-amount">
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bill</span>
+                              <span>{fmt(t.split.total_amount)}</span>
+                            </div>
+                          </div>
+                          <div className="splits-members">
+                            {t.split.members.map((m, idx) => (
+                              <div key={idx} className={`splits-member ${m.paid ? 'paid' : ''}`}>
+                                <div className="splits-member-left">
+                                  <div className={`splits-member-dot ${m.paid ? 'paid' : 'unpaid'}`} />
+                                  <span className="splits-member-name">{m.name}</span>
+                                </div>
+                                <div className="splits-member-right">
+                                  <span className="splits-member-amt">{fmt(m.amount)}</span>
+                                  {m.name.toLowerCase() !== 'you' && (
+                                    <button
+                                      className={`splits-toggle-btn ${m.paid ? 'is-paid' : 'is-unpaid'}`}
+                                      onClick={() => handleToggleSplitPaid(t, idx)}
+                                    >
+                                      {m.paid ? 'Paid' : 'Owes'}
+                                    </button>
+                                  )}
+                                  {m.name.toLowerCase() === 'you' && (
+                                    <span className="splits-you-badge">You</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {activeSplits.length === 0 && (
+                <div className="splits-empty">
+                  <span style={{ fontSize: '2rem' }}>🎉</span>
+                  <div>All settled up! No pending splits.</div>
+                </div>
+              )}
+
+              {/* Settled Splits */}
+              {settledSplits.length > 0 && (
+                <div id="splits-settled">
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.75rem', paddingLeft: '2px' }}>
+                    Settled &middot; {settledSplits.length}
+                  </div>
+                  <div className="splits-list">
+                    {settledSplits.map(t => {
+                      const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+                      return (
+                        <div key={t.id} className="splits-tx-card settled">
+                          <div className="splits-tx-top">
+                            <div className="splits-tx-left">
+                              <div className="splits-tx-desc">{t.description || t.heading || '—'}</div>
+                              <div className="splits-tx-meta">{dateStr} &middot; {t.account}</div>
+                            </div>
+                            <div className="splits-tx-amount" style={{ color: 'var(--text3)' }}>
+                              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bill</span>
+                              <span>{fmt(t.split.total_amount)}</span>
+                            </div>
+                          </div>
+                          <div className="splits-members">
+                            {t.split.members.map((m, idx) => (
+                              <div key={idx} className="splits-member paid">
+                                <div className="splits-member-left">
+                                  <div className="splits-member-dot paid" />
+                                  <span className="splits-member-name">{m.name}</span>
+                                </div>
+                                <div className="splits-member-right">
+                                  <span className="splits-member-amt">{fmt(m.amount)}</span>
+                                  <span className="splits-settled-check">✓</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Transactions Table */}
       <section className="section">
         <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
@@ -1630,7 +1931,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       {/* TRANSACTION DETAILS / ACTION MENU MODAL */}
       {actionMenuTx && (
         <div className="modal-backdrop" onClick={() => setActionMenuTx(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: '400px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: '400px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
 
             {/* Header / Info Row */}
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)' }}>
@@ -1659,7 +1960,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
 
             {/* Split Details UI */}
             {actionMenuTx.split && (
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', maxHeight: '200px', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>👥 Split Details</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600 }}>Total: ₹{actionMenuTx.split.total_amount}</div>
@@ -1672,10 +1973,10 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
                           type="checkbox"
                           checked={m.paid}
                           style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             e.stopPropagation();
                             const newMembers = [...actionMenuTx.split.members];
-                            newMembers[idx].paid = !newMembers[idx].paid;
+                            newMembers[idx] = { ...newMembers[idx], paid: !newMembers[idx].paid };
 
                             let myAmount = 0;
                             const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
@@ -1685,17 +1986,18 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
 
                             const updatedTx = { ...actionMenuTx, amount: finalAmount, split: { ...actionMenuTx.split, members: newMembers } };
                             setActionMenuTx(updatedTx);
-                            try {
-                              const res = await fetch(`${API}/splits`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                                body: JSON.stringify({ transaction_id: updatedTx.id, total_amount: updatedTx.split.total_amount, members: newMembers, transaction_amount: finalAmount })
-                              });
-                              if (res.ok) onRefresh();
-                            } catch (err) {
+                            // Also update optimistic overrides for the splits section
+                            setSplitOverrides(prev => ({ ...prev, [actionMenuTx.id]: { ...actionMenuTx.split, members: newMembers } }));
+
+                            // Fire API in background
+                            fetch(`${API}/splits`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                              body: JSON.stringify({ transaction_id: updatedTx.id, total_amount: updatedTx.split.total_amount, members: newMembers, transaction_amount: finalAmount })
+                            }).catch(err => {
                               alert("Error updating split: " + err.message);
                               setActionMenuTx(actionMenuTx);
-                            }
+                            });
                           }}
                         />
                         <span style={{ fontSize: '0.85rem', color: m.paid ? 'var(--text3)' : 'var(--text)', textDecoration: m.paid ? 'line-through' : 'none' }}>{m.name}</span>
