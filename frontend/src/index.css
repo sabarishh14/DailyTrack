@@ -1160,7 +1160,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   /* Removed overflow: hidden so dropdowns can escape! */
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .analyser-header {
