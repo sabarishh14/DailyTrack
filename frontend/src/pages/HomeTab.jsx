@@ -91,18 +91,34 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
 
       // 3. If confirmed, lock the button and do the actual sync
       setSyncingSheetsTransactions(true);
-      const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
-      const data = await res.json();
-
-      if (data.success) {
-        alert("✅ " + data.message);
-      } else {
-        alert("❌ Sync Failed: " + data.message);
+      
+      let hasMore = true;
+      let totalSynced = 0;
+      
+      while (hasMore) {
+        setSyncMsg(`⏳ Synced ${totalSynced}/${checkData.count}...`);
+        const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
+        const data = await res.json();
+  
+        if (data.success) {
+          totalSynced += (data.synced_count || 0);
+          hasMore = data.has_more;
+        } else {
+          alert(`❌ Sync Failed after ${totalSynced} transactions: ` + data.message);
+          hasMore = false;
+        }
       }
+
+      if (totalSynced > 0) {
+        alert(`✅ Successfully synced ${totalSynced} transactions!`);
+        setSyncMsg(`✅ Synced ${totalSynced} transactions!`);
+      }
+
     } catch (e) {
       alert("❌ Network Error: " + e.message);
     } finally {
       setSyncingSheetsTransactions(false);
+      setTimeout(() => setSyncMsg(''), 3000);
     }
   };
 

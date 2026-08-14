@@ -422,11 +422,12 @@ def check_tx_sync():
 @require_api_key  # <-- Add this line to protect the route
 def sync_db_to_sheets():
     try:
-        # 1. Fetch only transactions that haven't been synced yet
-        unsynced = Transaction.query.filter_by(synced=False).order_by(Transaction.date.asc(), Transaction.id.asc()).all()
+        # 1. Fetch only a batch of transactions that haven't been synced yet (prevent timeouts)
+        BATCH_SIZE = 10
+        unsynced = Transaction.query.filter_by(synced=False).order_by(Transaction.date.asc(), Transaction.id.asc()).limit(BATCH_SIZE).all()
         
         if not unsynced:
-            return jsonify({"success": True, "message": "No new transactions to sync to Sheets."})
+            return jsonify({"success": True, "message": "No new transactions to sync to Sheets.", "synced_count": 0, "has_more": False})
 
         # 2. Format the payload for your updated Apps Script
         payload = {
@@ -446,16 +447,33 @@ def sync_db_to_sheets():
         }
 
         print(f"📡 Sending {len(unsynced)} transactions to Google Sheets...")
-        response = requests.post(SHEETS_URL, json=payload, timeout=120)
+        response = requests.post(SHEETS_URL, json=payload, timeout=60)
         
         if response.status_code == 200:
-            # 3. Mark as synced so we don't send duplicates next time
-            for t in unsynced:
-                t.synced = True
-            db.session.commit()
-            return jsonify({"success": True, "message": f"Successfully synced {len(unsynced)} transactions!"})
+            try:
+                res_data = response.json()
+            except ValueError:
+                res_data = {"status": "error", "message": "Invalid JSON response from Sheets"}
+                
+            if res_data.get('status') == 'success':
+                # 3. Mark as synced so we don't send duplicates next time
+                for t in unsynced:
+                    t.synced = True
+                db.session.commit()
+                
+                # Check if there are more
+                has_more = Transaction.query.filter_by(synced=False).count() > 0
+                
+                return jsonify({
+                    "success": True, 
+                    "message": res_data.get('message', f"Successfully synced {len(unsynced)} transactions!"),
+                    "synced_count": len(unsynced),
+                    "has_more": has_more
+                })
+            else:
+                return jsonify({"success": False, "message": f"Sheets returned error: {res_data.get('message', 'Unknown error')}"})
         else:
-            return jsonify({"success": False, "message": f"Sheets error: {response.text}"})
+            return jsonify({"success": False, "message": f"Sheets HTTP error: {response.status_code} - {response.text}"})
 
     except Exception as e:
         print(f"❌ Sheets Sync Error: {str(e)}")
