@@ -83,10 +83,8 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         return alert("👍 No new transactions to sync to Sheets.");
       }
 
-      // 2. The Confirmation Prompt (Mimicking your old y/n console check!)
+      // 2. The Confirmation Prompt
       const isConfirmed = window.confirm(`You have ${checkData.count} unsynced transaction(s). Ready to send them to Google Sheets?`);
-
-      // If you click Cancel, we stop right here.
       if (!isConfirmed) return;
 
       // 3. If confirmed, lock the button and do the actual sync
@@ -94,31 +92,33 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
       
       let hasMore = true;
       let totalSynced = 0;
+      const totalCount = checkData.count;
       
       while (hasMore) {
-        setSyncMsg(`⏳ Synced ${totalSynced}/${checkData.count}...`);
+        setSyncMsg(`⏳ Syncing ${totalSynced}/${totalCount} — sending batch...`);
         const res = await fetch(`${API}/sync/db-to-sheets`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } });
         const data = await res.json();
   
         if (data.success) {
           totalSynced += (data.synced_count || 0);
           hasMore = data.has_more;
+          setSyncMsg(`⏳ Synced ${totalSynced}/${totalCount}...`);
         } else {
-          alert(`❌ Sync Failed after ${totalSynced} transactions: ` + data.message);
+          setSyncMsg(`❌ Failed after ${totalSynced}/${totalCount}: ${data.message}`);
           hasMore = false;
         }
       }
 
       if (totalSynced > 0) {
-        alert(`✅ Successfully synced ${totalSynced} transactions!`);
-        setSyncMsg(`✅ Synced ${totalSynced} transactions!`);
+        setSyncMsg(`✅ Done! Synced ${totalSynced} transactions to Sheets.`);
+        setTimeout(() => setSyncMsg(''), 5000);
       }
 
     } catch (e) {
-      alert("❌ Network Error: " + e.message);
+      setSyncMsg(`❌ Network Error: ${e.message}`);
+      setTimeout(() => setSyncMsg(''), 5000);
     } finally {
       setSyncingSheetsTransactions(false);
-      setTimeout(() => setSyncMsg(''), 3000);
     }
   };
 
@@ -168,7 +168,7 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
         <button className="action-btn" onClick={syncTransactionsFromSheets} disabled={syncingSheetsTransactions} style={{ minWidth: '200px', justifyContent: 'center', background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)' }}>
           {syncingSheetsTransactions ? '⏳ Syncing...' : '📥 Sync Transactions to Sheets'}
         </button>
-        {syncMsg && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: syncMsg.startsWith('✅') ? 'var(--pos)' : 'var(--neg)', width: '100%', textAlign: 'center', marginTop: '0.5rem' }}>{syncMsg}</span>}
+        {syncMsg && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: syncMsg.startsWith('✅') ? 'var(--pos)' : syncMsg.startsWith('❌') ? 'var(--neg)' : 'var(--text2, #f59e0b)', width: '100%', textAlign: 'center', marginTop: '0.5rem' }}>{syncMsg}</span>}
       </div>
 
       {/* Hero row: Net Worth + Physical Activity */}

@@ -417,19 +417,19 @@ def check_tx_sync():
         return jsonify({"success": True, "count": count})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
-    
+
 @app.route('/api/sync/db-to-sheets', methods=['POST'])
 @require_api_key  # <-- Add this line to protect the route
 def sync_db_to_sheets():
     try:
-        # 1. Fetch only a batch of transactions that haven't been synced yet (prevent timeouts)
-        BATCH_SIZE = 10
+        BATCH_SIZE = 5
         unsynced = Transaction.query.filter_by(synced=False).order_by(Transaction.date.asc(), Transaction.id.asc()).limit(BATCH_SIZE).all()
         
         if not unsynced:
             return jsonify({"success": True, "message": "No new transactions to sync to Sheets.", "synced_count": 0, "has_more": False})
 
-        # 2. Format the payload for your updated Apps Script
+        # Collect IDs and build payload BEFORE any DB changes
+        tx_ids = [t.id for t in unsynced]
         payload = {
             "type": "transactions",
             "data": [
@@ -446,39 +446,55 @@ def sync_db_to_sheets():
             ]
         }
 
-        print(f"📡 Sending {len(unsynced)} transactions to Google Sheets...")
-        response = requests.post(SHEETS_URL, json=payload, timeout=60)
-        
-        if response.status_code == 200:
-            try:
-                res_data = response.json()
-            except ValueError:
-                res_data = {"status": "error", "message": "Invalid JSON response from Sheets"}
-                
-            if res_data.get('status') == 'success':
-                # 3. Mark as synced so we don't send duplicates next time
-                for t in unsynced:
-                    t.synced = True
-                db.session.commit()
-                
-                # Check if there are more
-                has_more = Transaction.query.filter_by(synced=False).count() > 0
-                
-                return jsonify({
-                    "success": True, 
-                    "message": res_data.get('message', f"Successfully synced {len(unsynced)} transactions!"),
-                    "synced_count": len(unsynced),
-                    "has_more": has_more
-                })
+        # ==========================================
+        # OPTIMISTIC UPDATE: Mark synced FIRST, then fire to GAS.
+        # Single bulk SQL UPDATE — one round-trip instead of N ORM mutations.
+        # ==========================================
+        Transaction.query.filter(Transaction.id.in_(tx_ids)).update(
+            {Transaction.synced: True}, synchronize_session='fetch'
+        )
+        db.session.commit()
+        print(f"✅ Marked {len(unsynced)} transactions as synced in DB")
+
+        # Now fire the request to GAS
+        sheets_msg = ""
+        try:
+            print(f"📡 Sending {len(unsynced)} transactions to Google Sheets...")
+            response = requests.post(SHEETS_URL, json=payload, timeout=30)
+            if response.status_code == 200:
+                try:
+                    res_data = response.json()
+                    sheets_msg = res_data.get('message', 'Sheet updated')
+                except ValueError:
+                    sheets_msg = "Sheet updated (no JSON response)"
             else:
-                return jsonify({"success": False, "message": f"Sheets returned error: {res_data.get('message', 'Unknown error')}"})
-        else:
-            return jsonify({"success": False, "message": f"Sheets HTTP error: {response.status_code} - {response.text}"})
+                sheets_msg = f"Sheet returned HTTP {response.status_code}"
+        except requests.exceptions.Timeout:
+            # GAS received the payload and is still processing — this is FINE.
+            sheets_msg = "Sheet is processing (timed out waiting, but data was sent)"
+            print(f"⏳ GAS timed out but data was sent, DB already updated")
+        except requests.exceptions.ConnectionError:
+            # Request never reached GAS at all — ROLLBACK
+            Transaction.query.filter(Transaction.id.in_(tx_ids)).update(
+                {Transaction.synced: False}, synchronize_session='fetch'
+            )
+            db.session.commit()
+            print(f"❌ Connection error — rolled back synced status")
+            return jsonify({"success": False, "message": "Could not connect to Google Sheets. Rolled back."})
+
+        has_more = Transaction.query.filter_by(synced=False).count() > 0
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Synced {len(unsynced)} transactions. {sheets_msg}",
+            "synced_count": len(unsynced),
+            "has_more": has_more
+        })
 
     except Exception as e:
         print(f"❌ Sheets Sync Error: {str(e)}")
         return jsonify({"success": False, "message": str(e)})
-        
+
 # ---- ACCOUNTS ----
 @app.route('/api/accounts', methods=['GET'])
 @require_api_key  

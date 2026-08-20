@@ -60,11 +60,34 @@ function doPost(e) {
       let errors = [];
       let inserted = 0;
 
+      // ==========================================
+      // OPTIMIZATION 1: Build a global ID cache ONCE instead of scanning every sheet per transaction.
+      // Old code: For each tx, loop ALL sheets and read column J → O(txns × sheets × rows)
+      // New code: Read column J of each sheet ONCE upfront → O(sheets × rows), then O(1) lookups.
+      // ==========================================
+      const idCache = {}; // { id_string: { sheet, row } }
+      const allSheets = ss.getSheets();
+      for (const s of allSheets) {
+        const sLastUsed = s.getLastRow();
+        if (sLastUsed >= 2 && s.getMaxColumns() >= 10) {
+          const idValues = s.getRange(2, 10, sLastUsed - 1, 1).getValues();
+          for (let i = 0; i < idValues.length; i++) {
+            if (idValues[i][0]) {
+              idCache[String(idValues[i][0])] = { sheet: s, row: i + 2 };
+            }
+          }
+        }
+      }
+
+      // ==========================================
+      // OPTIMIZATION 2: Group transactions by target sheet so we read each sheet's dates ONCE.
+      // ==========================================
+      const txBySheet = {}; // { sheetName: [{ tx, sheetName, txDate, formattedType, id, createdAt }] }
+      
       records.forEach(tx => {
         const { date, month, type: rawType, heading, description, amount, account } = tx;
         const id = tx.id || Utilities.getUuid();
-        const createdAt = new Date();
-
+        
         let sheetName = account;
         if (account === "Cash") sheetName = "IDBI";
         else if (account && account.startsWith("CC")) sheetName = "CreditCard";
@@ -75,32 +98,18 @@ function doPost(e) {
         const txDate = new Date(date);
         txDate.setHours(0, 0, 0, 0);
         const formattedType = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : "";
-        // Check if ID already exists anywhere (EDIT LOGIC)
-        let foundSheet = null;
-        let existingRow = -1;
-        
-        for (const s of ss.getSheets()) {
-          const sLastUsed = s.getLastRow();
-          if (sLastUsed >= 2 && s.getMaxColumns() >= 10) {
-            const idValues = s.getRange(2, 10, sLastUsed - 1, 1).getValues(); 
-            for (let i = 0; i < idValues.length; i++) {
-              if (idValues[i][0] == id) { 
-                 existingRow = i + 2; 
-                 foundSheet = s; 
-                 break; 
-              }
-            }
-          }
-          if (foundSheet) break;
-        }
 
-        if (foundSheet && existingRow !== -1) {
+        // Handle EDIT (ID already exists in some sheet)
+        const cached = idCache[String(id)];
+        if (cached) {
+          const foundSheet = cached.sheet;
+          const existingRow = cached.row;
           const existingDateRaw = foundSheet.getRange(existingRow, 1).getValue();
           let existingDate = new Date(existingDateRaw);
           existingDate.setHours(0, 0, 0, 0);
 
           if (foundSheet.getName() === sheetName && existingDate.getTime() === txDate.getTime()) {
-            // Update in place
+            // Update in place — no need to insert
             foundSheet.getRange(existingRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
             foundSheet.getRange(existingRow, (sheetName === "IDBI" || sheetName === "CreditCard") ? 9 : 8).setValue(account);
             inserted++;
@@ -113,55 +122,72 @@ function doPost(e) {
               if (fName === "IDBI" || fName === "CreditCard") foundSheet.getRange(existingRow - 1, 7, 1, 2).copyTo(foundSheet.getRange(existingRow, 7, 1, 2));
               else foundSheet.getRange(existingRow - 1, 7).copyTo(foundSheet.getRange(existingRow, 7));
             }
-            // Fall through to insert in correct sheet / date
+            // Fall through to insert
           }
         }
 
-        // Chronological insertion (NEW OR MOVED TRANSACTION LOGIC)
-        const lastUsed = sheet.getLastRow();
-        const colA = sheet.getRange(1, 1, lastUsed || 1).getValues();
-        let lastDataRow = 0;
-        for (let i = colA.length - 1; i >= 0; i--) {
-          if (colA[i][0] !== "") { lastDataRow = i + 1; break; }
-        }
-
-        let insertRow = lastDataRow + 1; 
-        if (lastDataRow >= 2) {
-          const dateValues = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
-          for (let i = 0; i < dateValues.length; i++) {
-            if (!dateValues[i][0]) continue;
-            const cellDate = new Date(dateValues[i][0]);
-            cellDate.setHours(0, 0, 0, 0);
-            if (cellDate > txDate) { insertRow = i + 2; break; }
-          }
-        }
-
-        sheet.insertRowBefore(insertRow);
-        sheet.getRange(insertRow, 1, 1, 6).setValues([[new Date(date), month, formattedType, heading, description, amount]]);
-        const sourceRow = (insertRow > 2) ? insertRow - 1 : (lastDataRow >= 2 ? insertRow + 1 : 0);
-        
-        if (sourceRow > 0) {
-          sheet.getRange(sourceRow, 1, 1, 6).copyTo(sheet.getRange(insertRow, 1, 1, 6), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-        }
-
-        if (sheetName === "IDBI" || sheetName === "CreditCard") {
-          if (sourceRow > 0) {
-            sheet.getRange(sourceRow, 7, 1, 2).copyTo(sheet.getRange(insertRow, 7, 1, 2)); 
-            if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7, 1, 2).copyTo(sheet.getRange(insertRow + 1, 7, 1, 2));
-          }
-          sheet.getRange(insertRow, 9).setValue(account); 
-        } else {
-          if (sourceRow > 0) {
-            sheet.getRange(sourceRow, 7).copyTo(sheet.getRange(insertRow, 7)); 
-            if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7).copyTo(sheet.getRange(insertRow + 1, 7));
-          }
-          sheet.getRange(insertRow, 8).setValue(account); 
-        }
-
-        sheet.getRange(insertRow, 10, 1, 2).setValues([[id, createdAt]]);
-        inserted++;
+        // Queue for batch insert
+        if (!txBySheet[sheetName]) txBySheet[sheetName] = [];
+        txBySheet[sheetName].push({ date, month, formattedType, heading, description, amount, account, txDate, id, createdAt: new Date() });
       });
-      
+
+      // ==========================================
+      // BATCH INSERT: Process each sheet's queued transactions together.
+      // Read the sheet's date column ONCE, then insert all transactions.
+      // ==========================================
+      for (const sheetName in txBySheet) {
+        const sheet = ss.getSheetByName(sheetName);
+        if (!sheet) continue;
+
+        // Sort new transactions by date so insertions don't shift each other's positions
+        const txList = txBySheet[sheetName].sort((a, b) => a.txDate - b.txDate);
+
+        for (const tx of txList) {
+          const lastUsed = sheet.getLastRow();
+          const colA = sheet.getRange(1, 1, lastUsed || 1).getValues();
+          let lastDataRow = 0;
+          for (let i = colA.length - 1; i >= 0; i--) {
+            if (colA[i][0] !== "") { lastDataRow = i + 1; break; }
+          }
+
+          let insertRow = lastDataRow + 1;
+          if (lastDataRow >= 2) {
+            const dateValues = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
+            for (let i = 0; i < dateValues.length; i++) {
+              if (!dateValues[i][0]) continue;
+              const cellDate = new Date(dateValues[i][0]);
+              cellDate.setHours(0, 0, 0, 0);
+              if (cellDate > tx.txDate) { insertRow = i + 2; break; }
+            }
+          }
+
+          sheet.insertRowBefore(insertRow);
+          sheet.getRange(insertRow, 1, 1, 6).setValues([[new Date(tx.date), tx.month, tx.formattedType, tx.heading, tx.description, tx.amount]]);
+          const sourceRow = (insertRow > 2) ? insertRow - 1 : (lastDataRow >= 2 ? insertRow + 1 : 0);
+
+          if (sourceRow > 0) {
+            sheet.getRange(sourceRow, 1, 1, 6).copyTo(sheet.getRange(insertRow, 1, 1, 6), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+          }
+
+          if (sheetName === "IDBI" || sheetName === "CreditCard") {
+            if (sourceRow > 0) {
+              sheet.getRange(sourceRow, 7, 1, 2).copyTo(sheet.getRange(insertRow, 7, 1, 2));
+              if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7, 1, 2).copyTo(sheet.getRange(insertRow + 1, 7, 1, 2));
+            }
+            sheet.getRange(insertRow, 9).setValue(tx.account);
+          } else {
+            if (sourceRow > 0) {
+              sheet.getRange(sourceRow, 7).copyTo(sheet.getRange(insertRow, 7));
+              if (insertRow <= sheet.getLastRow()) sheet.getRange(insertRow, 7).copyTo(sheet.getRange(insertRow + 1, 7));
+            }
+            sheet.getRange(insertRow, 8).setValue(tx.account);
+          }
+
+          sheet.getRange(insertRow, 10, 1, 2).setValues([[tx.id, tx.createdAt]]);
+          inserted++;
+        }
+      }
+
       SpreadsheetApp.flush(); // Flush once at the end
 
       const msg = errors.length > 0 ? `${inserted} inserted. Skipped missing: ${[...new Set(errors)].join(", ")}` : `${inserted} transactions processed`;
