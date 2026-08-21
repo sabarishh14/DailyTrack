@@ -485,7 +485,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             </button>
 
             <button className={`action-btn ${success ? 'success' : ''}`} onClick={submit} disabled={loading} style={{ flex: 2, justifyContent: 'center', padding: '0.85rem' }}>
-              {loading ? "⏳ Saving to Database..." : success ? "✅ Saved Successfully!" : `💾 Save to Database (${rows.length})`}
+              {loading ? "⏳ Saving Records..." : success ? "✅ Saved Successfully!" : `💾 Save Records (${rows.length})`}
             </button>
           </div>
         </div>

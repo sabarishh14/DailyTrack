@@ -1060,14 +1060,6 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
             {/* Analyzer Filters */}
             <div className="filter-bar" style={{ marginBottom: '1.5rem' }} ref={dropdownRef}>
               <MultiSelectDropdown
-                label="Visibility"
-                icon="👁️"
-                options={["Active", "Excluded"]}
-                filterState={filterVisibility}
-                setFilterState={setFilterVisibility}
-                dropdownKey="analyzerVisibility"
-              />
-              <MultiSelectDropdown
                 label="Account"
                 icon="🏦"
                 options={allAccountsList}
