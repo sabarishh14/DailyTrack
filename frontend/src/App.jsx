@@ -49,6 +49,7 @@ export default function App() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [budgets, setBudgets] = useState([]); // 🚀 NEW STATE FOR BUDGETS
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [manualAssets, setManualAssets] = useState([]); // 🚀 NEW STATE
@@ -301,6 +302,20 @@ export default function App() {
     }
   }, [allTransactionsLoaded, logout]);
 
+  const refreshBudgets = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      const res = await fetch(`${API}/budgets`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      }).then(r => r.json());
+      if (res && res.success) {
+        setBudgets(res.budgets);
+      }
+    } catch (e) {
+      console.error("Failed to load budgets", e);
+    }
+  }, []);
+
   const fetchAll = useCallback(async (showLoading = false, attempt = 1) => {
     if (showLoading) setAppLoading(true);
 
@@ -338,15 +353,16 @@ export default function App() {
 
       if (showLoading) addLog("Connecting to LifeTrack database...");
 
-      // Fire ALL 6 requests in parallel
-      const [acc, phy, inv, manAssets, txRes, listRes, catRes] = await Promise.all([
+      // Fire ALL 7 requests in parallel
+      const [acc, phy, inv, manAssets, txRes, listRes, catRes, budRes] = await Promise.all([
         fetchWithCheck(`${API}/accounts`, 'Accounts'),
         fetchWithCheck(`${API}/physical`, 'Health & Fitness'),
         fetchWithCheck(`${API}/investments`, 'Investments'),
         fetchWithCheck(`${API}/manual_assets`, 'Manual Assets'),
         fetchWithCheck(`${API}/transactions?limit=100&offset=0`, 'Transactions (Batch 1)'),
         fetchWithCheck(`${API}/assets/list`, 'Market Symbols'),
-        fetchWithCheck(`${API}/transactions/categories`, 'Categories')
+        fetchWithCheck(`${API}/transactions/categories`, 'Categories'),
+        fetchWithCheck(`${API}/budgets`, 'Budgets')
       ]);
 
       if (showLoading) addLog("Data parsed successfully. Finalizing UI...");
@@ -359,6 +375,7 @@ export default function App() {
       setManualAssets(manAssets);
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
       if (catRes && catRes.success) setCategories(catRes.categories);
+      if (budRes && budRes.success) setBudgets(budRes.budgets);
 
       // Also trigger SabDekho refresh
       setSabDekhoRefresh(prev => prev + 1);
@@ -399,9 +416,9 @@ export default function App() {
   const renderTab = () => {
     return (
       <>
-        {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
+        {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} budgets={budgets ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
         <div style={{ display: tab === 1 ? 'contents' : 'none' }}>
-          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} onRefresh={fetchAll} globalActionTx={globalActionTx} setGlobalActionTx={setGlobalActionTx} />
+          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} budgets={budgets} onRefresh={fetchAll} refreshBudgets={refreshBudgets} globalActionTx={globalActionTx} setGlobalActionTx={setGlobalActionTx} />
         </div>
         {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
         {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}

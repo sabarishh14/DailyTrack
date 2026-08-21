@@ -12,8 +12,9 @@ import CustomPieTooltip from '../components/CustomPieTooltip';
 import BulkEditTransactionModal from '../components/BulkEditTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategoryExclusionModal from '../components/CategoryExclusionModal';
+import BudgetManagerModal from '../components/BudgetManagerModal';
 
-function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionTx, setGlobalActionTx }) {
+function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx }) {
   const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
 
@@ -27,6 +28,11 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [isBulkCopyOpen, setIsBulkCopyOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  const [budgetExpanded, setBudgetExpanded] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [editingBudgetCategory, setEditingBudgetCategory] = useState(null);
+  const [editingBudgetValue, setEditingBudgetValue] = useState("");
   const dropdownRef = useRef(null);
   // Analyzer filters - 3-State Multi-select
   const [chartAccounts, setChartAccounts] = useState({ included: new Set(), excluded: new Set() });
@@ -90,6 +96,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
         setIsBulkEditOpen(false);
         setIsBulkCopyOpen(false);
         setIsCategoryModalOpen(false);
+        setIsBudgetModalOpen(false);
         setActionMenuTx(null);
       }
     };
@@ -958,6 +965,37 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
     });
   };
 
+  const currentMonthSpending = useMemo(() => {
+    const spending = {};
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    transactions.forEach(t => {
+      if (t.type === 'Debit' && !t.exclude_analytics && t.date.startsWith(currentMonthStr)) {
+        spending[t.heading] = (spending[t.heading] || 0) + parseFloat(t.amount);
+      }
+    });
+    return spending;
+  }, [transactions]);
+
+  const handleInlineBudgetSave = async (category) => {
+    try {
+      const res = await fetch(`${API}/budgets`, {
+        method: "PUT",
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ category, monthly_limit: editingBudgetValue === "" ? null : parseFloat(editingBudgetValue) })
+      });
+      if (res.ok) {
+        refreshBudgets();
+        setEditingBudgetCategory(null);
+      } else {
+        alert("Failed to save budget.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
   return (
     <div>
       {/* Spending Analyzer Section - Collapsible */}
@@ -1352,6 +1390,111 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       </div>
 
 
+      {/* 🎯 Budget Goals Section - Collapsible */}
+      <div className="analyser-card">
+        <div
+          className={`analyser-header ${budgetExpanded ? 'open' : ''}`}
+          onClick={(e) => {
+            if (e.target.closest('.budget-settings-btn') || e.target.closest('.budget-inline-edit')) return;
+            setBudgetExpanded(!budgetExpanded);
+          }}
+        >
+          <div className="analyser-header-left">
+            <div className="analyser-header-icon" style={{ background: 'rgba(236, 72, 153, 0.15)' }}>🎯</div>
+            <div>
+              <div className="analyser-header-title">Budget Goals</div>
+              <div className="analyser-header-sub" style={{ display: budgetExpanded ? 'none' : 'block' }}>
+                {budgets.length === 0 ? (
+                  <span>No budgets set</span>
+                ) : (
+                  <span>{budgets.filter(b => (currentMonthSpending[b.category] || 0) > b.monthly_limit).length} of {budgets.length} over budget</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              className="budget-settings-btn"
+              onClick={(e) => { e.stopPropagation(); setIsBudgetModalOpen(true); }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: '4px', fontSize: '1.1rem' }}
+              title="Manage Budgets"
+            >
+              ⚙️
+            </button>
+            <span className={`analyser-chevron ${budgetExpanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
+          </div>
+        </div>
+
+        {budgetExpanded && (
+          <div className="analyser-body">
+            {budgets.length === 0 ? (
+              <div className="budget-empty-state" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text3)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎯</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Set your first budget goal</div>
+                <div style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>Track your monthly spending limits by category.</div>
+                <button className="action-btn" onClick={() => setIsBudgetModalOpen(true)} style={{ margin: '0 auto', display: 'flex' }}>
+                  Manage Budgets
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {budgets.map(b => {
+                  const spent = currentMonthSpending[b.category] || 0;
+                  const limit = b.monthly_limit;
+                  const percentage = Math.min((spent / limit) * 100, 100);
+                  const isOver = spent > limit;
+                  let colorClass = 'green';
+                  if (percentage >= 80 && !isOver) colorClass = 'yellow';
+                  if (isOver) colorClass = 'red';
+
+                  return (
+                    <div key={b.category} className="budget-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div className="budget-item-header">
+                        <span className="budget-item-category">{b.category}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', flexShrink: 0 }}>
+                          <span style={{ color: isOver ? 'var(--neg)' : 'var(--text)' }}>{fmt(spent)}</span>
+                          <span style={{ color: 'var(--text3)' }}>/</span>
+                          {editingBudgetCategory === b.category ? (
+                            <input
+                              autoFocus
+                              type="number"
+                              className="budget-inline-edit"
+                              value={editingBudgetValue}
+                              onChange={e => setEditingBudgetValue(e.target.value)}
+                              onBlur={() => handleInlineBudgetSave(b.category)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleInlineBudgetSave(b.category);
+                                if (e.key === 'Escape') setEditingBudgetCategory(null);
+                              }}
+                              style={{ width: '70px', background: 'var(--bg-input)', border: '1px solid var(--accent)', color: 'var(--text)', padding: '2px 4px', borderRadius: '4px', textAlign: 'right' }}
+                            />
+                          ) : (
+                            <span
+                              style={{ color: 'var(--text2)', cursor: 'pointer', borderBottom: '1px dashed var(--border)' }}
+                              onClick={() => { setEditingBudgetCategory(b.category); setEditingBudgetValue(b.monthly_limit); }}
+                              title="Edit Limit"
+                            >
+                              {fmt(limit)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="budget-bar-track" style={{ height: '8px', background: 'var(--bg2)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div
+                          className={`budget-bar-fill ${colorClass}`}
+                          style={{ width: `${percentage}%`, height: '100%', borderRadius: '4px', transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Splits Section - Collapsible, same style as Spending Analyser */}
       {(activeSplits.length > 0 || settledSplits.length > 0) && (
         <div className="analyser-card">
@@ -1547,7 +1690,7 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
       )}
 
       {/* Transactions Table */}
-      <section className="section">
+      <section className="section" style={{ marginTop: '3rem' }}>
         <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
 
         {/* Table Filters */}
@@ -1925,6 +2068,16 @@ function MoneyTab({ accounts, transactions, categories, onRefresh, globalActionT
           allHeadings={allHeadings}
           onClose={() => setIsCategoryModalOpen(false)}
           onRefresh={onRefresh}
+        />
+      )}
+
+      {/* BUDGET MANAGER MODAL */}
+      {isBudgetModalOpen && (
+        <BudgetManagerModal
+          allHeadings={allHeadings}
+          budgets={budgets}
+          onClose={() => setIsBudgetModalOpen(false)}
+          onRefresh={refreshBudgets}
         />
       )}
 

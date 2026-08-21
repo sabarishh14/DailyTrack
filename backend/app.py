@@ -81,7 +81,7 @@ def require_api_key(f):
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
             try:
-                jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                jwt.decode(token, JWT_SECRET, algorithms=["HS256"], leeway=60)
                 return f(*args, **kwargs)
             except jwt.ExpiredSignatureError:
                 return jsonify({"success": False, "message": "Token expired"}), 401
@@ -101,7 +101,7 @@ def require_admin(f):
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
             try:
-                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], leeway=60)
                 if payload.get("email") != "sbsabarish14@gmail.com":
                     return jsonify({"success": False, "message": "Admin access required"}), 403
                 return f(*args, **kwargs)
@@ -355,6 +355,12 @@ class MovieDiaryLog(db.Model):
     # Relationship to Movie
     movie = db.relationship('Movie', backref=db.backref('diary_logs', lazy=True, cascade="all, delete-orphan"))
 
+class Budget(db.Model):
+    __tablename__ = "budgets"
+    id = db.Column(db.BigInteger, primary_key=True)
+    category = db.Column(db.String(100), unique=True, nullable=False)
+    monthly_limit = db.Column(db.Float, nullable=False)
+
 def get_transactions_for_sync():
     # Fetch only transactions where synced=False
     new_txs = Transaction.query.filter_by(synced=False).all()
@@ -535,6 +541,74 @@ def get_categories():
         cats = db.session.query(Transaction.heading).distinct().all()
         return jsonify({"success": True, "categories": sorted([c[0] for c in cats if c[0]])})
     except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+# ---- BUDGETS ----
+@app.route('/api/budgets', methods=['GET'])
+@require_api_key
+def get_budgets():
+    try:
+        budgets = Budget.query.all()
+        result = [{"category": b.category, "monthly_limit": b.monthly_limit} for b in budgets]
+        return jsonify({"success": True, "budgets": result})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+@app.route('/api/budgets', methods=['PUT'])
+@require_api_key
+def update_budget():
+    data = request.json
+    category = data.get('category')
+    monthly_limit = data.get('monthly_limit')
+    
+    if not category:
+        return jsonify({"success": False, "message": "Category is required"}), 400
+        
+    try:
+        budget = Budget.query.filter_by(category=category).first()
+        if monthly_limit is None or float(monthly_limit) <= 0:
+            if budget:
+                db.session.delete(budget)
+        else:
+            if budget:
+                budget.monthly_limit = float(monthly_limit)
+            else:
+                new_budget = Budget(category=category, monthly_limit=float(monthly_limit))
+                db.session.add(new_budget)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+
+@app.route('/api/budgets/bulk', methods=['PUT'])
+@require_api_key
+def update_budgets_bulk():
+    data = request.json
+    if not isinstance(data, list):
+        return jsonify({"success": False, "message": "Expected an array of budgets"}), 400
+        
+    try:
+        for item in data:
+            category = item.get('category')
+            monthly_limit = item.get('monthly_limit')
+            if not category:
+                continue
+                
+            budget = Budget.query.filter_by(category=category).first()
+            if monthly_limit is None or float(monthly_limit) <= 0:
+                if budget:
+                    db.session.delete(budget)
+            else:
+                if budget:
+                    budget.monthly_limit = float(monthly_limit)
+                else:
+                    new_budget = Budget(category=category, monthly_limit=float(monthly_limit))
+                    db.session.add(new_budget)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
 # ---- TRANSACTIONS ----
@@ -1769,8 +1843,8 @@ def firebase_login():
         if not id_token:
             return jsonify({"success": False, "message": "No token provided"}), 400
 
-        # Verify the Firebase token
-        decoded = firebase_auth.verify_id_token(id_token)
+        # Verify the Firebase token with clock skew tolerance
+        decoded = firebase_auth.verify_id_token(id_token, clock_skew_seconds=60)
         email = decoded.get('email')
         
         # 🚀 DEV MODE: Check if this is the master admin

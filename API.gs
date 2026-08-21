@@ -65,15 +65,18 @@ function doPost(e) {
       // Old code: For each tx, loop ALL sheets and read column J → O(txns × sheets × rows)
       // New code: Read column J of each sheet ONCE upfront → O(sheets × rows), then O(1) lookups.
       // ==========================================
-      const idCache = {}; // { id_string: { sheet, row } }
+      // Normalize IDs to match the old loose-equality (==) behavior
+      const normalizeId = (val) => String(val).trim();
+      
+      const idCache = {}; // { normalized_id: { sheet, row } }
       const allSheets = ss.getSheets();
       for (const s of allSheets) {
         const sLastUsed = s.getLastRow();
         if (sLastUsed >= 2 && s.getMaxColumns() >= 10) {
           const idValues = s.getRange(2, 10, sLastUsed - 1, 1).getValues();
           for (let i = 0; i < idValues.length; i++) {
-            if (idValues[i][0]) {
-              idCache[String(idValues[i][0])] = { sheet: s, row: i + 2 };
+            if (idValues[i][0] !== "" && idValues[i][0] !== null && idValues[i][0] !== undefined) {
+              idCache[normalizeId(idValues[i][0])] = { sheet: s, row: i + 2 };
             }
           }
         }
@@ -100,7 +103,7 @@ function doPost(e) {
         const formattedType = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase() : "";
 
         // Handle EDIT (ID already exists in some sheet)
-        const cached = idCache[String(id)];
+        const cached = idCache[normalizeId(id)];
         if (cached) {
           const foundSheet = cached.sheet;
           const existingRow = cached.row;

@@ -10,7 +10,7 @@ import { getToken, formatDate, fmt, fmtPct } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import ReconciliationModal from '../components/ReconciliationModal';
 
-function HomeTab({ accounts, transactions, physical, investments, onSyncBalances, fetchAllTransactions, onRefresh }) {
+function HomeTab({ accounts, transactions, physical, investments, budgets, onSyncBalances, fetchAllTransactions, onRefresh }) {
   if (!physical || !transactions || !accounts) return null;
   const [isReconcileOpen, setIsReconcileOpen] = useState(false);
   const [physMonth, setPhysMonth] = useState(new Date().getMonth());
@@ -141,6 +141,33 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
       (p.gym || p.badminton || p.table_tennis || p.cricket || p.others);
   }).length;
 
+  const budgetSummary = useMemo(() => {
+    if (!budgets || budgets.length === 0) return { over: 0, total: 0, active: false };
+    const spending = {};
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    transactions.forEach(t => {
+      if (t.type === 'Debit' && !t.exclude_analytics && t.date && t.date.startsWith(currentMonthStr)) {
+        spending[t.heading] = (spending[t.heading] || 0) + parseFloat(t.amount);
+      }
+    });
+
+    const items = budgets.map(b => {
+      const spent = spending[b.category] || 0;
+      const limit = b.monthly_limit;
+      const percentage = Math.min((spent / limit) * 100, 100);
+      const isOver = spent > limit;
+      return { category: b.category, spent, limit, percentage, isOver };
+    });
+    
+    // Sort so 'over' ones are at the top, then by highest percentage
+    items.sort((a, b) => b.percentage - a.percentage);
+
+    const overCount = items.filter(i => i.isOver).length;
+    return { over: overCount, total: items.length, active: true, items };
+  }, [budgets, transactions]);
+
 
   // Money section: Income/Expenses by month
   const moneyML = `${moneyYear}-${String(moneyMonth + 1).padStart(2, '0')}`;
@@ -250,6 +277,34 @@ function HomeTab({ accounts, transactions, physical, investments, onSyncBalances
               </div>
             ))}
         </div>
+      </section>
+
+      {/* Budget Summary Section */}
+      <section className="section">
+        <h2 className="section-title" style={{ margin: 0, marginBottom: '1.25rem' }}>🎯 Budget Goals {budgetSummary.active && <span style={{ fontSize: '0.85rem', fontWeight: 500, color: budgetSummary.over > 0 ? 'var(--neg)' : 'var(--text3)', marginLeft: '8px' }}>({budgetSummary.over === 0 ? 'All good this month!' : `${budgetSummary.over} over limit`})</span>}</h2>
+        {budgetSummary.active ? (
+          <div className="accounts-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+            {budgetSummary.items.map(item => (
+              <div key={item.category} className="budget-home-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem', padding: '1.25rem' }} title="Manage Budgets in Money Tab">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.category}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
+                    <span style={{ color: item.isOver ? 'var(--neg)' : 'var(--text)' }}>{fmt(item.spent)}</span>
+                    <span style={{ color: 'var(--text3)' }}>/</span>
+                    <span style={{ color: 'var(--text2)' }}>{fmt(item.limit)}</span>
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'var(--bg2)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${item.percentage}%`, height: '100%', background: item.isOver ? 'var(--neg)' : (item.percentage >= 80 ? '#f59e0b' : 'var(--pos)'), transition: 'width 0.8s ease' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="budget-home-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text3)' }}>
+            No budgets set. Set them in the Money Tab!
+          </div>
+        )}
       </section>
 
       {/* Investments */}
