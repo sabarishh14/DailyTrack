@@ -143,19 +143,31 @@ def set_security_headers(response):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
+# Fallback to pg8000 if psycopg2 is missing (e.g. on local Windows Python 3.14)
+using_pg8000 = False
+try:
+    import psycopg2
+except ImportError:
+    if "postgresql+psycopg2://" in app.config['SQLALCHEMY_DATABASE_URI']:
+        app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgresql+psycopg2://", "postgresql+pg8000://")
+        using_pg8000 = True
+
 # --- IPv6 Blackhole Fix ---
 # Force IPv4 connection to prevent 21s timeout hangs when Windows prefers broken IPv6 routes
-connect_args = {
-    "sslmode": "require",
-    "connect_timeout": 30   # Gives Neon 30 seconds to wake up from cold start
-}
-try:
-    parsed_url = urlparse(DATABASE_URL)
-    if parsed_url.hostname:
-        ipv4 = socket.gethostbyname(parsed_url.hostname)
-        connect_args["hostaddr"] = ipv4
-except Exception as e:
-    print(f"Warning: Could not resolve IPv4 for DB host: {e}")
+if using_pg8000:
+    connect_args = {"timeout": 30}
+else:
+    connect_args = {
+        "sslmode": "require",
+        "connect_timeout": 30   # Gives Neon 30 seconds to wake up from cold start
+    }
+    try:
+        parsed_url = urlparse(DATABASE_URL)
+        if parsed_url.hostname:
+            ipv4 = socket.gethostbyname(parsed_url.hostname)
+            connect_args["hostaddr"] = ipv4
+    except Exception as e:
+        print(f"Warning: Could not resolve IPv4 for DB host: {e}")
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True,      # Checks if the DB connection is alive before using it
@@ -1685,7 +1697,16 @@ def sync_kite_direct():
             parts = line.split(';')
             if len(parts) >= 8 and parts[0].strip().isdigit():
                 isin1, isin2 = parts[1].strip(), parts[2].strip()
-                name = parts[3].strip()
+                raw_name = parts[3].strip()
+                
+                # Clean the AMFI name for a cleaner UI (remove plan/option details)
+                name = re.sub(r'(?i)\s*-\s*Direct.*', '', raw_name)
+                name = re.sub(r'(?i)\s*-\s*Regular.*', '', name)
+                name = re.sub(r'(?i)\s*-\s*Growth.*', '', name)
+                name = re.sub(r'(?i)\s*-\s*IDCW.*', '', name)
+                name = re.sub(r'(?i)\s*-\s*Dividend.*', '', name)
+                name = name.strip()
+                    
                 nav_str = parts[6].strip()
                 try:
                     nav = float(nav_str)

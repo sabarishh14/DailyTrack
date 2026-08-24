@@ -1,14 +1,15 @@
-Flask==3.0.0
-Flask-Cors==4.0.0
-Flask-SQLAlchemy==3.1.1
-psycopg2-binary==2.9.9
-requests==2.31.0
-gunicorn==21.2.0
-python-dotenv==1.0.0
-pandas
-PyJWT
-firebase-admin
-pytz
-pyxirr
+Flask==3.0.0
+Flask-Cors==4.0.0
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.9 ; sys_platform != 'win32'
+pg8000==1.31.5 ; sys_platform == 'win32'
+requests==2.31.0
+gunicorn==21.2.0
+python-dotenv==1.0.0
+pandas>=2.2.0
+PyJWT>=2.10.0
+firebase-admin==7.5.0
+pytz>=2024.1
+pyxirr>=0.10.0
 python-dateutil==2.9.0.post0
-google-generativeai
+google-generativeai==0.8.6
