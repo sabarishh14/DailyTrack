@@ -1678,10 +1678,22 @@ def sync_kite_direct():
         mf_res = requests.get("https://api.kite.trade/mf/holdings", headers=headers).json()
         mf_holdings = mf_res.get('data', [])
         
-        instruments_res = requests.get("https://api.kite.trade/mf/instruments")
-        reader = csv.DictReader(io.StringIO(instruments_res.text))
-        mf_data_map = {row['tradingsymbol']: {'nav': float(row.get('last_price', 0) or 0), 'name': row.get('name', row['tradingsymbol'])} for row in reader if row.get('tradingsymbol')}
-
+        # Fetch latest NAVs from AMFI (official source for mfapi.in) to avoid downloading large Kite instruments CSV
+        amfi_res = requests.get("https://www.amfiindia.com/spages/NAVAll.txt", timeout=15)
+        mf_data_map = {}
+        for line in amfi_res.text.splitlines():
+            parts = line.split(';')
+            if len(parts) >= 8 and parts[0].strip().isdigit():
+                isin1, isin2 = parts[1].strip(), parts[2].strip()
+                name = parts[3].strip()
+                nav_str = parts[6].strip()
+                try:
+                    nav = float(nav_str)
+                    if isin1 and isin1 != '-': mf_data_map[isin1] = {'nav': nav, 'name': name}
+                    if isin2 and isin2 != '-': mf_data_map[isin2] = {'nav': nav, 'name': name}
+                except ValueError:
+                    continue
+        
         mf_total_inv = 0.0
         mf_total_curr = 0.0
         mf_records = []
