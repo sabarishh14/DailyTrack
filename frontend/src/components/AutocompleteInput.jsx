@@ -10,6 +10,16 @@ export default function AutocompleteInput({ value, onChange, options, placeholde
   const [filtered, setFiltered] = useState([]);
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current) {
+      const activeEl = listRef.current.children[activeIndex];
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [activeIndex]);
 
   const handleType = (e) => {
     const val = e.target.value;
@@ -54,7 +64,7 @@ export default function AutocompleteInput({ value, onChange, options, placeholde
         onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)}
       />
       {show && filtered.length > 0 && (
-        <div className="custom-dropdown">
+        <div className="custom-dropdown" ref={listRef}>
           {filtered.map((opt, idx) => (
             <div
               key={opt}

@@ -41,7 +41,12 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed;
+        if (parsed && parsed.length > 0) {
+          if (parsed.length === 1 && !parsed[0].amount && !parsed[0].heading && !parsed[0].description) {
+            parsed[0].date = new Date().toISOString().split('T')[0];
+          }
+          return parsed;
+        }
       } catch (e) { }
     }
     return [createEmptyRow()];

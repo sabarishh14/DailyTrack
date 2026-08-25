@@ -45,6 +45,16 @@ export default function TmdbMovieSearchInput({ value, onChange, onSelectMovie, p
 
   const isSelected = useRef(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current) {
+      const activeEl = listRef.current.children[activeIndex];
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [activeIndex]);
 
   useEffect(() => {
     if (!isOpen) setActiveIndex(-1);
@@ -99,7 +109,7 @@ export default function TmdbMovieSearchInput({ value, onChange, onSelectMovie, p
       {loading && <div style={{ position: 'absolute', right: '10px', top: '8px', fontSize: '12px' }}>⏳</div>}
 
       {isOpen && results.length > 0 && (
-        <div className="custom-dropdown" style={{ minWidth: '250px' }}>
+        <div className="custom-dropdown" style={{ minWidth: '250px' }} ref={listRef}>
           {results.map((r, idx) => (
             <div
               key={r.tmdb_id}
