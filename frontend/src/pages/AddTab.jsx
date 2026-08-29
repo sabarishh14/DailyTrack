@@ -87,6 +87,41 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     setRows(rows.filter(r => r.id !== id));
   };
 
+  const insertRowAfter = (index) => {
+    const sourceRow = rows[index];
+    const newRow = {
+      ...sourceRow,
+      id: Date.now() + Math.random(),
+      amount: '',
+      description: '',
+      movie_tags: [],
+      movie_data: null,
+      isSplit: false,
+      split_data: { total_amount: 0, members: [], gdrive_link: '', loading: false }
+    };
+    const newRows = [...rows];
+    newRows.splice(index + 1, 0, newRow);
+    setRows(newRows);
+  };
+
+  const moveRowUp = (index) => {
+    if (index === 0) return;
+    const newRows = [...rows];
+    const temp = newRows[index - 1];
+    newRows[index - 1] = newRows[index];
+    newRows[index] = temp;
+    setRows(newRows);
+  };
+
+  const moveRowDown = (index) => {
+    if (index === rows.length - 1) return;
+    const newRows = [...rows];
+    const temp = newRows[index + 1];
+    newRows[index + 1] = newRows[index];
+    newRows[index] = temp;
+    setRows(newRows);
+  };
+
   const handleOcrSplit = async (rowId) => {
     const row = rows.find(r => r.id === rowId);
     const currentSplit = row.split_data || { members: [], total_amount: 0, loading: false };
@@ -203,7 +238,8 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
         <div>
           <h2 className="section-title" style={{ margin: 0, border: 'none' }}>➕ Log Transactions</h2>
           <div style={{ fontSize: '0.85rem', color: 'var(--text3)', marginTop: '4px' }}>
-            Your progress is auto-saved locally. Take your time!
+            Your progress is auto-saved locally. Take your time!<br/>
+            <span style={{ opacity: 0.7 }}>💡 <b>Pro Tip:</b> Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> while editing a row to add a new transaction below it.</span>
           </div>
         </div>
         <div className="clear-drafts-wrapper">
@@ -247,8 +283,17 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
             <span style={{ textAlign: 'center' }}>#</span>
           </div>
 
-          {rows.map((row) => (
-            <div key={row.id} style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}>
+          {rows.map((row, index) => (
+            <div 
+              key={row.id} 
+              style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  insertRowAfter(index);
+                }
+              }}
+            >
               <div className="bulk-grid bulk-row" style={{ marginBottom: 0 }}>
                 <CustomSelect
                   value={row.account}
@@ -300,6 +345,24 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                 )}
 
                 <div className="bulk-actions-wrapper" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <button
+                    className="bulk-split-btn"
+                    onClick={() => moveRowUp(index)}
+                    title="Move Up"
+                    disabled={index === 0}
+                    style={{ background: 'transparent', color: index === 0 ? 'var(--text3)' : 'inherit', fontSize: '1rem', cursor: index === 0 ? 'not-allowed' : 'pointer', border: 'none' }}
+                  >
+                    ⬆️
+                  </button>
+                  <button
+                    className="bulk-split-btn"
+                    onClick={() => moveRowDown(index)}
+                    title="Move Down"
+                    disabled={index === rows.length - 1}
+                    style={{ background: 'transparent', color: index === rows.length - 1 ? 'var(--text3)' : 'inherit', fontSize: '1rem', cursor: index === rows.length - 1 ? 'not-allowed' : 'pointer', border: 'none' }}
+                  >
+                    ⬇️
+                  </button>
                   <button
                     className="bulk-split-btn"
                     onClick={() => updateRow(row.id, 'isSplit', !row.isSplit)}

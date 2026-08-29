@@ -2593,7 +2593,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .bulk-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 85px;
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 140px;
   gap: 0.6rem;
   /* Slightly larger gap to breathe */
   align-items: center;
