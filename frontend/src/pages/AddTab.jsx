@@ -105,14 +105,23 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
   };
 
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const handleDragStart = (e, index) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
+    setDragOverIndex(null);
     if (draggedIndex === null || draggedIndex === dropIndex) return;
 
     const newRows = [...rows];
@@ -128,6 +137,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   const handleOcrSplit = async (rowId) => {
@@ -294,14 +304,30 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           {rows.map((row, index) => (
             <div 
               key={row.id} 
-              style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem', opacity: draggedIndex === index ? 0.5 : 1, transition: 'opacity 0.2s' }}
+              style={{ 
+                animation: 'fadeIn 0.2s ease', 
+                marginBottom: '0.5rem', 
+                opacity: draggedIndex === index ? 0.4 : 1, 
+                transform: dragOverIndex === index ? 'scale(1.02)' : 'scale(1)',
+                border: dragOverIndex === index ? '1px dashed var(--accent)' : '1px solid transparent',
+                borderRadius: '8px',
+                boxShadow: dragOverIndex === index ? '0 8px 24px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.2s ease',
+                position: 'relative',
+                zIndex: dragOverIndex === index ? 10 : 1
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   insertRowAfter(index);
                 }
               }}
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={() => {
+                if (dragOverIndex === index) {
+                  setDragOverIndex(null);
+                }
+              }}
               onDrop={(e) => handleDrop(e, index)}
             >
               <div className="bulk-grid bulk-row" style={{ marginBottom: 0 }}>
