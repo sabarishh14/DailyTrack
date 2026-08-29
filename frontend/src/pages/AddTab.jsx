@@ -308,13 +308,10 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                 animation: 'fadeIn 0.2s ease', 
                 marginBottom: '0.5rem', 
                 opacity: draggedIndex === index ? 0.4 : 1, 
-                transform: dragOverIndex === index ? 'scale(1.02)' : 'scale(1)',
-                border: dragOverIndex === index ? '1px dashed var(--accent)' : '1px solid transparent',
-                borderRadius: '8px',
-                boxShadow: dragOverIndex === index ? '0 8px 24px rgba(0,0,0,0.15)' : 'none',
                 transition: 'all 0.2s ease',
                 position: 'relative',
-                zIndex: dragOverIndex === index ? 10 : 1
+                boxShadow: dragOverIndex === index ? (draggedIndex < index ? '0 2px 0 0 var(--accent)' : '0 -2px 0 0 var(--accent)') : 'none',
+                zIndex: dragOverIndex === index ? 100 : rows.length - index
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
