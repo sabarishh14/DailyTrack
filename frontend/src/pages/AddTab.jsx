@@ -104,22 +104,30 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     setRows(newRows);
   };
 
-  const moveRowUp = (index) => {
-    if (index === 0) return;
-    const newRows = [...rows];
-    const temp = newRows[index - 1];
-    newRows[index - 1] = newRows[index];
-    newRows[index] = temp;
-    setRows(newRows);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const moveRowDown = (index) => {
-    if (index === rows.length - 1) return;
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
     const newRows = [...rows];
-    const temp = newRows[index + 1];
-    newRows[index + 1] = newRows[index];
-    newRows[index] = temp;
+    const draggedItem = newRows[draggedIndex];
+    
+    // Remove from old position and insert at new position
+    newRows.splice(draggedIndex, 1);
+    newRows.splice(dropIndex, 0, draggedItem);
+    
     setRows(newRows);
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   const handleOcrSplit = async (rowId) => {
@@ -286,13 +294,15 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           {rows.map((row, index) => (
             <div 
               key={row.id} 
-              style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem' }}
+              style={{ animation: 'fadeIn 0.2s ease', marginBottom: '0.5rem', opacity: draggedIndex === index ? 0.5 : 1, transition: 'opacity 0.2s' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   insertRowAfter(index);
                 }
               }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDrop(e, index)}
             >
               <div className="bulk-grid bulk-row" style={{ marginBottom: 0 }}>
                 <CustomSelect
@@ -345,24 +355,15 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                 )}
 
                 <div className="bulk-actions-wrapper" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <button
-                    className="bulk-split-btn"
-                    onClick={() => moveRowUp(index)}
-                    title="Move Up"
-                    disabled={index === 0}
-                    style={{ background: 'transparent', color: index === 0 ? 'var(--text3)' : 'inherit', fontSize: '1rem', cursor: index === 0 ? 'not-allowed' : 'pointer', border: 'none' }}
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    title="Drag to reorder"
+                    style={{ cursor: 'grab', padding: '0 8px', color: 'var(--text3)', display: 'flex', alignItems: 'center', fontSize: '1.2rem', userSelect: 'none' }}
                   >
-                    ⬆️
-                  </button>
-                  <button
-                    className="bulk-split-btn"
-                    onClick={() => moveRowDown(index)}
-                    title="Move Down"
-                    disabled={index === rows.length - 1}
-                    style={{ background: 'transparent', color: index === rows.length - 1 ? 'var(--text3)' : 'inherit', fontSize: '1rem', cursor: index === rows.length - 1 ? 'not-allowed' : 'pointer', border: 'none' }}
-                  >
-                    ⬇️
-                  </button>
+                    ⋮⋮
+                  </div>
                   <button
                     className="bulk-split-btn"
                     onClick={() => updateRow(row.id, 'isSplit', !row.isSplit)}
