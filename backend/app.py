@@ -64,6 +64,7 @@ KITE_API_SECRET = os.getenv("KITE_API_SECRET")
 # TMDB API Key
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
+
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -3303,4 +3304,4 @@ def handle_chat_query():
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
-# Trigger HF sync
+# Trigger HF sync
