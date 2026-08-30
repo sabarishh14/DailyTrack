@@ -350,6 +350,9 @@ class Movie(db.Model):
     status = db.Column(db.String(50), default="TO WATCH") # WATCHED, TO WATCH
     runtime = db.Column(db.Integer, nullable=True)  # Runtime in minutes, fetched from TMDB
     release_year = db.Column(db.Integer, nullable=True) # Release year of the movie
+    release_date = db.Column(db.String(20), nullable=True) # e.g. "YYYY-MM-DD"
+    director = db.Column(db.String(255), nullable=True)
+    top_cast = db.Column(db.JSON, nullable=True)
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 
 class MovieDiaryLog(db.Model):
@@ -2008,8 +2011,28 @@ def search_media():
         return jsonify({"success": False, "message": "Query required"}), 400
     if not TMDB_API_KEY:
         return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
+    media_type = request.args.get('type', '')
     
-    url = f"https://api.themoviedb.org/3/search/multi?query={query}&include_adult=false&language=en-US&page=1"
+    # Extract year from query like "Prince 2022" -> query="Prince", year=2022
+    search_year = None
+    search_query = query
+    year_match = re.search(r'\b(19\d{2}|20\d{2})\s*$', query.strip())
+    if year_match:
+        search_year = year_match.group(1)
+        search_query = query[:year_match.start()].strip()
+        if not search_query:
+            search_query = query  # fallback if query was just a year
+            search_year = None
+    
+    year_param = f"&year={search_year}" if search_year and media_type == 'movie' else ""
+    year_param_tv = f"&first_air_date_year={search_year}" if search_year and media_type == 'tv' else ""
+    
+    if media_type == 'movie':
+        url = f"https://api.themoviedb.org/3/search/movie?query={search_query}&include_adult=false&language=en-US&page=1{year_param}"
+    elif media_type == 'tv':
+        url = f"https://api.themoviedb.org/3/search/tv?query={search_query}&include_adult=false&language=en-US&page=1{year_param_tv}"
+    else:
+        url = f"https://api.themoviedb.org/3/search/multi?query={query}&include_adult=false&language=en-US&page=1"
     headers = {
         "accept": "application/json",
         "Authorization": f"Bearer {TMDB_API_KEY}",
@@ -2483,6 +2506,60 @@ def get_movie_stats():
             "movies": theatre_movies
         }
         
+        # --- Extremes ---
+        longest_film = None
+        shortest_film = None
+        oldest_film = None
+        newest_film = None
+        
+        for l in logs:
+            if not l.movie:
+                continue
+                
+            m = l.movie
+            m_year = m.release_year
+            if not m_year and m.release_date and len(m.release_date) >= 4:
+                try:
+                    m_year = int(m.release_date[:4])
+                except ValueError:
+                    pass
+
+            movie_obj = {
+                "id": m.id, "tmdb_id": m.tmdb_id, "name": m.name, 
+                "poster_path": m.poster_path, "runtime": m.runtime, 
+                "release_year": m_year, "release_date": m.release_date
+            }
+            
+            if m.runtime:
+                if not longest_film or m.runtime > longest_film["runtime"]:
+                    longest_film = movie_obj
+                if not shortest_film or m.runtime < shortest_film["runtime"]:
+                    shortest_film = movie_obj
+            
+            if m_year:
+                if not oldest_film or m_year < oldest_film["release_year"]:
+                    oldest_film = movie_obj
+                elif m_year == oldest_film["release_year"]:
+                    if m.release_date and oldest_film["release_date"] and m.release_date < oldest_film["release_date"]:
+                        oldest_film = movie_obj
+                    elif (not m.release_date or not oldest_film["release_date"]) and m.tmdb_id < oldest_film["tmdb_id"]:
+                        oldest_film = movie_obj
+                        
+                if not newest_film or m_year > newest_film["release_year"]:
+                    newest_film = movie_obj
+                elif m_year == newest_film["release_year"]:
+                    if m.release_date and newest_film["release_date"] and m.release_date > newest_film["release_date"]:
+                        newest_film = movie_obj
+                    elif (not m.release_date or not newest_film["release_date"]) and m.tmdb_id > newest_film["tmdb_id"]:
+                        newest_film = movie_obj
+        
+        extremes = {
+            "longest": longest_film,
+            "shortest": shortest_film,
+            "oldest": oldest_film,
+            "newest": newest_film
+        }
+        
         result = {
             "success": True,
             "year": year_param,
@@ -2500,7 +2577,8 @@ def get_movie_stats():
             "by_week": by_week,
             "by_day": by_day,
             "rating_distribution": rating_dist,
-            "theatre_stats": theatre_stats
+            "theatre_stats": theatre_stats,
+            "extremes": extremes
         }
         
         # Cache the result
@@ -2588,7 +2666,33 @@ def add_movie():
             rel_year = int(str(data['year'])[:4])
     except:
         pass
-    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status, release_year=rel_year)
+        
+    director = None
+    top_cast = None
+    runtime = None
+    
+    if TMDB_API_KEY:
+        try:
+            url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits&language=en-US"
+            headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                d = resp.json()
+                runtime = d.get('runtime')
+                rel_date = d.get('release_date')
+                if rel_date:
+                    if not rel_year:
+                        rel_year = int(rel_date[:4])
+                credits = d.get('credits', {})
+                crew = credits.get('crew', [])
+                director = next((c['name'] for c in crew if c['job'] == 'Director'), None)
+                cast = credits.get('cast', [])
+                top_cast = [{"id": c["id"], "name": c["name"], "character": c["character"], "profile_path": c.get("profile_path")} for c in cast[:3]]
+        except Exception as e:
+            print("Error fetching TMDB credits on add:", e)
+            
+    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status, release_year=rel_year, release_date=rel_date if 'rel_date' in locals() else None, director=director, top_cast=top_cast, runtime=runtime)
+
     db.session.add(new_movie)
     db.session.commit()
     return jsonify({
@@ -2616,6 +2720,69 @@ def update_movie(movie_id):
         movie.status = data['status']
     db.session.commit()
     return jsonify({"success": True, "message": "Movie updated"})
+
+@app.route('/api/movies/<int:movie_id>/rematch', methods=['POST'])
+@require_api_key
+def rematch_movie(movie_id):
+    movie = Movie.query.get(movie_id)
+    if not movie:
+        return jsonify({"success": False, "message": "Movie not found"}), 404
+        
+    data = request.json
+    tmdb_id = data.get('tmdb_id')
+    name = data.get('name')
+    poster_path = data.get('poster_path')
+    
+    if not tmdb_id or not name:
+        return jsonify({"success": False, "message": "tmdb_id and name required"}), 400
+        
+    existing = Movie.query.filter_by(tmdb_id=tmdb_id).first()
+    if existing and existing.id != movie_id:
+        return jsonify({"success": False, "message": "This TMDB movie is already in your library."}), 400
+
+    movie.tmdb_id = tmdb_id
+    movie.name = name
+    movie.poster_path = poster_path
+    
+    rel_year = None
+    try:
+        if 'year' in data and data['year']:
+            rel_year = int(str(data['year'])[:4])
+    except:
+        pass
+    movie.release_year = rel_year
+
+    if TMDB_API_KEY:
+        try:
+            url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits&language=en-US"
+            headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                d = resp.json()
+                movie.runtime = d.get('runtime')
+                if d.get('release_date'):
+                    movie.release_date = d['release_date']
+                    if not rel_year:
+                        movie.release_year = int(d['release_date'][:4])
+                credits = d.get('credits', {})
+                crew = credits.get('crew', [])
+                movie.director = next((c['name'] for c in crew if c['job'] == 'Director'), None)
+                cast = credits.get('cast', [])
+                movie.top_cast = [{"id": c["id"], "name": c["name"], "character": c["character"], "profile_path": c.get("profile_path")} for c in cast[:3]]
+        except Exception as e:
+            print("Error fetching TMDB credits on rematch:", e)
+            
+    db.session.commit()
+    invalidate_stats_cache()
+    
+    return jsonify({
+        "success": True, 
+        "message": "Movie re-matched", 
+        "show": {
+            "id": movie.id, "tmdb_id": movie.tmdb_id, "name": movie.name, 
+            "poster_path": movie.poster_path, "status": movie.status, "type": "movie"
+        }
+    })
 
 @app.route('/api/movies/diary', methods=['GET'])
 @require_api_key

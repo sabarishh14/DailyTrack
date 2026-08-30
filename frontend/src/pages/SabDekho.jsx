@@ -109,6 +109,12 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   const [modalView, setModalView] = useState('log'); // log | details
   const [editingLogIds, setEditingLogIds] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
+  const [rematchMode, setRematchMode] = useState(false);
+  const [rematchQuery, setRematchQuery] = useState('');
+  const [rematchResults, setRematchResults] = useState([]);
+  const [rematchLoading, setRematchLoading] = useState(false);
+  const [rematchSaving, setRematchSaving] = useState(null);
+  const rematchTimer = useRef(null);
 
   // Filter
   const [mediaType, setMediaType] = useState('all'); // 'movies', 'all', 'tv'
@@ -213,6 +219,24 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   }, [searchQuery]);
 
   useEffect(() => {
+    if (!rematchQuery.trim()) { setRematchResults([]); return; }
+    if (rematchTimer.current) clearTimeout(rematchTimer.current);
+    rematchTimer.current = setTimeout(async () => {
+      setRematchLoading(true);
+      try {
+        const searchType = selectedShow?.type || 'movie';
+        const r = await fetch(`${API}/media/search?q=${encodeURIComponent(rematchQuery)}&type=${searchType}`, { headers: hdrs() });
+        const data = await r.json();
+        if (data.success && data.data && data.data.results) {
+          setRematchResults(data.data.results);
+        }
+      } catch (e) { console.error(e); }
+      setRematchLoading(false);
+    }, 500);
+    return () => clearTimeout(rematchTimer.current);
+  }, [rematchQuery, selectedShow]);
+
+  useEffect(() => {
     const fn = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setShowDropdown(false); };
     document.addEventListener('mousedown', fn);
     return () => document.removeEventListener('mousedown', fn);
@@ -285,7 +309,46 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
     setShowDetailsLoading(false);
   };
 
-  const closeModal = () => setSelectedShow(null);
+  const closeModal = () => {
+    setSelectedShow(null);
+    setRematchMode(false);
+    setRematchQuery('');
+    setRematchResults([]);
+  };
+
+  const handleRematch = async (result) => {
+    if (!selectedShow || rematchSaving) return;
+    setRematchSaving(result.id);
+    try {
+      const typeStr = selectedShow.type === 'movie' ? 'movies' : 'tv';
+      const r = await fetch(`${API}/${typeStr}/${selectedShow.id}/rematch`, {
+        method: 'POST',
+        headers: hdrs(),
+        body: JSON.stringify({
+          tmdb_id: result.id,
+          name: result.name || result.title,
+          poster_path: result.poster_path,
+          year: (result.release_date || result.first_air_date || '')
+        })
+      });
+      const data = await r.json();
+      if (data.success) {
+        setRematchResults([]);
+        setRematchQuery('');
+        setRematchMode(false);
+        // Re-open modal with updated show to refresh details (overview, director, etc.)
+        await openModal(data.show);
+        fetchShows();
+        fetchDiary();
+      } else {
+        alert(data.message || 'Error re-matching.');
+      }
+    } catch (e) {
+      console.error('Rematch error:', e);
+      alert('Error: ' + e.message);
+    }
+    setRematchSaving(null);
+  };
 
   const exportToLetterboxd = () => {
     const movies = diaryLogs.filter(log => log.type === 'movie' && log.tmdb_id);
@@ -342,7 +405,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
         method: 'PUT', headers: hdrs(),
         body: JSON.stringify({ status })
       });
-      setSelectedShow(prev => ({ ...prev, status }));
+      setSelectedShow(prev => prev ? { ...prev, status } : null);
       setShows(prev => {
         if (prev.some(s => s.id === selectedShow.id)) {
           return prev.map(s => s.id === selectedShow.id ? { ...s, status } : s);
@@ -1021,6 +1084,11 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               <button className={modalView === 'details' ? 'active' : ''} onClick={() => setModalView('details')}>
                 <span>👥</span><span>Details</span>
               </button>
+              {selectedShow.type === 'movie' && (
+                <button className={modalView === 'rematch' ? 'active' : ''} onClick={() => { setModalView('rematch'); setRematchQuery(''); setRematchResults([]); }}>
+                  <span>🔄</span><span>Fix Match</span>
+                </button>
+              )}
             </div>
 
             {modalView === 'log' && (
@@ -1213,6 +1281,66 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {modalView === 'rematch' && (
+              <div className="tv-modal-details-section" style={{ padding: '1.25rem 1.5rem 1.5rem' }}>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: 'var(--text2)', lineHeight: 1.5 }}>
+                  Wrong movie? Search for the correct one below. Add the release year for better results (e.g. <strong>Prince 2022</strong>).
+                </p>
+                <div className="tv-search-bar" style={{ marginBottom: '1rem' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    value={rematchQuery}
+                    onChange={e => setRematchQuery(e.target.value)}
+                    placeholder="e.g. Prince 2022"
+                    autoFocus
+                    style={{ width: '100%' }}
+                    disabled={!!rematchSaving}
+                  />
+                  {rematchLoading && <span className="tv-search-spinner" />}
+                </div>
+                <div style={{ maxHeight: '40vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {rematchResults.map(r => {
+                    const isSaving = rematchSaving === r.id;
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => handleRematch(r)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '12px', padding: '0.6rem 0.75rem',
+                          borderRadius: '10px', cursor: rematchSaving ? 'wait' : 'pointer',
+                          border: isSaving ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                          background: isSaving ? 'rgba(var(--accent-rgb), 0.1)' : 'var(--bg2)',
+                          opacity: rematchSaving && !isSaving ? 0.4 : 1,
+                          transition: 'all 0.15s ease',
+                          pointerEvents: rematchSaving ? 'none' : 'auto'
+                        }}
+                        onMouseEnter={e => { if (!rematchSaving) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(var(--accent-rgb), 0.06)'; } }}
+                        onMouseLeave={e => { if (!rematchSaving) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg2)'; } }}
+                      >
+                        {r.poster_path ? (
+                          <img src={`${TMDB_IMG}/w92${r.poster_path}`} alt="" style={{ width: '40px', borderRadius: '4px', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '40px', height: '60px', background: 'var(--bg)', borderRadius: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>🎬</div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name || r.title}</div>
+                          <div style={{ color: 'var(--text2)', fontSize: '0.8rem' }}>{(r.release_date || r.first_air_date)?.split('-')[0] || 'N/A'}{r.vote_average ? ` · ⭐ ${r.vote_average.toFixed(1)}` : ''}</div>
+                          {r.overview && <div style={{ color: 'var(--text3)', fontSize: '0.75rem', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.overview}</div>}
+                        </div>
+                        {isSaving && (
+                          <span className="tv-search-spinner" style={{ width: '18px', height: '18px', flexShrink: 0, borderTopColor: 'var(--accent)' }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!rematchLoading && rematchResults.length === 0 && rematchQuery.trim() && (
+                    <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: '0.85rem', padding: '2rem 0' }}>No results found. Try adding the year (e.g. "Prince 2022").</p>
+                  )}
                 </div>
               </div>
             )}
@@ -1554,6 +1682,36 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           </div>
         </div>
       </div>
+
+      {/* ─── THE EXTREMES ─── */}
+      {d.extremes && (d.extremes.longest || d.extremes.shortest || d.extremes.oldest || d.extremes.newest) && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">⚖️ The Extremes</span>
+          </div>
+          <div className="stats-extremes-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+            {[
+              { label: "Longest Film", data: d.extremes.longest, val: d.extremes.longest?.runtime ? `${d.extremes.longest.runtime} mins` : null, icon: "⏳" },
+              { label: "Shortest Film", data: d.extremes.shortest, val: d.extremes.shortest?.runtime ? `${d.extremes.shortest.runtime} mins` : null, icon: "⏱️" },
+              { label: "Oldest Release", data: d.extremes.oldest, val: d.extremes.oldest?.release_year, icon: "🏛️" },
+              { label: "Newest Release", data: d.extremes.newest, val: d.extremes.newest?.release_year, icon: "✨" },
+            ].map((ext, i) => ext.data && (
+              <div key={i} onClick={() => openModal({ id: ext.data.id, tmdb_id: ext.data.tmdb_id, type: 'movie', name: ext.data.name, poster_path: ext.data.poster_path })} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                <div style={{ width: '45px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden' }}>
+                  {ext.data.poster_path ? <img src={`${TMDB_IMG_STATS}/w92${ext.data.poster_path}`} alt="" style={{ width: '100%', display: 'block' }} /> : <div style={{ width: '100%', aspectRatio: '2/3', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎬</div>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: 'var(--text2)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>{ext.icon}</span> {ext.label}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext.data.name}</div>
+                  <div style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600 }}>{ext.val}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── BOTTOM GRID ─── */}
       <div className="stats-bottom-grid">
