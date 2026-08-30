@@ -2464,6 +2464,12 @@ def get_movie_stats():
                 dow = l.date.weekday()  # Monday=0, Sunday=6
                 by_day[dow] += 1
         
+        # By month (Jan=0 ... Dec=11)
+        by_month = [0] * 12
+        for l in logs:
+            if l.date:
+                by_month[l.date.month - 1] += 1
+        
         # Rating distribution (0.5, 1, 1.5, ..., 5)
         rating_dist = {}
         for l in logs:
@@ -2575,6 +2581,7 @@ def get_movie_stats():
             "highest_rated_current": highest_rated_current,
             "highest_rated_older": highest_rated_older,
             "by_week": by_week,
+            "by_month": by_month,
             "by_day": by_day,
             "rating_distribution": rating_dist,
             "theatre_stats": theatre_stats,

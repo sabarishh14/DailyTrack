@@ -1451,7 +1451,9 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
   const d = statsData;
   const maxWeek = Math.max(...d.by_week, 1);
   const maxDay = Math.max(...d.by_day, 1);
+  const maxMonth = Math.max(...(d.by_month || []), 1);
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // Rating distribution for chart
   const ratingKeys = ['0.5', '1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0'];
@@ -1492,12 +1494,8 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
       {/* ─── SUMMARY COUNTERS ─── */}
       <div className="stats-counters">
         <div className="stats-counter-card">
-          <div className="stats-counter-value">{d.total_entries}</div>
-          <div className="stats-counter-label">Diary Entries</div>
-        </div>
-        <div className="stats-counter-card">
-          <div className="stats-counter-value">{d.total_reviews}</div>
-          <div className="stats-counter-label">Reviews</div>
+          <div className="stats-counter-value">{d.films_logged}</div>
+          <div className="stats-counter-label">Films Watched</div>
         </div>
         <div className="stats-counter-card">
           <div className="stats-counter-value">{d.total_likes}</div>
@@ -1662,6 +1660,30 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           </div>
         </div>
       </div>
+
+      {/* ─── BY MONTH ─── */}
+      {d.by_month && d.by_month.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">📊 By Month</span>
+          </div>
+          <div className="stats-month-chart">
+            <div className="stats-month-bars">
+              {d.by_month.map((count, i) => (
+                <div key={i} className="stats-month-bar-wrap">
+                  <div className="stats-month-count">{count > 0 ? count : ''}</div>
+                  <div
+                    className="stats-month-bar"
+                    style={{ height: count > 0 ? `${Math.max(6, (count / maxMonth) * 100)}%` : '4px' }}
+                    data-count={`${monthLabels[i]}: ${count} films`}
+                  />
+                  <span className="stats-month-label">{monthLabels[i]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── AVERAGES ─── */}
       <div className="stats-section">

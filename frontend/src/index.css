@@ -5718,6 +5718,78 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 0.75rem;
 }
 
+/* ─── MONTH CHART ─── */
+.stats-month-chart {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.stats-month-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 160px;
+}
+
+.stats-month-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.stats-month-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text2);
+  min-height: 16px;
+  line-height: 16px;
+}
+
+.stats-month-bar {
+  width: 100%;
+  max-width: 48px;
+  min-width: 12px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to top, rgba(var(--accent2-rgb), 0.7), rgba(var(--accent-rgb), 0.9));
+  transition: all 0.3s;
+  position: relative;
+  cursor: default;
+}
+
+.stats-month-bar:hover {
+  background: linear-gradient(to top, rgba(var(--accent2-rgb), 1), rgba(var(--accent-rgb), 1));
+  filter: brightness(1.2);
+}
+
+.stats-month-bar:hover::after {
+  content: attr(data-count);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg2);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  border: 1px solid var(--border2);
+  z-index: 10;
+}
+
+.stats-month-label {
+  font-size: 0.7rem;
+  color: var(--text2);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
 /* ─── AVERAGES ROW ─── */
 .stats-averages {
   display: flex;
@@ -5940,6 +6012,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .stats-hero {
     padding: 2rem 1rem 1.5rem;
   }
+
+  .stats-month-bars {
+    height: 120px;
+    gap: 0.35rem;
+  }
+
+  .stats-month-chart {
+    padding: 1rem;
+  }
+
+  .stats-month-label {
+    font-size: 0.6rem;
+  }
+
+  .stats-month-count {
+    font-size: 0.6rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -5989,6 +6078,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .stats-week-bars {
     height: 80px;
+  }
+
+  .stats-month-bars {
+    height: 90px;
+    gap: 0.25rem;
+  }
+
+  .stats-month-chart {
+    padding: 0.75rem;
+  }
+
+  .stats-month-label {
+    font-size: 0.55rem;
+  }
+
+  .stats-month-count {
+    font-size: 0.55rem;
   }
 }
 
