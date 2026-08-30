@@ -2471,6 +2471,71 @@ def get_movie_stats():
             if l.date:
                 by_month[l.date.month - 1] += 1
         
+        # Films by year (for all-time bar chart and year context)
+        films_by_year_dict = {}
+        for l in logs:
+            if l.date:
+                y = l.date.year
+                if y not in films_by_year_dict:
+                    films_by_year_dict[y] = set()
+                films_by_year_dict[y].add(l.movie_id)
+        films_by_year = [{"year": y, "count": len(ids)} for y, ids in sorted(films_by_year_dict.items())]
+        
+        # Most rewatched (movies with the most diary entries, minimum 2)
+        rewatch_count = {}
+        for l in logs:
+            if l.movie_id:
+                rewatch_count[l.movie_id] = rewatch_count.get(l.movie_id, 0) + 1
+        rewatched_ids = [(mid, cnt) for mid, cnt in rewatch_count.items() if cnt >= 2]
+        rewatched_ids.sort(key=lambda x: -x[1])
+        most_rewatched = []
+        for mid, cnt in rewatched_ids[:10]:
+            m = Movie.query.get(mid)
+            if m:
+                most_rewatched.append({
+                    "movie_id": m.id, "tmdb_id": m.tmdb_id, "name": m.name,
+                    "poster_path": m.poster_path, "watch_count": cnt
+                })
+        
+        # Longest streak (consecutive days with at least one film logged)
+        log_dates = sorted(set(l.date for l in logs if l.date))
+        longest_streak_len = 0
+        longest_streak_start = None
+        longest_streak_end = None
+        
+        if log_dates:
+            current_streak = 1
+            current_start = log_dates[0]
+            current_end = log_dates[0]
+            
+            longest_streak_len = 1
+            longest_streak_start = log_dates[0]
+            longest_streak_end = log_dates[0]
+            
+            for i in range(1, len(log_dates)):
+                if (log_dates[i] - log_dates[i - 1]).days == 1:
+                    current_streak += 1
+                    current_end = log_dates[i]
+                else:
+                    if current_streak > longest_streak_len:
+                        longest_streak_len = current_streak
+                        longest_streak_start = current_start
+                        longest_streak_end = current_end
+                    current_streak = 1
+                    current_start = log_dates[i]
+                    current_end = log_dates[i]
+                    
+            if current_streak > longest_streak_len:
+                longest_streak_len = current_streak
+                longest_streak_start = current_start
+                longest_streak_end = current_end
+                
+        longest_streak = {
+            "length": longest_streak_len,
+            "start": longest_streak_start.strftime("%b %d, %Y") if longest_streak_start else None,
+            "end": longest_streak_end.strftime("%b %d, %Y") if longest_streak_end else None
+        }
+        
         # Rating distribution (0.5, 1, 1.5, ..., 5)
         rating_dist = {}
         for l in logs:
@@ -2586,7 +2651,10 @@ def get_movie_stats():
             "by_day": by_day,
             "rating_distribution": rating_dist,
             "theatre_stats": theatre_stats,
-            "extremes": extremes
+            "extremes": extremes,
+            "films_by_year": films_by_year,
+            "most_rewatched": most_rewatched,
+            "longest_streak": longest_streak
         }
         
         # Cache the result

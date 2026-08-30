@@ -1452,6 +1452,7 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
   const maxWeek = Math.max(...d.by_week, 1);
   const maxDay = Math.max(...d.by_day, 1);
   const maxMonth = Math.max(...(d.by_month || []), 1);
+  const maxYear = d.films_by_year ? Math.max(...d.films_by_year.map(y => y.count), 1) : 1;
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -1660,6 +1661,29 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
           </div>
         </div>
       </div>
+      {/* ─── BY YEAR ─── */}
+      {d.year === 'all' && d.films_by_year && d.films_by_year.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">📅 Films by Year</span>
+          </div>
+          <div className="stats-month-chart"> {/* Reusing month chart CSS for similar bar style */}
+            <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.films_by_year.length > 12 ? 'flex-start' : 'center' }}>
+              {d.films_by_year.map((item, i) => (
+                <div key={item.year} className="stats-month-bar-wrap" style={{ minWidth: '40px', flex: d.films_by_year.length > 12 ? '0 0 auto' : '1' }}>
+                  <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                  <div
+                    className="stats-month-bar"
+                    style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxYear) * 100)}%` : '4px' }}
+                    data-count={`${item.year}: ${item.count} films`}
+                  />
+                  <span className="stats-month-label">{item.year}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── BY MONTH ─── */}
       {d.by_month && d.by_month.length > 0 && (
@@ -1717,10 +1741,11 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
               { label: "Shortest Film", data: d.extremes.shortest, val: d.extremes.shortest?.runtime ? `${d.extremes.shortest.runtime} mins` : null, icon: "⏱️" },
               { label: "Oldest Release", data: d.extremes.oldest, val: d.extremes.oldest?.release_year, icon: "🏛️" },
               { label: "Newest Release", data: d.extremes.newest, val: d.extremes.newest?.release_year, icon: "✨" },
+              { label: "Longest Streak", data: d.longest_streak?.length > 0 ? { id: 'streak', name: d.longest_streak.start === d.longest_streak.end ? d.longest_streak.start : `${d.longest_streak.start} to ${d.longest_streak.end}` } : null, val: `${d.longest_streak?.length} days`, icon: "🔥", noClick: true },
             ].map((ext, i) => ext.data && (
-              <div key={i} onClick={() => openModal({ id: ext.data.id, tmdb_id: ext.data.tmdb_id, type: 'movie', name: ext.data.name, poster_path: ext.data.poster_path })} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}>
-                <div style={{ width: '45px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden' }}>
-                  {ext.data.poster_path ? <img src={`${TMDB_IMG_STATS}/w92${ext.data.poster_path}`} alt="" style={{ width: '100%', display: 'block' }} /> : <div style={{ width: '100%', aspectRatio: '2/3', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎬</div>}
+              <div key={i} onClick={() => !ext.noClick && openModal({ id: ext.data.id, tmdb_id: ext.data.tmdb_id, type: 'movie', name: ext.data.name, poster_path: ext.data.poster_path })} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', cursor: ext.noClick ? 'default' : 'pointer' }}>
+                <div style={{ width: '45px', flexShrink: 0, borderRadius: '4px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: ext.noClick ? 'var(--bg2)' : 'transparent', aspectRatio: '2/3' }}>
+                  {ext.data.poster_path ? <img src={`${TMDB_IMG_STATS}/w92${ext.data.poster_path}`} alt="" style={{ width: '100%', display: 'block' }} /> : <div style={{ fontSize: '1.5rem' }}>{ext.icon}</div>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: 'var(--text2)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1728,6 +1753,45 @@ function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStats
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ext.data.name}</div>
                   <div style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600 }}>{ext.val}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── MOST REWATCHED ─── */}
+      {d.most_rewatched && d.most_rewatched.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">🔁 Most Rewatched</span>
+          </div>
+          <div className="stats-poster-grid">
+            {d.most_rewatched.map((m) => (
+              <div key={m.movie_id} className="stats-poster-item" onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}>
+                <div className="stats-poster-img-wrap">
+                  {m.poster_path ? (
+                    <img src={`${TMDB_IMG_STATS}/w185${m.poster_path}`} alt={m.name} loading="lazy" />
+                  ) : (
+                    <div className="stats-poster-placeholder">
+                      <span>{m.name}</span>
+                    </div>
+                  )}
+                  <div style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    fontSize: '0.7rem',
+                    padding: '0.2rem 0.5rem',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.8)',
+                    backgroundColor: 'var(--accent)',
+                    color: '#000',
+                    fontWeight: '800',
+                    border: '1px solid rgba(255,255,255,0.4)',
+                    borderRadius: '50%'
+                  }}>
+                    {m.watch_count}
+                  </div>
                 </div>
               </div>
             ))}
