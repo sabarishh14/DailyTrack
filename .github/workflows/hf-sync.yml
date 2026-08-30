@@ -34,5 +34,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add .
-          git commit -m "Auto-sync backend from GitHub" || echo "No changes to commit"
+          git commit -m "${{ github.event.head_commit.message }}" || echo "No changes to commit"
           git push
