@@ -187,6 +187,10 @@ class Account(db.Model):
     real_balance = db.Column(db.Float, nullable=True) # <-- ADD THIS LINE
     balance_tracked = db.Column(db.Boolean, default=True)
 
+def is_cc_account(acc_name):
+    """Check if account is a credit card account (starts with 'CC')."""
+    return bool(acc_name and acc_name.strip().upper().startswith("CC"))
+
 class Transaction(db.Model):
     __tablename__ = "transactions"
     __table_args__ = (
@@ -739,8 +743,8 @@ def add_transaction():
             # --- NEW: Automatically Update Account Balance ---
             account_record = Account.query.filter_by(account=acc_name).first()
             
-            # Only update if the account exists and has balance tracking enabled (except CC-PINNACLE 6360)
-            if account_record and account_record.balance_tracked and acc_name != "CC-PINNACLE 6360":
+            # Only update if the account exists and has balance tracking enabled (except CC* accounts)
+            if account_record and account_record.balance_tracked and not is_cc_account(acc_name):
                 if tx_type == 'Credit':
                     account_record.balance += amount
                 elif tx_type in ['Debit', 'Savings']:
@@ -931,7 +935,7 @@ def save_split():
             if new_tx_amount is not None and tx.amount != float(new_tx_amount):
                 # 1. Revert old amount
                 account = Account.query.filter_by(account=tx.account).first()
-                if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                if account and account.balance_tracked and not is_cc_account(tx.account):
                     if tx.type.lower() == 'credit':
                         account.balance -= tx.amount
                     elif tx.type.lower() in ['debit', 'savings']:
@@ -941,7 +945,7 @@ def save_split():
                 tx.amount = float(new_tx_amount)
                 
                 # 3. Apply new amount
-                if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+                if account and account.balance_tracked and not is_cc_account(tx.account):
                     if tx.type.lower() == 'credit':
                         account.balance += tx.amount
                     elif tx.type.lower() in ['debit', 'savings']:
@@ -1009,7 +1013,7 @@ def delete_transaction(tid):
 
     account = Account.query.filter_by(account=tx.account).first()
 
-    if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+    if account and account.balance_tracked and not is_cc_account(tx.account):
         if tx.type.lower() == "credit":
             account.balance -= tx.amount
         elif tx.type.lower() in ["debit", "savings"]:
@@ -1109,7 +1113,7 @@ def edit_transaction(tid):
 
         # 1. REVERT the old transaction's impact on the balance
         old_account = Account.query.filter_by(account=tx.account).first()
-        if old_account and old_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+        if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
             if tx.type == 'Credit':
                 old_account.balance -= tx.amount
             elif tx.type in ['Debit', 'Savings']:
@@ -1146,7 +1150,7 @@ def edit_transaction(tid):
 
         # 3. APPLY the new transaction's impact on the balance
         new_account = Account.query.filter_by(account=tx.account).first()
-        if new_account and new_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+        if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
             if tx.type == 'Credit':
                 new_account.balance += tx.amount
             elif tx.type in ['Debit', 'Savings']:
@@ -1179,7 +1183,7 @@ def bulk_edit_transactions():
 
             # 1. REVERT the old transaction's impact on the balance
             old_account = Account.query.filter_by(account=tx.account).first()
-            if old_account and old_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+            if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type == 'Credit':
                     old_account.balance -= tx.amount
                 elif tx.type in ['Debit', 'Savings']:
@@ -1216,7 +1220,7 @@ def bulk_edit_transactions():
 
             # 3. APPLY the new transaction's impact on the balance
             new_account = Account.query.filter_by(account=tx.account).first()
-            if new_account and new_account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+            if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type == 'Credit':
                     new_account.balance += tx.amount
                 elif tx.type in ['Debit', 'Savings']:
@@ -1251,7 +1255,7 @@ def bulk_delete_transactions():
 
             # Revert the balance
             account = Account.query.filter_by(account=tx.account).first()
-            if account and account.balance_tracked and tx.account != "CC-PINNACLE 6360":
+            if account and account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type.lower() == "credit":
                     account.balance -= tx.amount
                 elif tx.type.lower() in ["debit", "savings"]:
