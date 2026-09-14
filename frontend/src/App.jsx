@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import SabDekho from './pages/SabDekho';
 
-import { API, TABS, TAB_TITLES } from './constants';
+import { API } from './constants';
 import { getToken } from './utils';
 import { auth } from './config/firebase';
 import MemoizedHomeTab from './pages/HomeTab';
@@ -21,6 +21,9 @@ import SecretAdminModal from './components/SecretAdminModal';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import EditTransactionModal from './components/EditTransactionModal';
 import FloatingChatWidget from './components/FloatingChatWidget';
+import Sidebar from './components/layout/Sidebar';
+import TopBar from './components/layout/TopBar';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
@@ -183,14 +186,6 @@ export default function App() {
     }
     setLbxSyncing(false);
   };
-
-  const ACCENT_PALETTES = [
-    { id: 'indigo', color: '#6366f1', label: 'Indigo' },
-    { id: 'ocean', color: '#0ea5e9', label: 'Ocean' },
-    { id: 'rose', color: '#f43f5e', label: 'Rose' },
-    { id: 'emerald', color: '#10b981', label: 'Emerald' },
-    { id: 'amber', color: '#f59e0b', label: 'Amber' },
-  ];
 
   const logout = useCallback(() => {
     signOut(auth);
@@ -452,286 +447,48 @@ export default function App() {
   return (
     <div className="app">
       {/* Sidebar */}
-      <aside className="sidebar" style={{ width: `${sidebarWidth}px`, transition: isResizing ? 'none' : 'width 0.3s ease', position: 'relative' }}>
-
-        {/* Invisible Drag Handle */}
-        <div
-          onMouseDown={startResizing}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: '6px',
-            height: '100%',
-            cursor: 'col-resize',
-            background: isResizing ? 'var(--accent)' : 'transparent',
-            zIndex: 100,
-            transition: 'background 0.2s',
-          }}
-          onMouseEnter={(e) => { if (!isResizing) e.target.style.background = 'rgba(99,102,241,0.3)'; }}
-          onMouseLeave={(e) => { if (!isResizing) e.target.style.background = 'transparent'; }}
-        />
-
-        <div className="sidebar-logo" onClick={handleLogoClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}>
-          <div style={{ textAlign: 'center', opacity: sidebarMinimized ? 0 : 1, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'none' : 'auto', width: '100%', padding: '0 10px' }}>
-            <span className="logo-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>DailyTrack</span>
-            <span className="logo-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Personal Dashboard</span>
-          </div>
-          <div style={{ opacity: sidebarMinimized ? 1 : 0, transition: 'opacity 0.3s ease 0.05s', pointerEvents: sidebarMinimized ? 'auto' : 'none', position: 'absolute' }}>
-            <span className="logo-name" style={{ fontSize: '1.2rem' }}>DT</span>
-          </div>
-        </div>
-        <nav className="sidebar-nav" style={{ overflowX: 'hidden' }}>
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              className={`nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
-              onClick={() => setTab(t.id)}
-              title={sidebarMinimized ? t.label : ''}
-              style={{
-                justifyContent: sidebarMinimized ? 'center' : (t.add ? 'center' : 'flex-start'),
-                gap: sidebarMinimized ? 0 : '0.75rem',
-                padding: sidebarMinimized ? '0.7rem 0' : '0.7rem 0.85rem',
-                overflow: 'hidden',
-                width: '100%'
-              }}
-            >
-              <span className="nav-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: sidebarMinimized ? '100%' : 'auto' }}>{t.icon}</span>
-              <span className="nav-label" style={{
-                opacity: sidebarMinimized ? 0 : 1,
-                flex: sidebarMinimized ? 'none' : 1,
-                minWidth: 0,
-                width: sidebarMinimized ? 0 : 'auto',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-                transition: 'opacity 0.2s ease',
-                display: 'block'
-              }}>
-                {t.label}
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-footer" style={{ padding: sidebarMinimized ? '1rem 0' : '1rem 1.5rem', transition: 'padding 0.3s ease', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <button
-            onClick={() => setSidebarWidth(sidebarMinimized ? 280 : 70)} // <-- Increased from 250
-            style={{
-              width: '100%',
-              padding: '0',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text)',
-              cursor: 'pointer',
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: sidebarMinimized ? 0 : '0.4rem',
-              fontFamily: "'Syne', sans-serif",
-              marginBottom: '1rem',
-              height: '32px'
-            }}
-            onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
-            onMouseLeave={(e) => e.target.style.color = 'var(--text)'}
-            title={sidebarMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{sidebarMinimized ? '➡' : '⬅'}</span>
-            <span style={{
-              opacity: sidebarMinimized ? 0 : 1,
-              maxWidth: sidebarMinimized ? 0 : '50px',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.3s ease',
-              fontSize: '0.75rem',
-              letterSpacing: '0.5px',
-              pointerEvents: sidebarMinimized ? 'none' : 'auto'
-            }}>
-              HIDE
-            </span>
-          </button>
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap'
-          }}>
-            <div className="sidebar-date" style={{ fontSize: sidebarMinimized ? '0.7rem' : '0.75rem', transition: 'all 0.3s ease', color: 'var(--text3)', fontWeight: 500 }}>
-              {sidebarMinimized
-                ? today.toLocaleDateString('en-IN', { day: 'numeric', month: 'numeric', year: '2-digit' })
-                : today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-              }
-            </div>
-            <div style={{
-              opacity: sidebarMinimized ? 0 : 1,
-              maxHeight: sidebarMinimized ? 0 : '20px',
-              marginTop: sidebarMinimized ? 0 : '2px',
-              fontSize: '0.75rem',
-              color: 'var(--text2)',
-              transition: 'all 0.3s ease',
-              overflow: 'hidden'
-            }}>
-              {today.toLocaleDateString('en-IN', { weekday: 'long' })}
-            </div>
-
-            {/* NEW: Version and Build Time */}
-            <div style={{
-              opacity: sidebarMinimized ? 0 : 1,
-              maxHeight: sidebarMinimized ? 0 : '20px',
-              marginTop: '8px',
-              fontSize: '0.6rem',
-              color: 'var(--border2)',
-              transition: 'all 0.3s ease',
-              overflow: 'hidden',
-              fontFamily: "'DM Sans', monospace"
-            }}>
-              v:{__COMMIT_SHA__} • {__BUILD_TIME__}
-            </div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar
+        sidebarWidth={sidebarWidth}
+        setSidebarWidth={setSidebarWidth}
+        isResizing={isResizing}
+        startResizing={startResizing}
+        handleLogoClick={handleLogoClick}
+        sidebarMinimized={sidebarMinimized}
+        tab={tab}
+        setTab={setTab}
+        today={today}
+      />
 
       {/* Main */}
       <div className="main-area">
-        <header className="topbar">
-          <div className="topbar-title">{TAB_TITLES[tab]}</div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-
-            {/* -1. Refresh Button */}
-            <button
-              className="action-btn secondary"
-              style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: '1.2rem', cursor: isRefreshing ? 'default' : 'pointer', transition: 'transform 0.3s' }}
-              onClick={async () => {
-                if (isRefreshing) return;
-                setIsRefreshing(true);
-                await fetchAll(false);
-                setIsRefreshing(false);
-              }}
-              title="Reload Data"
-            >
-              <svg
-                style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }}
-                width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              >
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.26l5.08 5.08" />
-              </svg>
-            </button>
-
-            {/* 0. Global Search Button */}
-            <button
-              className="action-btn secondary"
-              style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: '1.2rem', cursor: 'pointer' }}
-              onClick={() => setIsSearchOpen(true)}
-              title="Global Search (Cmd+K)"
-            >
-              🔍
-            </button>
-
-            {/* 1. Theme Toggle (Animated Pill) */}
-            <button
-              className={`theme-toggle ${theme === 'light' ? 'light' : ''}`}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-label="Toggle theme"
-            >
-              <span className="theme-toggle-thumb" />
-            </button>
-
-            {/* 2. Menu Button */}
-            <div ref={menuRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: '0.4rem', display: 'flex' }}
-              >
-                <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-              </button>
-
-              {isMenuOpen && (
-                <div className="menu-dropdown">
-                  {/* Accent Picker */}
-                  <div className="menu-section">
-                    <div className="menu-section-title">Accent Color</div>
-                    <div className="accent-picker">
-                      {ACCENT_PALETTES.map(p => (
-                        <div
-                          key={p.id}
-                          className={`accent-dot ${accent === p.id ? 'active' : ''}`}
-                          style={{ background: p.color }}
-                          title={p.label}
-                          onClick={() => setAccent(p.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* SabDekho Settings */}
-                  <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                    <div className="menu-section-title">Features</div>
-
-                    <div className="toggle-container" onClick={toggleNagapandi} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>✨ Nagapandi AI</span>
-                      <div className={`toggle-switch ${enableNagapandi ? 'active' : ''}`}>
-                        <div className="toggle-knob" />
-                      </div>
-                    </div>
-
-                    <div className="menu-section-title" style={{ marginTop: '1rem' }}>SabDekho Settings</div>
-
-                    <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Movies</span>
-                      <div className={`toggle-switch ${showMovies ? 'active' : ''}`}>
-                        <div className="toggle-knob" />
-                      </div>
-                    </div>
-
-                    {showMovies && (
-                      <div className="lbx-sync-container">
-                        <input
-                          type="text"
-                          className="lbx-input"
-                          value={lbxUsername}
-                          onChange={e => setLbxUsername(e.target.value)}
-                          placeholder="Letterboxd Username"
-                        />
-                        <button className="lbx-btn" onClick={syncLetterboxd} disabled={lbxSyncing}>
-                          {lbxSyncing ? 'Syncing...' : 'Sync RSS'}
-                        </button>
-                        {lbxSyncStatus && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text2)', marginTop: '4px', textAlign: 'center' }}>
-                            {lbxSyncStatus}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Logout */}
-                  <div className="menu-section">
-                    <button
-                      onClick={() => { setIsMenuOpen(false); logout(); }}
-                      style={{
-                        width: '100%', background: 'rgba(239, 68, 68, 0.1)',
-                        border: 'none', borderRadius: '8px', padding: '0.6rem 1rem',
-                        color: 'var(--neg)', cursor: 'pointer', fontSize: '0.85rem',
-                        fontWeight: 600, textAlign: 'left', display: 'flex', gap: '8px',
-                        fontFamily: "'DM Sans', sans-serif"
-                      }}
-                    >
-                      🚪 Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-          </div>
-        </header>
+        <TopBar
+          tab={tab}
+          isRefreshing={isRefreshing}
+          onRefresh={async () => {
+            if (isRefreshing) return;
+            setIsRefreshing(true);
+            await fetchAll(false);
+            setIsRefreshing(false);
+          }}
+          onOpenSearch={() => setIsSearchOpen(true)}
+          theme={theme}
+          setTheme={setTheme}
+          isMenuOpen={isMenuOpen}
+          setIsMenuOpen={setIsMenuOpen}
+          menuRef={menuRef}
+          accent={accent}
+          setAccent={setAccent}
+          enableNagapandi={enableNagapandi}
+          toggleNagapandi={toggleNagapandi}
+          showMovies={showMovies}
+          toggleShowMovies={toggleShowMovies}
+          lbxUsername={lbxUsername}
+          setLbxUsername={setLbxUsername}
+          lbxSyncing={lbxSyncing}
+          lbxSyncStatus={lbxSyncStatus}
+          syncLetterboxd={syncLetterboxd}
+          logout={logout}
+        />
         <main className="page-body">
           {renderTab()}
         </main>
@@ -777,20 +534,7 @@ export default function App() {
 
       {enableNagapandi && <FloatingChatWidget getToken={getToken} />}
       {/* 📱 Mobile Bottom Navigation */}
-      <nav className="mobile-bottom-nav">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            className={`mobile-nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}
-            // 🚀 NEW: Trigger the secret menu ONLY if it's the Home tab (id: 0)
-            onClick={() => t.id === 0 ? handleLogoClick() : setTab(t.id)}
-          >
-            <span className="mobile-nav-icon">{t.icon}</span>
-            {/* Split the label so things like "Gym & Activity" don't break the UI */}
-            <span className="mobile-nav-label">{t.label.split(' ')[0]}</span>
-          </button>
-        ))}
-      </nav>
+      <MobileBottomNav tab={tab} setTab={setTab} handleLogoClick={handleLogoClick} />
     </div>
 
 

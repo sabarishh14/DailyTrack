@@ -6,13 +6,18 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from './SabDekho';
 
 import { API } from '../constants';
-import { getToken, fmt, formatDate, getBankEmoji } from '../utils';
+import { getToken, fmt } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import CustomPieTooltip from '../components/CustomPieTooltip';
-import BulkEditTransactionModal from '../components/BulkEditTransactionModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategoryExclusionModal from '../components/CategoryExclusionModal';
 import BudgetManagerModal from '../components/BudgetManagerModal';
+import MultiSelectDropdown from './money-components/MultiSelectDropdown';
+import BudgetGoalsSection from './money-components/BudgetGoalsSection';
+import SplitsSection from './money-components/SplitsSection';
+import TransactionDetailsModal from './money-components/TransactionDetailsModal';
+import SnapshotPoster from './money-components/SnapshotPoster';
+import TransactionsTableSection from './money-components/TransactionsTableSection';
 
 function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx }) {
   const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
@@ -635,205 +640,6 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
     }
   };
 
-  // Rows per page dropdown component
-  // RowsPerPage dropdown component
-  const RowsPerPageDropdown = ({ value, onChange }) => {
-    const containerRef = useRef(null);
-    const [dropdownStyle, setDropdownStyle] = useState({});
-
-    useEffect(() => {
-      if (openDropdown === 'rowsPerPage' && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const isOffBottom = rect.bottom + 200 > window.innerHeight;
-        setDropdownStyle({
-          position: 'fixed',
-          top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
-          bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
-          left: `${rect.left}px`,
-          minWidth: `${rect.width}px`,
-          zIndex: 999999
-        });
-      }
-    }, [openDropdown]);
-
-    return (
-      <div style={{ position: 'relative' }} ref={containerRef}>
-        <button
-          className={`filter-chip ${openDropdown === 'rowsPerPage' ? 'open' : ''}`}
-          onClick={() => setOpenDropdown(openDropdown === 'rowsPerPage' ? null : 'rowsPerPage')}
-        >
-          <span>📄</span>
-          <span>{value} rows</span>
-          <span className="chip-arrow">▼</span>
-        </button>
-
-        {openDropdown === 'rowsPerPage' && createPortal(
-          <div className="chip-dropdown portaled" style={{ ...dropdownStyle }}>
-            {[10, 25, 50, 100].map(opt => (
-              <div
-                key={opt}
-                className={`chip-dropdown-item ${value === opt ? 'selected' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange(opt);
-                  setOpenDropdown(null);
-                  setCurrentPage(0);
-                }}
-              >
-                <div className={`chip-checkbox ${value === opt ? 'checked' : ''}`} />
-                <span>{opt}</span>
-              </div>
-            ))}
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  };
-
-  // Multi-select dropdown component (3-State Logic)
-  const MultiSelectDropdown = ({ label, icon, options, filterState, setFilterState, dropdownKey }) => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const { included, excluded } = filterState;
-    const containerRef = useRef(null);
-    const [dropdownStyle, setDropdownStyle] = useState({});
-
-    // Clear search and set position when dropdown opens/closes
-    useEffect(() => {
-      if (openDropdown !== dropdownKey) {
-        setSearchTerm("");
-      } else if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const clientWidth = document.documentElement.clientWidth;
-        const isRightSide = rect.left + 300 > clientWidth;
-        const isOffBottom = rect.bottom + 300 > window.innerHeight;
-
-        setDropdownStyle({
-          position: 'fixed',
-          top: isOffBottom ? 'auto' : `${rect.bottom + 4}px`,
-          bottom: isOffBottom ? `${window.innerHeight - rect.top + 4}px` : 'auto',
-          left: isRightSide ? 'auto' : `${rect.left}px`,
-          right: isRightSide ? `${window.innerWidth - rect.right}px` : 'auto',
-          minWidth: `${rect.width}px`,
-          maxWidth: isRightSide ? `calc(100vw - ${window.innerWidth - rect.right + 16}px)` : `calc(100vw - ${rect.left + 16}px)`,
-          zIndex: 999999
-        });
-      }
-    }, [openDropdown, dropdownKey]);
-
-    const filteredOptions = options
-      .filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => {
-        const aSelected = included.has(a) || excluded.has(a);
-        const bSelected = included.has(b) || excluded.has(b);
-        if (aSelected && !bSelected) return -1;
-        if (!aSelected && bSelected) return 1;
-        return 0;
-      });
-    const allSelected = included.size === options.length && options.length > 0;
-
-    // 3-State Toggle: Neutral -> Included -> Excluded -> Neutral
-    const handleItemClick = (opt) => {
-      const newInc = new Set(included);
-      const newExc = new Set(excluded);
-
-      if (newInc.has(opt)) {
-        newInc.delete(opt);
-        newExc.add(opt);
-      } else if (newExc.has(opt)) {
-        newExc.delete(opt);
-      } else {
-        newInc.add(opt);
-      }
-      setFilterState({ included: newInc, excluded: newExc });
-    };
-
-    const toggleSelectAll = () => {
-      if (allSelected) {
-        setFilterState({ included: new Set(), excluded: new Set() });
-      } else {
-        setFilterState({ included: new Set(options), excluded: new Set() });
-      }
-    };
-
-    const hasSelection = included.size > 0 || excluded.size > 0;
-    const isExcludeOnly = included.size === 0 && excluded.size > 0;
-
-    return (
-      <div style={{ position: 'relative' }} ref={containerRef}>
-        <button
-          className={`filter-chip ${hasSelection ? (isExcludeOnly ? 'exclude-active' : 'active') : ''} ${openDropdown === dropdownKey ? 'open' : ''}`}
-          onClick={() => setOpenDropdown(openDropdown === dropdownKey ? null : dropdownKey)}
-        >
-          <span>{icon}</span>
-          <span style={{ textDecoration: isExcludeOnly ? 'line-through' : 'none', opacity: isExcludeOnly ? 0.8 : 1 }}>{label}</span>
-
-          {/* Dual Status Counters */}
-          {included.size > 0 && <span className="chip-count inc">{included.size}</span>}
-          {excluded.size > 0 && <span className="chip-count exc">{excluded.size}</span>}
-
-          {hasSelection && (
-            <span
-              className="chip-clear"
-              onClick={(e) => { e.stopPropagation(); setFilterState({ included: new Set(), excluded: new Set() }); }}
-              title="Clear filter"
-            >
-              ×
-            </span>
-          )}
-          <span className="chip-arrow">▼</span>
-        </button>
-
-        {openDropdown === dropdownKey && createPortal(
-          <div className="chip-dropdown portaled" style={{ ...dropdownStyle, maxHeight: '350px' }}>
-
-            {/* 🚀 STICKY HEADER GROUP */}
-            <div style={{ position: 'sticky', top: '-0.375rem', zIndex: 10, background: 'var(--card)', margin: '-0.375rem -0.375rem 0.2rem -0.375rem', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-              <div className="chip-helper-text" style={{ margin: '0.4rem 0.5rem 0' }}>
-                Tap once to include • Tap again to exclude
-              </div>
-
-              {options.length > 5 && (
-                <div style={{ padding: '0.4rem 0.5rem' }}>
-                  <input
-                    type="text"
-                    placeholder={`Search ${label}...`}
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="chip-search-input"
-                    onClick={e => e.stopPropagation()}
-                  />
-                </div>
-              )}
-              {options.length > 0 && (
-                <div
-                  className="chip-dropdown-item chip-select-all"
-                  onClick={toggleSelectAll}
-                  style={{ fontWeight: 600, borderRadius: 0, padding: '0.6rem 0.65rem', borderTop: options.length > 5 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
-                >
-                  <div className={`chip-checkbox ${allSelected ? 'included' : ''}`} />
-                  <span>{allSelected ? 'Clear All' : 'Select All'}</span>
-                </div>
-              )}
-            </div>
-
-            {filteredOptions.map(opt => (
-              <div
-                key={opt}
-                className={`chip-dropdown-item ${included.has(opt) ? 'included' : ''} ${excluded.has(opt) ? 'excluded' : ''}`}
-                onClick={() => handleItemClick(opt)}
-              >
-                <div className={`chip-checkbox ${included.has(opt) ? 'included' : ''} ${excluded.has(opt) ? 'excluded' : ''}`} />
-                <span>{opt}</span>
-              </div>
-            ))}
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  };
-
   const handleSelectAll = () => {
     if (selectedIds.size === paginatedRows.length) {
       setSelectedIds(new Set());
@@ -1066,7 +872,9 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 filterState={chartAccounts}
                 setFilterState={setChartAccounts}
                 dropdownKey="analyzerAccount"
-              />
+              openDropdown={openDropdown}
+            setOpenDropdown={setOpenDropdown}
+          />
               <MultiSelectDropdown
                 label="Type"
                 icon="💳"
@@ -1074,7 +882,9 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 filterState={chartTypes}
                 setFilterState={setChartTypes}
                 dropdownKey="analyzerType"
-              />
+              openDropdown={openDropdown}
+            setOpenDropdown={setOpenDropdown}
+          />
               <MultiSelectDropdown
                 label="Month"
                 icon="📅"
@@ -1083,7 +893,9 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 setFilterState={setChartMonths}
                 dropdownKey="analyzerMonth"
                 maxWidth="160px"
-              />
+              openDropdown={openDropdown}
+            setOpenDropdown={setOpenDropdown}
+          />
               <MultiSelectDropdown
                 label="Year"
                 icon="📆"
@@ -1092,7 +904,9 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 setFilterState={setChartYears}
                 dropdownKey="analyzerYear"
                 maxWidth="160px"
-              />
+              openDropdown={openDropdown}
+            setOpenDropdown={setOpenDropdown}
+          />
               <MultiSelectDropdown
                 label="Heading"
                 icon="🏷️"
@@ -1100,7 +914,9 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 filterState={chartHeadings}
                 setFilterState={setChartHeadings}
                 dropdownKey="analyzerHeading"
-              />
+              openDropdown={openDropdown}
+            setOpenDropdown={setOpenDropdown}
+          />
               {/* FY Filter upgraded to CustomSelect for portal support */}
               <CustomSelect
                 value={chartFY}
@@ -1383,654 +1199,72 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
 
 
       {/* 🎯 Budget Goals Section - Collapsible */}
-      <div className="analyser-card">
-        <div
-          className={`analyser-header ${budgetExpanded ? 'open' : ''}`}
-          onClick={(e) => {
-            if (e.target.closest('.budget-settings-btn') || e.target.closest('.budget-inline-edit')) return;
-            setBudgetExpanded(!budgetExpanded);
-          }}
-        >
-          <div className="analyser-header-left">
-            <div className="analyser-header-icon" style={{ background: 'rgba(236, 72, 153, 0.15)' }}>🎯</div>
-            <div>
-              <div className="analyser-header-title">Budget Goals</div>
-              <div className="analyser-header-sub" style={{ display: budgetExpanded ? 'none' : 'block' }}>
-                {budgets.length === 0 ? (
-                  <span>No budgets set</span>
-                ) : (
-                  <span>{budgets.filter(b => (currentMonthSpending[b.category] || 0) > b.monthly_limit).length} of {budgets.length} over budget</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <button
-              className="budget-settings-btn"
-              onClick={(e) => { e.stopPropagation(); setIsBudgetModalOpen(true); }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: '4px', fontSize: '1.1rem' }}
-              title="Manage Budgets"
-            >
-              ⚙️
-            </button>
-            <span className={`analyser-chevron ${budgetExpanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
-          </div>
-        </div>
-
-        {budgetExpanded && (
-          <div className="analyser-body">
-            {budgets.length === 0 ? (
-              <div className="budget-empty-state" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text3)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎯</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Set your first budget goal</div>
-                <div style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>Track your monthly spending limits by category.</div>
-                <button className="action-btn" onClick={() => setIsBudgetModalOpen(true)} style={{ margin: '0 auto', display: 'flex' }}>
-                  Manage Budgets
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {budgets.map(b => {
-                  const spent = currentMonthSpending[b.category] || 0;
-                  const limit = b.monthly_limit;
-                  const percentage = Math.min((spent / limit) * 100, 100);
-                  const isOver = spent > limit;
-                  let colorClass = 'green';
-                  if (percentage >= 80 && !isOver) colorClass = 'yellow';
-                  if (isOver) colorClass = 'red';
-
-                  return (
-                    <div key={b.category} className="budget-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <div className="budget-item-header">
-                        <span className="budget-item-category">{b.category}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', flexShrink: 0 }}>
-                          <span style={{ color: isOver ? 'var(--neg)' : 'var(--text)' }}>{fmt(spent)}</span>
-                          <span style={{ color: 'var(--text3)' }}>/</span>
-                          {editingBudgetCategory === b.category ? (
-                            <input
-                              autoFocus
-                              type="number"
-                              className="budget-inline-edit"
-                              value={editingBudgetValue}
-                              onChange={e => setEditingBudgetValue(e.target.value)}
-                              onBlur={() => handleInlineBudgetSave(b.category)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleInlineBudgetSave(b.category);
-                                if (e.key === 'Escape') setEditingBudgetCategory(null);
-                              }}
-                              style={{ width: '70px', background: 'var(--bg-input)', border: '1px solid var(--accent)', color: 'var(--text)', padding: '2px 4px', borderRadius: '4px', textAlign: 'right' }}
-                            />
-                          ) : (
-                            <span
-                              style={{ color: 'var(--text2)', cursor: 'pointer', borderBottom: '1px dashed var(--border)' }}
-                              onClick={() => { setEditingBudgetCategory(b.category); setEditingBudgetValue(b.monthly_limit); }}
-                              title="Edit Limit"
-                            >
-                              {fmt(limit)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="budget-bar-track" style={{ height: '8px', background: 'var(--bg2)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div
-                          className={`budget-bar-fill ${colorClass}`}
-                          style={{ width: `${percentage}%`, height: '100%', borderRadius: '4px', transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <BudgetGoalsSection
+        budgetExpanded={budgetExpanded}
+        setBudgetExpanded={setBudgetExpanded}
+        budgets={budgets}
+        currentMonthSpending={currentMonthSpending}
+        setIsBudgetModalOpen={setIsBudgetModalOpen}
+        editingBudgetCategory={editingBudgetCategory}
+        setEditingBudgetCategory={setEditingBudgetCategory}
+        editingBudgetValue={editingBudgetValue}
+        setEditingBudgetValue={setEditingBudgetValue}
+        handleInlineBudgetSave={handleInlineBudgetSave}
+      />
 
       {/* Splits Section - Collapsible, same style as Spending Analyser */}
-      {(activeSplits.length > 0 || settledSplits.length > 0) && (
-        <div className="analyser-card">
-          <div
-            className={`analyser-header ${splitsExpanded ? 'open' : ''}`}
-            onClick={() => setSplitsExpanded(!splitsExpanded)}
-          >
-            <div className="analyser-header-left">
-              <div className="analyser-header-icon" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>🤝</div>
-              <div>
-                <div className="analyser-header-title">Splits</div>
-                <div className="analyser-header-sub" style={{ display: splitsExpanded ? 'none' : 'block' }}>
-                  {totalOwed > 0
-                    ? <span>{splitBalances.length} {splitBalances.length === 1 ? 'person owes' : 'people owe'} you <span style={{ color: 'var(--pos)', fontWeight: 700 }}>{fmt(totalOwed)}</span></span>
-                    : <span style={{ color: 'var(--pos)' }}>All settled up ✓</span>
-                  }
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {/* Quick counters */}
-              {!splitsExpanded && activeSplits.length > 0 && (
-                <span className="splits-badge splits-badge-active">{activeSplits.length} active</span>
-              )}
-              {!splitsExpanded && settledSplits.length > 0 && (
-                <span className="splits-badge splits-badge-settled">{settledSplits.length} settled</span>
-              )}
-              <span className={`analyser-chevron ${splitsExpanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
-            </div>
-          </div>
-
-          {splitsExpanded && (
-            <div style={{ animation: 'fadeIn 0.3s ease', padding: '1.5rem' }}>
-
-              {/* Person Balance Cards */}
-              {splitBalances.length > 0 && (
-                <div className="splits-people-grid">
-                  {splitBalances.map(b => (
-                    <div key={b.name} className="splits-person-card">
-                      <div className="splits-person-avatar">{b.name.charAt(0).toUpperCase()}</div>
-                      <div className="splits-person-info">
-                        <div className="splits-person-name">{b.name}</div>
-                        <div className="splits-person-amount">{fmt(b.amount)}</div>
-                      </div>
-                      <button
-                        className="splits-settle-btn"
-                        onClick={() => handleSettlePerson(b.name)}
-                        disabled={settlingPerson === b.name}
-                      >
-                        {settlingPerson === b.name ? (
-                          <span className="splits-settle-spinner">⏳</span>
-                        ) : (
-                          <>✓ Settle</>
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Total owed summary */}
-              {totalOwed > 0 && (
-                <div className="splits-total-bar">
-                  <span style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>Total owed to you</span>
-                  <span style={{ color: 'var(--pos)', fontWeight: 700, fontSize: '1.1rem' }}>{fmt(totalOwed)}</span>
-                </div>
-              )}
-
-              {/* Active / Settled tabs */}
-              <div className="splits-tab-bar">
-                <button
-                  className={`splits-tab-btn ${!settledSplits.length || activeSplits.length > 0 ? 'active' : ''}`}
-                  onClick={() => {
-                    document.getElementById('splits-active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }}
-                  style={{ cursor: 'default' }}
-                >
-                  Active ({activeSplits.length})
-                </button>
-                {settledSplits.length > 0 && (
-                  <button
-                    className="splits-tab-btn"
-                    onClick={() => {
-                      document.getElementById('splits-settled')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }}
-                    style={{ cursor: 'default' }}
-                  >
-                    Settled ({settledSplits.length})
-                  </button>
-                )}
-              </div>
-
-              {/* Active Splits */}
-              {activeSplits.length > 0 && (
-                <div id="splits-active" style={{ marginBottom: '1.5rem' }}>
-                  <div className="splits-list">
-                    {activeSplits.map(t => {
-                      const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
-                      return (
-                        <div key={t.id} className="splits-tx-card">
-                          <div className="splits-tx-top">
-                            <div className="splits-tx-left">
-                              <div className="splits-tx-desc">{t.description || t.heading || '—'}</div>
-                              <div className="splits-tx-meta">{dateStr} &middot; {t.account} &middot; {t.heading}</div>
-                            </div>
-                            <div className="splits-tx-amount">
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bill</span>
-                              <span>{fmt(t.split.total_amount)}</span>
-                            </div>
-                          </div>
-                          <div className="splits-members">
-                            {t.split.members.map((m, idx) => (
-                              <div key={idx} className={`splits-member ${m.paid ? 'paid' : ''}`}>
-                                <div className="splits-member-left">
-                                  <div className={`splits-member-dot ${m.paid ? 'paid' : 'unpaid'}`} />
-                                  <span className="splits-member-name">{m.name}</span>
-                                </div>
-                                <div className="splits-member-right">
-                                  <span className="splits-member-amt">{fmt(m.amount)}</span>
-                                  {m.name.toLowerCase() !== 'you' && (
-                                    <button
-                                      className={`splits-toggle-btn ${m.paid ? 'is-paid' : 'is-unpaid'}`}
-                                      onClick={() => handleToggleSplitPaid(t, idx)}
-                                    >
-                                      {m.paid ? 'Paid' : 'Owes'}
-                                    </button>
-                                  )}
-                                  {m.name.toLowerCase() === 'you' && (
-                                    <span className="splits-you-badge">You</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {activeSplits.length === 0 && (
-                <div className="splits-empty">
-                  <span style={{ fontSize: '2rem' }}>🎉</span>
-                  <div>All settled up! No pending splits.</div>
-                </div>
-              )}
-
-              {/* Settled Splits */}
-              {settledSplits.length > 0 && (
-                <div id="splits-settled">
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.75rem', paddingLeft: '2px' }}>
-                    Settled &middot; {settledSplits.length}
-                  </div>
-                  <div className="splits-list">
-                    {settledSplits.map(t => {
-                      const dateStr = t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
-                      return (
-                        <div key={t.id} className="splits-tx-card settled">
-                          <div className="splits-tx-top">
-                            <div className="splits-tx-left">
-                              <div className="splits-tx-desc">{t.description || t.heading || '—'}</div>
-                              <div className="splits-tx-meta">{dateStr} &middot; {t.account}</div>
-                            </div>
-                            <div className="splits-tx-amount" style={{ color: 'var(--text3)' }}>
-                              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bill</span>
-                              <span>{fmt(t.split.total_amount)}</span>
-                            </div>
-                          </div>
-                          <div className="splits-members">
-                            {t.split.members.map((m, idx) => (
-                              <div key={idx} className="splits-member paid">
-                                <div className="splits-member-left">
-                                  <div className="splits-member-dot paid" />
-                                  <span className="splits-member-name">{m.name}</span>
-                                </div>
-                                <div className="splits-member-right">
-                                  <span className="splits-member-amt">{fmt(m.amount)}</span>
-                                  <span className="splits-settled-check">✓</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-        </div>
-      )}
+      <SplitsSection
+        splitsExpanded={splitsExpanded}
+        setSplitsExpanded={setSplitsExpanded}
+        activeSplits={activeSplits}
+        settledSplits={settledSplits}
+        splitBalances={splitBalances}
+        totalOwed={totalOwed}
+        settlingPerson={settlingPerson}
+        handleSettlePerson={handleSettlePerson}
+        handleToggleSplitPaid={handleToggleSplitPaid}
+      />
 
       {/* Transactions Table */}
-      <section className="section" style={{ marginTop: '3rem' }}>
-        <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
-
-        {/* Table Filters */}
-        <div className="filter-bar" ref={dropdownRef}>
-          <MultiSelectDropdown
-            label="Visibility"
-            icon="👁️"
-            options={["Active", "Excluded"]}
-            filterState={filterVisibility}
-            setFilterState={setFilterVisibility}
-            dropdownKey="tableVisibility"
-          />
-          <MultiSelectDropdown
-            label="Account"
-            icon="🏦"
-            options={allAccountsList}
-            filterState={filterAccounts}
-            setFilterState={setFilterAccounts}
-            dropdownKey="tableAccount"
-          />
-          <MultiSelectDropdown
-            label="Type"
-            icon="💳"
-            options={allTypes}
-            filterState={filterTypes}
-            setFilterState={setFilterTypes}
-            dropdownKey="tableType"
-          />
-          <MultiSelectDropdown
-            label="Month"
-            icon="📅"
-            options={allMonths}
-            filterState={filterMonths}
-            setFilterState={setFilterMonths}
-            dropdownKey="tableMonth"
-          />
-          <MultiSelectDropdown
-            label="Year"
-            icon="📆"
-            options={allYears}
-            filterState={filterYears}
-            setFilterState={setFilterYears}
-            dropdownKey="tableYear"
-          />
-          <MultiSelectDropdown
-            label="Heading"
-            icon="🏷️"
-            options={allHeadings}
-            filterState={filterHeadings}
-            setFilterState={setFilterHeadings}
-            dropdownKey="tableHeading"
-          />
-          {/* Financial Year Filter */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className={`filter-chip ${filterFY ? 'active' : ''} ${openDropdown === 'tableFY' ? 'open' : ''}`}
-              onClick={() => setOpenDropdown(openDropdown === 'tableFY' ? null : 'tableFY')}
-            >
-              <span>📋</span>
-              <span>{filterFY || 'FY'}</span>
-              {filterFY && (
-                <span
-                  className="chip-clear"
-                  onClick={(e) => { e.stopPropagation(); handleFilterFYChange(''); }}
-                  title="Clear FY"
-                >
-                  ×
-                </span>
-              )}
-              <span className="chip-arrow">▼</span>
-            </button>
-            {openDropdown === 'tableFY' && (
-              <div className="chip-dropdown">
-                {allFYs.map(fy => (
-                  <div
-                    key={fy}
-                    className={`chip-dropdown-item ${filterFY === fy ? 'included' : ''}`}
-                    onClick={() => { handleFilterFYChange(filterFY === fy ? '' : fy); setOpenDropdown(null); }}
-                  >
-                    <div className={`chip-checkbox ${filterFY === fy ? 'included' : ''}`} />
-                    <span>{fy}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="date-filter-chip">
-            <span style={{ fontSize: '0.8rem', color: 'var(--text2)' }}>📅</span>
-            <input
-              type="date"
-              value={filterDateFrom}
-              onChange={e => { setFilterDateFrom(e.target.value); setFilterFY(""); }}
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateFrom ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateFrom ? '100px' : '90px', cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>→</span>
-            <input
-              type="date"
-              value={filterDateTo}
-              onChange={e => { setFilterDateTo(e.target.value); setFilterFY(""); }}
-              min={filterDateFrom}
-              style={{ background: 'transparent', border: 'none', outline: 'none', color: filterDateTo ? 'var(--text)' : 'var(--text2)', fontSize: '0.8rem', fontFamily: "'DM Sans', sans-serif", width: filterDateTo ? '100px' : '90px', cursor: 'pointer' }}
-            />
-            {(filterDateFrom || filterDateTo) && (
-              <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setFilterFY(''); }} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.9rem', padding: 0, lineHeight: 1 }}>×</button>
-            )}
-          </div>
-          <input
-            className="inp"
-            placeholder="🔍 Description"
-            value={filterDesc}
-            onChange={e => setFilterDesc(e.target.value)}
-            style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
-          />
-          {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 ||
-            filterTypes.included.size > 0 || filterTypes.excluded.size > 0 ||
-            filterMonths.included.size > 0 || filterMonths.excluded.size > 0 ||
-            filterYears.included.size > 0 || filterYears.excluded.size > 0 ||
-            filterHeadings.included.size > 0 || filterHeadings.excluded.size > 0 ||
-            filterVisibility.included.size > 0 || filterVisibility.excluded.size > 0 ||
-            filterDateFrom || filterDateTo || filterDesc || filterFY) && (
-              <button
-                className="filter-chip"
-                onClick={() => {
-                  const empty = { included: new Set(), excluded: new Set() };
-                  setFilterAccounts(empty); setFilterTypes(empty); setFilterMonths(empty);
-                  setFilterYears(empty); setFilterHeadings(empty); setFilterVisibility(empty);
-                  setFilterDateFrom(""); setFilterDateTo(""); setFilterDesc(""); setFilterFY("");
-                }}
-                style={{ border: '1px dashed var(--neg)', color: 'var(--neg)', background: 'transparent' }}
-              >
-                <span>❌</span><span>Clear All</span>
-              </button>
-            )}
-        </div>
-
-        {/* Stats Bar & Pagination - Above Table */}
-        {tableFiltered.length > 0 && (
-          <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-            <div className="tx-stats-bar" style={{ marginBottom: '1.5rem' }}>
-              <span>
-                Page <strong style={{ color: 'var(--text)' }}>{currentPage + 1} of {totalPages}</strong> · Showing <strong style={{ color: 'var(--text)' }}>{paginatedRows.length}</strong> of {tableFiltered.length} transactions
-              </span>
-              <span>
-                <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
-                {' '}in &nbsp;·&nbsp;
-                <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
-                {' '}out
-              </span>
-            </div>
-
-            {/* Pagination Controls */}
-            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-              <RowsPerPageDropdown value={rowsPerPage} onChange={setRowsPerPage} />
-
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                  disabled={currentPage === 0}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: currentPage === 0 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
-                    color: currentPage === 0 ? 'var(--text2)' : 'var(--text)',
-                    cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
-                    fontSize: '0.85rem',
-                    opacity: currentPage === 0 ? 0.5 : 1
-                  }}
-                >
-                  ← Prev
-                </button>
-
-                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i;
-                    } else if (currentPage < 2) {
-                      pageNum = i;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 5 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        style={{
-                          padding: '0.35rem 0.65rem',
-                          borderRadius: '6px',
-                          border: pageNum === currentPage ? '1px solid var(--accent)' : '1px solid var(--border)',
-                          background: pageNum === currentPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
-                          color: pageNum === currentPage ? 'var(--accent)' : 'var(--text2)',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: pageNum === currentPage ? 600 : 400
-                        }}
-                      >
-                        {pageNum + 1}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                  disabled={currentPage === totalPages - 1}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: currentPage === totalPages - 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)',
-                    color: currentPage === totalPages - 1 ? 'var(--text2)' : 'var(--text)',
-                    cursor: currentPage === totalPages - 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '0.85rem',
-                    opacity: currentPage === totalPages - 1 ? 0.5 : 1
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Transactions List */}
-        <div className="tx-table-wrap">
-          <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
-            <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={handleSelectAll}>
-              <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('date')}>
-              <span>Date</span>
-              {sortBy === 'date' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('date', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('account')}>
-              <span>Account</span>
-              {sortBy === 'account' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('account', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('type')}>
-              <span>Type</span>
-              {sortBy === 'type' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('type', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('month')}>
-              <span>Month</span>
-              {sortBy === 'month' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('month', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('amount')}>
-              <span>Amount</span>
-              {sortBy === 'amount' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('amount', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('heading')}>
-              <span>Category</span>
-              {sortBy === 'heading' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              <div className="col-resize" onMouseDown={(e) => handleStartResize('heading', e)}></div>
-            </div>
-            <div className="tx-col-header" onClick={() => handleSortClick('desc')}>
-              <span>Description</span>
-              {sortBy === 'desc' && <span className="sort-indicator">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-            </div>
-            <div className="tx-col-header">
-              <span>Actions</span>
-            </div>
-          </div>
-          {tableFiltered.length > 0 ? (
-            paginatedRows.map((t, i) => {
-              const d = new Date(t.date);
-              const monthLabel = d.toLocaleString('default', { month: 'long' });
-              return (
-                <div
-                  key={i}
-                  className="tx-row"
-                  style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
-                  onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
-                >
-                  <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={(e) => handleRowSelect(e, t.id, i)}>
-                    <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'included' : ''}`} />
-                  </span>
-                  <span className="tx-date">{formatDate(t.date)}</span>
-                  <span className="tx-account">
-                    <span>{getBankEmoji(t.account)}</span>
-                    <span>{t.account}</span>
-                  </span>
-                  <span className="tx-type-cell"><span className={`tx-badge ${t.type}`}>{t.type.charAt(0).toUpperCase() + t.type.slice(1)}</span></span>
-                  <span className="tx-month">{monthLabel}</span>
-                  <span className={`tx-amount ${t.type === 'Debit' ? 'neg' : t.type === 'Credit' ? 'pos' : t.type === 'investment' ? 'blue-text' : 'accent'}`}>
-                    {t.type === 'Debit' ? '−' : '+'}{fmt(t.amount)}
-                  </span>
-                  <span className="tx-heading">{t.heading}</span>
-                  <span className="tx-desc" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.description || '—'}
-                    </span>
-                    <span style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                      {t.split && (
-                        <span title="Contains Split Details" style={{ fontSize: '0.9rem', cursor: 'help' }}>
-                          👥
-                        </span>
-                      )}
-                      {t.exclude_analytics && (
-                        <span title="Excluded from Analytics" style={{ fontSize: '0.9rem', cursor: 'help' }}>
-                          🙈
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                  <span className="tx-actions">
-                    <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
-                    <button className="action-icon-btn copy" onClick={(e) => { e.stopPropagation(); setCopyingTx(t); }} title="Duplicate">📋</button>
-                    <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} title="Delete">🗑️</button>
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="empty-state">📭 No transactions match your filters</div>
-          )}
-          {/* Floating Action Bar */}
-          {selectedIds.size > 0 && (
-            <div className="floating-action-bar">
-              <span className="fab-text">{selectedIds.size} selected</span>
-              <div className="fab-actions">
-                <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ <span className="hide-mobile">Edit</span></button>
-                <button className="action-btn" onClick={() => setIsBulkCopyOpen(true)} style={{ padding: '0.45rem 1rem' }}>📋 <span className="hide-mobile">Duplicate</span></button>
-                <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ <span className="hide-mobile">Delete</span></button>
-                <button className="action-btn secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '0.45rem 1rem' }}>✕</button>
-              </div>
-            </div>
-          )}
-
-          {/* Bulk Edit Modal */}
-          {isBulkEditOpen && (
-            <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
-          )}
-
-          {/* Bulk Copy Modal */}
-          {isBulkCopyOpen && (
-            <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} isCopy={true} onClose={() => { setIsBulkCopyOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
-          )}
-        </div>
-      </section>
+      <TransactionsTableSection
+        dropdownRef={dropdownRef}
+        openDropdown={openDropdown}
+        setOpenDropdown={setOpenDropdown}
+        filterVisibility={filterVisibility} setFilterVisibility={setFilterVisibility}
+        allAccountsList={allAccountsList} filterAccounts={filterAccounts} setFilterAccounts={setFilterAccounts}
+        allTypes={allTypes} filterTypes={filterTypes} setFilterTypes={setFilterTypes}
+        allMonths={allMonths} filterMonths={filterMonths} setFilterMonths={setFilterMonths}
+        allYears={allYears} filterYears={filterYears} setFilterYears={setFilterYears}
+        allHeadings={allHeadings} filterHeadings={filterHeadings} setFilterHeadings={setFilterHeadings}
+        allFYs={allFYs} filterFY={filterFY} handleFilterFYChange={handleFilterFYChange}
+        filterDateFrom={filterDateFrom} setFilterDateFrom={setFilterDateFrom}
+        filterDateTo={filterDateTo} setFilterDateTo={setFilterDateTo}
+        setFilterFY={setFilterFY}
+        filterDesc={filterDesc} setFilterDesc={setFilterDesc}
+        tableFiltered={tableFiltered}
+        totalPages={totalPages}
+        paginatedRows={paginatedRows}
+        currentPage={currentPage} setCurrentPage={setCurrentPage}
+        rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage}
+        colWidths={colWidths}
+        handleStartResize={handleStartResize}
+        handleSortClick={handleSortClick}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        selectedIds={selectedIds} setSelectedIds={setSelectedIds}
+        handleSelectAll={handleSelectAll}
+        handleRowSelect={handleRowSelect}
+        setActionMenuTx={setActionMenuTx}
+        setEditingTx={setEditingTx}
+        setCopyingTx={setCopyingTx}
+        handleDelete={handleDelete}
+        handleBulkDelete={handleBulkDelete}
+        isBulkEditOpen={isBulkEditOpen} setIsBulkEditOpen={setIsBulkEditOpen}
+        isBulkCopyOpen={isBulkCopyOpen} setIsBulkCopyOpen={setIsBulkCopyOpen}
+        transactions={transactions}
+        categories={categories}
+        onRefresh={onRefresh}
+      />
 
       {editingTx && (
         <EditTransactionModal
@@ -2074,281 +1308,28 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
       )}
 
       {/* TRANSACTION DETAILS / ACTION MENU MODAL */}
-      {actionMenuTx && (
-        <div className="modal-backdrop" onClick={() => setActionMenuTx(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: '400px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-
-            {/* Header / Info Row */}
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text)' }}>{actionMenuTx.heading}</h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text3)' }}>{formatDate(actionMenuTx.date)} • {actionMenuTx.account}</p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span className={actionMenuTx.type === 'Debit' ? 'neg' : actionMenuTx.type === 'Credit' ? 'pos' : 'accent'} style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-                    {actionMenuTx.type === 'Debit' ? '-' : '+'}{fmt(actionMenuTx.amount)}
-                  </span>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{actionMenuTx.type}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Full Note / Description Box */}
-            {actionMenuTx.description && (
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)', fontStyle: 'italic', lineHeight: 1.5 }}>
-                  📝 {actionMenuTx.description}
-                </p>
-              </div>
-            )}
-
-            {/* Split Details UI */}
-            {actionMenuTx.split && (
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', maxHeight: '200px', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>👥 Split Details</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600 }}>Total: ₹{actionMenuTx.split.total_amount}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {actionMenuTx.split.members.map((m, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg3)', borderRadius: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <input
-                          type="checkbox"
-                          checked={m.paid}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            const newMembers = [...actionMenuTx.split.members];
-                            newMembers[idx] = { ...newMembers[idx], paid: !newMembers[idx].paid };
-
-                            let myAmount = 0;
-                            const youMember = newMembers.find(m => m.name.toLowerCase() === 'you');
-                            if (youMember) myAmount += parseFloat(youMember.amount) || 0;
-                            myAmount += newMembers.filter(m => m.name.toLowerCase() !== 'you' && !m.paid).reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0);
-                            const finalAmount = myAmount > 0 ? Math.round(myAmount) : actionMenuTx.amount;
-
-                            const updatedTx = { ...actionMenuTx, amount: finalAmount, split: { ...actionMenuTx.split, members: newMembers } };
-                            setActionMenuTx(updatedTx);
-                            // Also update optimistic overrides for the splits section
-                            setSplitOverrides(prev => ({ ...prev, [actionMenuTx.id]: { ...actionMenuTx.split, members: newMembers } }));
-
-                            // Fire API in background
-                            fetch(`${API}/splits`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                              body: JSON.stringify({ transaction_id: updatedTx.id, total_amount: updatedTx.split.total_amount, members: newMembers, transaction_amount: finalAmount })
-                            }).catch(err => {
-                              alert("Error updating split: " + err.message);
-                              setActionMenuTx(actionMenuTx);
-                            });
-                          }}
-                        />
-                        <span style={{ fontSize: '0.85rem', color: m.paid ? 'var(--text3)' : 'var(--text)', textDecoration: m.paid ? 'line-through' : 'none' }}>{m.name}</span>
-                      </div>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: m.paid ? 'var(--text3)' : 'var(--text)', textDecoration: m.paid ? 'line-through' : 'none' }}>₹{m.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick Exclude Toggle */}
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>Spending Analyser</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '2px' }}>Include this transaction in pie chart & stats</div>
-              </div>
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  const updatedTx = { ...actionMenuTx, exclude_analytics: !actionMenuTx.exclude_analytics };
-                  setActionMenuTx(updatedTx); // Optimistic UI update for instant feedback
-                  try {
-                    const res = await fetch(`${API}/transactions/${actionMenuTx.id}`, {
-                      method: "PUT",
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-                      body: JSON.stringify({ ...updatedTx, amount: parseFloat(updatedTx.amount) }),
-                    });
-                    if (res.ok) onRefresh();
-                  } catch (err) {
-                    alert("Error updating transaction: " + err.message);
-                    setActionMenuTx(actionMenuTx); // Revert on network failure
-                  }
-                }}
-                style={{
-                  width: '46px', height: '26px', borderRadius: '13px',
-                  background: actionMenuTx.exclude_analytics ? 'var(--border2)' : 'var(--pos)',
-                  position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.2s',
-                  flexShrink: 0
-                }}
-              >
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
-                  position: 'absolute', top: '3px',
-                  left: actionMenuTx.exclude_analytics ? '3px' : '23px',
-                  transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-                }} />
-              </button>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem' }}>
-              <button
-                onClick={() => { setEditingTx(actionMenuTx); setActionMenuTx(null); }}
-                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--text)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                ✏️ Edit Transaction
-              </button>
-              <button
-                onClick={() => { setCopyingTx(actionMenuTx); setActionMenuTx(null); }}
-                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--text)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                📋 Duplicate Transaction
-              </button>
-              <button
-                onClick={() => { handleDelete(actionMenuTx.id); setActionMenuTx(null); }}
-                style={{ background: 'transparent', border: 'none', padding: '1rem', color: 'var(--neg)', fontSize: '0.95rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderRadius: '8px' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                🗑️ Delete Transaction
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TransactionDetailsModal
+        actionMenuTx={actionMenuTx}
+        setActionMenuTx={setActionMenuTx}
+        setEditingTx={setEditingTx}
+        setCopyingTx={setCopyingTx}
+        handleDelete={handleDelete}
+        setSplitOverrides={setSplitOverrides}
+        onRefresh={onRefresh}
+      />
 
       {/* 📸 HIDDEN SNAPSHOT POSTER CHUNKS 📸 */}
-      {Array.from({ length: Math.max(1, Math.ceil(pieArr.length / 30)) }).map((_, pageIndex) => {
-        const chunk = pieArr.slice(pageIndex * 30, (pageIndex + 1) * 30);
-        const totalPages = Math.max(1, Math.ceil(pieArr.length / 30));
-
-        const c = captureColors || {
-          bg: '#080b12', card: '#0d1117', border: 'rgba(255,255,255,0.05)',
-          text: 'white', text2: 'rgba(255,255,255,0.5)', text3: 'rgba(255,255,255,0.3)',
-          accent: '#818cf8', accent2: '#22d3ee', accentRgb: '99, 102, 241', accent2Rgb: '6, 182, 212'
-        };
-
-        const posterWidth = captureMode === 'pdf' ? 1358 : 1080;
-        return (
-          <div key={pageIndex} id={`pdf-poster-${pageIndex}`} style={{ position: 'absolute', left: '-9999px', top: '0px', opacity: 1, pointerEvents: 'none', overflow: 'hidden' }}>
-            <div style={{ width: `${posterWidth}px`, height: '1920px', background: c.bg, display: 'flex', flexDirection: 'column', color: c.text, fontFamily: "'Syne', sans-serif" }}>
-
-              {/* Header */}
-              <div style={{ padding: '40px 60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: `1px solid ${c.border}` }}>
-                <svg width="400" height="70" viewBox="0 0 400 70" style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
-                  <defs>
-                    <linearGradient id={`logo-grad-${pageIndex}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor={c.accent} />
-                      <stop offset="100%" stopColor={c.accent2} />
-                    </linearGradient>
-                  </defs>
-                  <text
-                    x="200" y="52"
-                    textAnchor="middle"
-                    fill={`url(#logo-grad-${pageIndex})`}
-                    style={{ fontSize: '48px', fontWeight: 800, fontFamily: "'Syne', sans-serif", letterSpacing: '-1px' }}
-                  >
-                    DailyTrack
-                  </text>
-                </svg>
-                <div style={{ fontSize: '20px', color: c.text2, marginTop: '4px' }}>Spending Analyser</div>
-              </div>
-
-              {/* Filters Info */}
-              <div style={{ padding: '24px 60px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={{ fontSize: '20px', color: c.text, fontWeight: 600, textAlign: 'center' }}>
-                  {isShowingDescriptions && filterDesc ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <span style={{ color: c.text2, marginRight: '8px' }}>Filtered by:</span>
-                      <span style={{ color: c.text2, marginRight: '4px' }}>Breakdown:</span>
-                      <span style={{ color: c.accent }}>{filterDesc}</span>
-                    </span>
-                  ) : (
-                    renderActiveFilters(c)
-                  )}
-                </div>
-                <div style={{ fontSize: '18px', color: c.text2, fontWeight: 500 }}>
-                  {isShowingDescriptions || chartHeadings.included.size === 1
-                    ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
-                    : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
-                </div>
-              </div>
-
-              {/* Chart Container */}
-              <div style={{ padding: '10px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '480px', position: 'relative' }}>
-                <PieChart width={460} height={460}>
-                  <Pie data={pieArr} dataKey="value" cx="50%" cy="50%" outerRadius={190} innerRadius={145} stroke="none" paddingAngle={3} cornerRadius={6} isAnimationActive={false}>
-                    {pieArr.map((_, i) => <Cell key={`b-${i}`} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                </PieChart>
-
-                {/* Centered Total */}
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ fontSize: '20px', color: c.text2, textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 700 }}>Total</div>
-                  {(() => {
-                    const sumStr = '₹' + pieArr.reduce((sum, item) => sum + item.value, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-                    return (
-                      <div style={{ fontSize: sumStr.length > 7 ? '30px' : '38px', fontWeight: 800, color: c.text }}>
-                        {sumStr}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Legend */}
-              <div style={{ flex: 1, padding: '10px 60px 40px', display: 'grid', gridTemplateColumns: chunk.length > 14 ? '1fr 1fr' : '1fr', gap: '16px', alignContent: 'start' }}>
-                {chunk.map((d, i) => {
-                  const total = pieArr.reduce((s, x) => s + x.value, 0);
-                  const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-
-                  const TARGET_ROWS = 15;
-                  const N = chunk.length;
-                  let doubleCols = 0;
-                  if (N > TARGET_ROWS) doubleCols = (N - TARGET_ROWS) * 2;
-                  const isFullWidth = i >= doubleCols;
-
-                  // Keep color synced with actual item index from pieArr
-                  const actualIndex = pageIndex * 30 + i;
-
-                  return (
-                    <div key={actualIndex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: c.card, border: `1px solid ${c.border}`, borderRadius: '16px', gridColumn: isFullWidth ? '1 / -1' : 'auto' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden', flex: 1, minWidth: 0, marginRight: '16px' }}>
-                        <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: PIE_COLORS[actualIndex % PIE_COLORS.length], flexShrink: 0 }}></div>
-                        <span style={{ fontSize: '20px', fontWeight: 600, color: c.text, wordBreak: 'break-word' }}>{d.name}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '22px', fontWeight: 800, color: c.text }}>₹{d.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: PIE_COLORS[actualIndex % PIE_COLORS.length], width: '50px', textAlign: 'right' }}>{pct}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Watermark & Page Indicator */}
-              <div style={{ padding: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${c.border}`, marginTop: 'auto' }}>
-                <div style={{ width: '120px' }}></div>
-                <div style={{ color: c.text3, fontSize: '20px', fontWeight: 600, letterSpacing: '1px' }}>
-                  © SB Creations
-                </div>
-                <div style={{ width: '120px', textAlign: 'right', color: c.text3, fontSize: '18px', fontWeight: 600 }}>
-                  Page {pageIndex + 1} of {totalPages}
-                </div>
-              </div>
-
-            </div>
-          </div>
-        );
-      })}
+      <SnapshotPoster
+        pieArr={pieArr}
+        captureColors={captureColors}
+        captureMode={captureMode}
+        isShowingDescriptions={isShowingDescriptions}
+        filterDesc={filterDesc}
+        chartHeadings={chartHeadings}
+        analyzerFiltered={analyzerFiltered}
+        renderActiveFilters={renderActiveFilters}
+        PIE_COLORS={PIE_COLORS}
+      />
 
     </div>
   );
