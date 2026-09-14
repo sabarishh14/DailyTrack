@@ -6,7 +6,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from './SabDekho';
 
 import { API, BANKS } from '../constants';
-import { getToken, evaluateMath } from '../utils';
+import { getToken, evaluateMath, buildDescriptionIndex, guessDescription } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TmdbMovieSearchInput from '../components/TmdbMovieSearchInput';
@@ -21,6 +21,11 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       .filter(desc => desc && desc.trim() !== '')
   )];
 
+  // Description suggestion: once category (and ideally amount) is set, suggest
+  // a description from how this category has been described before. Built once
+  // per transaction list, reused on every guess.
+  const descriptionIndex = useMemo(() => buildDescriptionIndex(transactions), [transactions]);
+
   const createEmptyRow = () => ({
     id: Date.now() + Math.random(),
     account: 'KOTAK',
@@ -28,6 +33,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     type: 'Debit',
     heading: '',
     description: '',
+    descriptionAuto: false,
     amount: '',
     movie_tags: [],
     movie_data: null,
@@ -65,6 +71,19 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     setRows(prevRows => prevRows.map(row => row.id === id ? { ...row, [field]: value } : row));
   };
 
+  // Fires once category and/or amount are known. Never overrides a description
+  // the user typed themselves — only fills in an empty one, or refines its own
+  // earlier guess (e.g. once amount narrows down which vendor in the category).
+  const maybeSuggestDescription = (id, heading, amount) => {
+    setRows(prevRows => prevRows.map(row => {
+      if (row.id !== id) return row;
+      if (row.description.trim() !== '' && !row.descriptionAuto) return row;
+      const guess = guessDescription(heading, amount, descriptionIndex);
+      if (!guess || guess === row.description) return row;
+      return { ...row, description: guess, descriptionAuto: true };
+    }));
+  };
+
   const addRow = () => {
     const lastRow = rows[rows.length - 1];
     setRows([...rows, {
@@ -72,6 +91,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       id: Date.now() + Math.random(),
       amount: '',
       description: '',
+      descriptionAuto: false,
       movie_tags: [],
       movie_data: null,
       isSplit: false,
@@ -94,6 +114,7 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
       id: Date.now() + Math.random(),
       amount: '',
       description: '',
+      descriptionAuto: false,
       movie_tags: [],
       movie_data: null,
       isSplit: false,
@@ -349,7 +370,15 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                   minWidth="130px"
                 />
 
-                <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />
+                <AutocompleteInput
+                  value={row.heading}
+                  onChange={val => {
+                    updateRow(row.id, 'heading', val);
+                    maybeSuggestDescription(row.id, val, row.amount);
+                  }}
+                  options={categories}
+                  placeholder="Category"
+                />
 
                 <input
                   type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00"
@@ -357,7 +386,9 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                   onChange={e => updateRow(row.id, 'amount', e.target.value)}
                   onBlur={e => {
                     const evalAmt = evaluateMath(e.target.value);
+                    const finalAmt = (evalAmt !== null && evalAmt !== '') ? evalAmt : e.target.value;
                     if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
+                    maybeSuggestDescription(row.id, row.heading, finalAmt);
                   }}
                 />
 
@@ -371,7 +402,11 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
                 ) : (
                   <AutocompleteInput
                     value={row.description}
-                    onChange={val => updateRow(row.id, 'description', val)}
+                    onChange={val => {
+                      updateRow(row.id, 'description', val);
+                      if (row.descriptionAuto) updateRow(row.id, 'descriptionAuto', false);
+                    }}
+                    className={row.descriptionAuto ? 'auto-suggested' : ''}
                     options={recentDescriptions}
                     placeholder="Optional note..."
                   />

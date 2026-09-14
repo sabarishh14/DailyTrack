@@ -6,7 +6,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from '../pages/SabDekho';
 
 
-export default function AutocompleteInput({ value, onChange, options, placeholder }) {
+export default function AutocompleteInput({ value, onChange, options, placeholder, className, onBlur }) {
   const [filtered, setFiltered] = useState([]);
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -52,7 +52,7 @@ export default function AutocompleteInput({ value, onChange, options, placeholde
   return (
     <div style={{ position: 'relative', width: '100%', height: '40px' }}>
       <input
-        type="text" className="bulk-inp" placeholder={placeholder}
+        type="text" className={`bulk-inp${className ? ' ' + className : ''}`} placeholder={placeholder}
         value={value} onChange={handleType} onKeyDown={handleKeyDown}
         onFocus={() => {
           const lowerVal = value.toLowerCase();
@@ -61,7 +61,10 @@ export default function AutocompleteInput({ value, onChange, options, placeholde
           setFiltered([...startsWith, ...contains]);
           setShow(true);
         }}
-        onBlur={() => setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200)}
+        onBlur={() => {
+          setTimeout(() => { setShow(false); setActiveIndex(-1); }, 200);
+          if (onBlur) onBlur();
+        }}
       />
       {show && filtered.length > 0 && (
         <div className="custom-dropdown" ref={listRef}>

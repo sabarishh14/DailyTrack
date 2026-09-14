@@ -69,6 +69,15 @@ export default function BudgetGoalsSection({
                 if (percentage >= 80 && !isOver) colorClass = 'yellow';
                 if (isOver) colorClass = 'red';
 
+                // Pace projection: at the current day-of-month spend rate, will this
+                // land over budget by month end? Catches a fast start early, before
+                // the bar itself would ever turn red.
+                const now = new Date();
+                const dayOfMonth = now.getDate();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const projected = spent * (daysInMonth / dayOfMonth);
+                const showPaceWarning = !isOver && spent > 0 && projected > limit;
+
                 return (
                   <div key={b.category} className="budget-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <div className="budget-item-header">
@@ -108,6 +117,12 @@ export default function BudgetGoalsSection({
                         style={{ width: `${percentage}%`, height: '100%', borderRadius: '4px', transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
                       />
                     </div>
+
+                    {showPaceWarning && (
+                      <div style={{ fontSize: '0.78rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span aria-hidden="true">⚡</span> On pace for {fmt(projected)} by month end
+                      </div>
+                    )}
                   </div>
                 );
               })}

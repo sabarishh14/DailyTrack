@@ -5,6 +5,7 @@ import re
 import json
 import pytz
 import requests
+import pandas as pd
 from extensions import (
     db, require_api_key, require_admin,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
@@ -227,6 +228,54 @@ def update_budgets_bulk():
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+
+@money_bp.route('/api/budgets/suggestions', methods=['GET'])
+@require_api_key
+def get_budget_suggestions():
+    """Suggest a monthly budget per category from spending history.
+
+    Uses an exponentially-weighted average over completed months (the
+    in-progress month is excluded so it can't drag the average down), so
+    recent months count more than older ones. Categories need at least 2
+    completed months of spend before a suggestion is confident enough to
+    surface. "Debit" only, excluding exclude_analytics — same definition
+    of "spent" the budget progress bars already use, so the numbers line
+    up with what the user sees on screen.
+    """
+    try:
+        rows = (
+            db.session.query(Transaction.heading, Transaction.month, Transaction.amount)
+            .filter(Transaction.type == 'Debit')
+            .filter(db.or_(Transaction.exclude_analytics == False, Transaction.exclude_analytics.is_(None)))
+            .all()
+        )
+        if not rows:
+            return jsonify({"success": True, "suggestions": {}})
+
+        df = pd.DataFrame(rows, columns=["heading", "month", "amount"])
+        df["month"] = pd.to_datetime(df["month"])
+
+        current_month_start = pd.Timestamp(date.today().replace(day=1))
+        df = df[df["month"] < current_month_start]  # drop the partial in-progress month
+        if df.empty:
+            return jsonify({"success": True, "suggestions": {}})
+
+        monthly = df.groupby(["heading", "month"], as_index=False)["amount"].sum()
+
+        suggestions = {}
+        for heading, g in monthly.groupby("heading"):
+            g = g.sort_values("month")
+            if len(g) < 2:
+                continue  # not enough history for a confident suggestion
+            ewma = g["amount"].ewm(span=3, adjust=False).mean().iloc[-1]
+            suggestions[heading] = {
+                "suggested": round(float(ewma), 2),
+                "months_of_history": int(len(g)),
+            }
+
+        return jsonify({"success": True, "suggestions": suggestions})
+    except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 # ---- TRANSACTIONS ----
 @money_bp.route('/api/transactions', methods=['GET'])

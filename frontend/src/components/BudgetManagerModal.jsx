@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { API } from '../constants';
-import { getToken } from '../utils';
+import { getToken, fmt } from '../utils';
 
 export default function BudgetManagerModal({ allHeadings, budgets, onClose, onRefresh }) {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
-  
+  const [suggestions, setSuggestions] = useState({});
+
   // Initialize local state from the passed budgets prop
   const [localBudgets, setLocalBudgets] = useState(() => {
     const map = {};
@@ -14,6 +15,30 @@ export default function BudgetManagerModal({ allHeadings, budgets, onClose, onRe
     });
     return map;
   });
+
+  // Suggested budgets, computed server-side from spending history. Purely
+  // additive — if this fails or is slow, the modal works exactly as before.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/budgets/suggestions`, {
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!cancelled && data?.success) setSuggestions(data.suggestions || {});
+      })
+      .catch(() => {}); // suggestions are a bonus, never block or error out the modal
+    return () => { cancelled = true; };
+  }, []);
+
+  // Only surface a suggestion when it actually differs from what's set now
+  const suggestionFor = (cat) => {
+    const s = suggestions[cat]?.suggested;
+    if (s == null) return null;
+    const current = parseFloat(localBudgets[cat]);
+    if (!isNaN(current) && Math.abs(current - s) < 1) return null;
+    return s;
+  };
 
   const handleValueChange = (cat, val) => {
     setLocalBudgets(prev => ({
@@ -88,9 +113,21 @@ export default function BudgetManagerModal({ allHeadings, budgets, onClose, onRe
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {displayHeadings.map(cat => (
               <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1.25rem', background: 'var(--bg2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>
-                  {cat}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                  <span style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>
+                    {cat}
+                  </span>
+                  {suggestionFor(cat) != null && (
+                    <button
+                      type="button"
+                      onClick={() => handleValueChange(cat, suggestionFor(cat))}
+                      title={`Based on the last ${suggestions[cat].months_of_history} months of spending in this category`}
+                      style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.78rem', color: 'var(--accent)' }}
+                    >
+                      <span aria-hidden="true">✦</span> Suggest {fmt(suggestionFor(cat))}
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ color: 'var(--text2)', fontSize: '0.9rem' }}>₹</span>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
