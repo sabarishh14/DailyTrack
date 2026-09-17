@@ -116,7 +116,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
 
       {/* ─── CURRENTLY WATCHING (a live snapshot, so only for this year / all time) ─── */}
       {isCurrentYear && d.in_progress?.length > 0 && (
-        <Section icon="▶️" title="Currently Watching" hint="Episodes marked watched">
+        <Section icon="▶️" title="Currently Watching" hint="Episodes logged so far">
           <div className="stats-poster-grid">
             {d.in_progress.map(s => (
               <PosterTile
@@ -140,7 +140,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
         <>
           {/* ─── MOST WATCHED ─── */}
           {d.most_watched?.length > 0 && (
-            <Section icon="📺" title="Most Watched Shows" hint="By episodes">
+            <Section icon="📺" title="Most Watched Shows" hint="Whole-season logs count every episode">
               <div className="stats-poster-grid">
                 {d.most_watched.map(s => (
                   <PosterTile
@@ -216,7 +216,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
                     key={i}
                     className="stats-week-bar"
                     style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0' }}
-                    data-count={`W${i + 1}: ${plural(count, 'log', 'logs')}`}
+                    data-count={`W${i + 1}: ${plural(count, 'episode', 'episodes')}`}
                   />
                 ))}
               </div>
@@ -257,7 +257,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
                     <div
                       className="stats-month-bar"
                       style={{ height: count > 0 ? `${Math.max(6, (count / maxMonth) * 100)}%` : '4px' }}
-                      data-count={`${MONTHS[i]}: ${plural(count, 'log', 'logs')}`}
+                      data-count={`${MONTHS[i]}: ${plural(count, 'episode', 'episodes')}`}
                     />
                     <span className="stats-month-label">{MONTHS[i]}</span>
                   </div>
@@ -298,7 +298,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
                     <div
                       className={`stats-day-bar ${i >= 5 ? 'weekend' : ''}`}
                       style={{ height: count > 0 ? `${Math.max(4, (count / maxDay) * 80)}px` : '4px' }}
-                      data-count={plural(count, 'log', 'logs')}
+                      data-count={plural(count, 'episode', 'episodes')}
                     />
                     <span className="stats-day-label">{DAYS[i]}</span>
                   </div>

@@ -720,7 +720,11 @@ def get_tv_stats():
                 if show_seen["whole"] and sizes:
                     diary_episodes[show_id] = sum(c for n, c in sizes.items() if n > 0)
                     continue
-                from_seasons = sum(sizes.get(n, 1) for n in show_seen["seasons"])
+                # Unknown season size: count at least the episodes logged inside it.
+                from_seasons = sum(
+                    sizes[n] if sizes.get(n) else max(1, sum(1 for (season, _ep) in show_seen["episodes"] if season == n))
+                    for n in show_seen["seasons"]
+                )
                 loose = sum(1 for (season, _ep) in show_seen["episodes"] if season not in show_seen["seasons"])
                 diary_episodes[show_id] = from_seasons + loose
         in_progress = sorted(
