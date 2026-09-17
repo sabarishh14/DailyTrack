@@ -660,7 +660,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
             {[
               { id: 'library', icon: '📚', label: 'Library' },
               { id: 'diary', icon: '📅', label: 'Diary' },
-              ...(showMovies ? [{ id: 'stats', icon: '📊', label: 'Stats' }] : [])
+              { id: 'stats', icon: '📊', label: 'Stats' }
             ].map(t => (
               <button key={t.id} className={`tv-tab ${view === t.id ? 'active' : ''}`} onClick={() => setView(t.id)}>
                 <span className="tv-tab-icon">{t.icon}</span> {t.label}
@@ -1280,8 +1280,8 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
         </div>
       )}
       {/* ─── STATS ─── */}
-      {view === 'stats' && showMovies && (
-        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} refreshTrigger={refreshTrigger} />
+      {view === 'stats' && (
+        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} refreshTrigger={refreshTrigger} mediaType={mediaType} showMovies={showMovies} />
       )}
     </div>
   );

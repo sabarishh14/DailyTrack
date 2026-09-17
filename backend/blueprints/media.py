@@ -18,6 +18,163 @@ from flask import stream_with_context, Response
 
 media_bp = Blueprint("media", __name__)
 
+from sqlalchemy import text as sql_text
+from sqlalchemy.sql import func as sql_func
+
+IST = pytz.timezone('Asia/Kolkata')
+
+
+def _ist_today():
+    """Today's date where the user is — the server itself runs on UTC."""
+    return datetime.now(IST).date()
+
+
+def fetch_tmdb_movie_details(tmdb_id, session=None, timeout=5):
+    """
+    Fetch the details every movie row should carry (runtime, release date/year,
+    director, top 3 cast) in one TMDB call.
+
+    Shared by every path that creates or re-matches a Movie — manual add,
+    rematch, Letterboxd import and Cinema transactions — so they all store the
+    same fields. Never raises: on any failure it returns the same shape with
+    None values and `fetched` False, so callers can tell "TMDB has no director"
+    apart from "the request failed".
+    """
+    result = {
+        "fetched": False, "runtime": None, "release_date": None,
+        "release_year": None, "director": None, "top_cast": None,
+    }
+    if not TMDB_API_KEY or not tmdb_id:
+        return result
+
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits&language=en-US"
+    try:
+        if session is not None:
+            resp = session.get(url, timeout=timeout)
+        else:
+            resp = requests.get(
+                url,
+                headers={"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"},
+                timeout=timeout,
+            )
+        if resp.status_code != 200:
+            return result
+        d = resp.json()
+    except Exception as e:
+        print(f"TMDB details fetch failed for {tmdb_id}: {e}")
+        return result
+
+    release_date = d.get('release_date') or None
+    release_year = None
+    if release_date and len(release_date) >= 4:
+        try:
+            release_year = int(release_date[:4])
+        except ValueError:
+            release_year = None
+
+    credits = d.get('credits') or {}
+    director = next((c.get('name') for c in credits.get('crew', []) if c.get('job') == 'Director'), None)
+    cast = credits.get('cast', [])[:3]
+    top_cast = [
+        {"id": c.get("id"), "name": c.get("name"), "character": c.get("character"), "profile_path": c.get("profile_path")}
+        for c in cast
+    ] or None
+
+    result.update({
+        "fetched": True,
+        "runtime": d.get('runtime') or None,
+        "release_date": release_date,
+        "release_year": release_year,
+        "director": director,
+        "top_cast": top_cast,
+    })
+    return result
+
+
+def _release_sort_date(movie):
+    """
+    A comparable release date for a movie: the full date when known, otherwise
+    1 Jan of its release year, otherwise None.
+    """
+    raw = (movie.release_date or "").strip()
+    if raw:
+        parts = raw.split("-")
+        try:
+            year = int(parts[0])
+            month = int(parts[1]) if len(parts) > 1 and parts[1] else 1
+            day = int(parts[2]) if len(parts) > 2 and parts[2] else 1
+            return date(year, month, day)
+        except (ValueError, IndexError):
+            pass
+    if movie.release_year:
+        try:
+            return date(int(movie.release_year), 1, 1)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _longest_streak(dates):
+    """Longest run of consecutive days in an iterable of dates."""
+    ordered = sorted(set(d for d in dates if d))
+    if not ordered:
+        return {"length": 0, "start": None, "end": None}
+
+    best_len, best_start, best_end = 1, ordered[0], ordered[0]
+    run_len, run_start = 1, ordered[0]
+    for prev, cur in zip(ordered, ordered[1:]):
+        if (cur - prev).days == 1:
+            run_len += 1
+        else:
+            run_len, run_start = 1, cur
+        if run_len > best_len:
+            best_len, best_start, best_end = run_len, run_start, cur
+
+    return {
+        "length": best_len,
+        "start": best_start.strftime("%b %d, %Y"),
+        "end": best_end.strftime("%b %d, %Y"),
+    }
+
+
+def _period_units(year_param, available_years):
+    """(weeks, months) covered by a stats period, for per-week/per-month averages."""
+    today = _ist_today()
+    if year_param == 'all':
+        if not available_years:
+            return 52, 12
+        months = max(1, (today.year - min(available_years)) * 12 + today.month)
+        return max(1, months * 4.33), months
+    try:
+        yr = int(year_param)
+    except ValueError:
+        return 52, 12
+    if yr == today.year:
+        days_elapsed = max(1, (today - date(yr, 1, 1)).days)
+        return max(1, days_elapsed / 7), max(1, days_elapsed / 30.44)
+    return 52, 12
+
+
+def _week_month_day_counts(dated_items):
+    """Bucket (date, weight) pairs into 52 ISO weeks, 12 months and 7 weekdays."""
+    by_week = [0] * 54
+    by_month = [0] * 12
+    by_day = [0] * 7
+    for d, weight in dated_items:
+        if not d:
+            continue
+        wk = d.isocalendar()[1]
+        if d.month == 1 and wk >= 52:
+            wk = 1
+        elif d.month == 12 and wk == 1:
+            wk = 53
+        if 1 <= wk <= 53:
+            by_week[wk] += weight
+        by_month[d.month - 1] += weight
+        by_day[d.weekday()] += weight
+    by_week[52] += by_week[53]
+    return by_week[1:53], by_month, by_day
+
 # ==========================================
 # 📺 TV TRACKER ENDPOINTS
 # ==========================================
@@ -176,6 +333,7 @@ def update_tv_show(show_id):
     if request.method == 'DELETE':
         db.session.delete(show)
         db.session.commit()
+        invalidate_stats_cache()
         return jsonify({"success": True, "message": "Show deleted"})
         
     # PUT
@@ -187,8 +345,9 @@ def update_tv_show(show_id):
         
     if 'watched_episodes' in data:
         show.watched_episodes = data['watched_episodes']
-        
+
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True, "message": "Show updated"})
 
 @media_bp.route('/api/tv/diary', methods=['GET'])
@@ -240,6 +399,7 @@ def add_tv_diary():
     
     db.session.add(new_log)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
 
 @media_bp.route('/api/tv/diary', methods=['PUT'])
@@ -259,6 +419,7 @@ def update_tv_diary():
     
     TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True})
 
 @media_bp.route('/api/tv/diary', methods=['DELETE'])
@@ -270,7 +431,359 @@ def delete_tv_diary():
         
     TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).delete(synchronize_session=False)
     db.session.commit()
+    invalidate_stats_cache()
     return jsonify({"success": True})
+
+# --- TV STATS ---
+# Actions TvActivityLog records when a show becomes finished.
+_TV_COMPLETION_ACTIONS = ("Status changed to WATCHED", "Added to library as WATCHED")
+
+
+# tmdb_id -> (fetched_at, {season_number: episode_count}). Season sizes barely
+# change, so a day per worker is plenty; a failed lookup is cached briefly too
+# so one bad show can't slow every stats request.
+_tv_season_sizes_cache = {}
+_TV_SEASON_SIZES_TTL = timedelta(hours=24)
+_TV_SEASON_SIZES_FAILURE_TTL = timedelta(minutes=10)
+
+
+def _fetch_tv_season_sizes(tmdb_id):
+    """{season_number: episode_count} for a show from TMDB, or None if unavailable."""
+    if not TMDB_API_KEY or not tmdb_id:
+        return None
+    cached = _tv_season_sizes_cache.get(tmdb_id)
+    now = datetime.utcnow()
+    if cached:
+        fetched_at, sizes = cached
+        ttl = _TV_SEASON_SIZES_TTL if sizes is not None else _TV_SEASON_SIZES_FAILURE_TTL
+        if now - fetched_at < ttl:
+            return sizes
+
+    sizes = None
+    try:
+        resp = requests.get(
+            f"https://api.themoviedb.org/3/tv/{tmdb_id}?language=en-US",
+            headers={"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"},
+            timeout=6,
+        )
+        if resp.status_code == 200:
+            sizes = {
+                int(season["season_number"]): int(season.get("episode_count") or 0)
+                for season in resp.json().get("seasons", [])
+                if season.get("season_number") is not None
+            }
+    except Exception as e:
+        print(f"TMDB season sizes fetch failed for {tmdb_id}: {e}")
+
+    _tv_season_sizes_cache[tmdb_id] = (now, sizes)
+    return sizes
+
+
+def _season_sizes_for(tmdb_ids):
+    """Season sizes for several shows at once, fetched in parallel."""
+    from concurrent.futures import ThreadPoolExecutor
+    ids = sorted({t for t in tmdb_ids if t})
+    if not ids:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(ids))) as pool:
+        return dict(zip(ids, pool.map(_fetch_tv_season_sizes, ids)))
+
+
+def _episodes_in_log(log, season_sizes):
+    """
+    How many episodes a diary log stands for.
+
+    An episode log is one episode. A season log (season set, no episode) is every
+    episode of that season, and a whole-show log (neither set) is every episode
+    outside specials — the same way the web app decides a show is finished.
+    When TMDB can't tell us the size, the log still counts as one.
+    """
+    if log.episode_number is not None:
+        return 1
+    if not season_sizes:
+        return 1
+    if log.season_number is not None:
+        return season_sizes.get(log.season_number) or 1
+    return sum(count for number, count in season_sizes.items() if number > 0) or 1
+
+
+def _count_watched_episodes(watched_episodes):
+    """Episodes marked watched in a show's {"season": [episodes]} progress map."""
+    if not isinstance(watched_episodes, dict):
+        return 0
+    return sum(len(eps) for eps in watched_episodes.values() if isinstance(eps, (list, tuple)))
+
+
+@media_bp.route('/api/tv/stats', methods=['GET'])
+@require_api_key
+def get_tv_stats():
+    """
+    Year-in-TV stats, the counterpart to /api/movies/stats.
+
+    Counts are episode-based wherever a log names an episode; season- or
+    show-level logs still count towards activity, shows and ratings. Hours
+    aren't reported because episode runtimes aren't stored.
+    """
+    from sqlalchemy.sql import extract
+
+    year_param = request.args.get('year', str(_ist_today().year))
+
+    fingerprint = _stats_fingerprint(_TV_STATS_FINGERPRINT_SQL)
+    cached = _tv_stats_cache.get(year_param)
+    if fingerprint and cached and cached[0] == fingerprint:
+        return jsonify(cached[1])
+
+    try:
+        year_rows = db.session.query(extract('year', TvDiaryLog.date).label('yr')).distinct().all()
+        available_years = sorted({int(r.yr) for r in year_rows if r.yr}, reverse=True)
+
+        selected_year = None
+        query = TvDiaryLog.query.options(joinedload(TvDiaryLog.tv_show))
+        if year_param != 'all':
+            try:
+                selected_year = int(year_param)
+                query = query.filter(extract('year', TvDiaryLog.date) == selected_year)
+            except ValueError:
+                selected_year = None
+        logs = [l for l in query.all() if l.tv_show]
+
+        def show_summary(show):
+            return {
+                "show_id": show.id,
+                "tmdb_id": show.tmdb_id,
+                "name": show.name,
+                "poster_path": show.poster_path,
+                "status": show.status,
+            }
+
+        # --- Headline counts ---
+        # Season and whole-show logs expand to the episodes they cover, so
+        # logging "Season 2" counts all of Season 2 rather than one entry.
+        needs_sizes = {l.tv_show.tmdb_id for l in logs if l.episode_number is None}
+        season_sizes = _season_sizes_for(needs_sizes)
+        episode_weight = {l.id: _episodes_in_log(l, season_sizes.get(l.tv_show.tmdb_id)) for l in logs}
+
+        episode_logs = [l for l in logs if l.episode_number is not None]
+        episodes_watched = sum(episode_weight.values())
+        shows_watched = len({l.tv_show_id for l in logs})
+        seasons_watched = len({
+            (l.tv_show_id, l.season_number) for l in logs if l.season_number is not None
+        })
+        total_likes = sum(1 for l in logs if l.liked)
+        total_reviews = sum(1 for l in logs if l.review and l.review.strip())
+        total_rewatches = sum(1 for l in logs if l.rewatch)
+        ratings = [l.rating for l in logs if l.rating and l.rating > 0]
+        average_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+
+        num_weeks, num_months = _period_units(year_param, available_years)
+        avg_per_week = round(episodes_watched / num_weeks, 1)
+        avg_per_month = round(episodes_watched / num_months, 1)
+
+        # --- Activity charts (every log counts, so season logs still show up) ---
+        by_week, by_month, by_day = _week_month_day_counts((l.date, episode_weight[l.id]) for l in logs)
+
+        episodes_by_year_map = {}
+        for l in logs:
+            episodes_by_year_map[l.date.year] = episodes_by_year_map.get(l.date.year, 0) + episode_weight[l.id]
+        episodes_by_year = [{"year": y, "count": c} for y, c in sorted(episodes_by_year_map.items())]
+
+        # --- Per-show rollups ---
+        per_show = {}
+        for l in logs:
+            entry = per_show.get(l.tv_show_id)
+            if entry is None:
+                entry = {
+                    **show_summary(l.tv_show),
+                    "episodes": 0,
+                    "logs": 0,
+                    "first_watched": l.date,
+                    "last_watched": l.date,
+                    "_ratings": [],
+                }
+                per_show[l.tv_show_id] = entry
+            entry["logs"] += 1
+            entry["episodes"] += episode_weight[l.id]
+            if l.date < entry["first_watched"]:
+                entry["first_watched"] = l.date
+            if l.date > entry["last_watched"]:
+                entry["last_watched"] = l.date
+            if l.rating and l.rating > 0:
+                entry["_ratings"].append(l.rating)
+
+        def public(entry, **extra):
+            out = {k: v for k, v in entry.items() if not k.startswith("_")}
+            out["first_watched"] = entry["first_watched"].isoformat()
+            out["last_watched"] = entry["last_watched"].isoformat()
+            out.update(extra)
+            return out
+
+        most_watched = [
+            public(e) for e in sorted(
+                per_show.values(),
+                key=lambda e: (-e["episodes"], -e["logs"], e["name"].lower())
+            )[:12]
+        ]
+
+        rated_shows = [e for e in per_show.values() if e["_ratings"]]
+        highest_rated = [
+            public(
+                e,
+                rating=round(sum(e["_ratings"]) / len(e["_ratings"]), 1),
+                ratings_count=len(e["_ratings"]),
+            )
+            for e in sorted(
+                rated_shows,
+                key=lambda e: (-(sum(e["_ratings"]) / len(e["_ratings"])), -len(e["_ratings"]), e["name"].lower())
+            )[:12]
+        ]
+
+        # --- Biggest binge: most episodes of one show on a single day ---
+        # Only individual episode logs count here: logging a whole season on one
+        # day records when it was logged, not that it was watched that day.
+        per_day = {}
+        for l in episode_logs:
+            key = (l.tv_show_id, l.date)
+            per_day[key] = per_day.get(key, 0) + 1
+        biggest_binge = None
+        if per_day:
+            (binge_show_id, binge_date), binge_count = max(
+                per_day.items(), key=lambda kv: (kv[1], kv[0][1])
+            )
+            if binge_count >= 2:
+                show = per_show[binge_show_id]
+                biggest_binge = {
+                    "show_id": show["show_id"],
+                    "tmdb_id": show["tmdb_id"],
+                    "name": show["name"],
+                    "poster_path": show["poster_path"],
+                    "date": binge_date.isoformat(),
+                    "episodes": binge_count,
+                }
+
+        longest_streak = _longest_streak(l.date for l in logs)
+
+        # --- Rating distribution ---
+        rating_distribution = {}
+        for r in ratings:
+            key = str(r)
+            rating_distribution[key] = rating_distribution.get(key, 0) + 1
+
+        # --- Shows finished in this period ---
+        completion_query = TvActivityLog.query.options(joinedload(TvActivityLog.tv_show)).filter(
+            TvActivityLog.action.in_(_TV_COMPLETION_ACTIONS)
+        )
+        if selected_year is not None:
+            completion_query = completion_query.filter(extract('year', TvActivityLog.created_at) == selected_year)
+        latest_completion = {}
+        for act in completion_query.all():
+            if not act.tv_show or not act.created_at:
+                continue
+            previous = latest_completion.get(act.tv_show_id)
+            if previous is None or act.created_at > previous.created_at:
+                latest_completion[act.tv_show_id] = act
+        completed = sorted(
+            (
+                {**show_summary(act.tv_show), "completed_on": act.created_at.date().isoformat()}
+                for act in latest_completion.values()
+            ),
+            key=lambda c: c["completed_on"],
+            reverse=True,
+        )
+
+        # --- Currently watching (a live snapshot, not tied to the year) ---
+        watching_shows = TvShow.query.filter(TvShow.status == 'WATCHING').all()
+        last_logged = {}
+        diary_episodes = {}
+        if watching_shows:
+            watching_logs = TvDiaryLog.query.filter(
+                TvDiaryLog.tv_show_id.in_([s.id for s in watching_shows])
+            ).all()
+            watching_by_id = {s.id: s for s in watching_shows}
+            watching_sizes = _season_sizes_for(
+                watching_by_id[l.tv_show_id].tmdb_id for l in watching_logs if l.episode_number is None
+            )
+            # Distinct episodes seen so far: a rewatched episode, or an episode
+            # that's also inside a logged season, only counts once.
+            seen = {}
+            for l in watching_logs:
+                if l.date and (l.tv_show_id not in last_logged or l.date > last_logged[l.tv_show_id]):
+                    last_logged[l.tv_show_id] = l.date
+                show_seen = seen.setdefault(l.tv_show_id, {"episodes": set(), "seasons": set(), "whole": False})
+                if l.episode_number is not None:
+                    show_seen["episodes"].add((l.season_number, l.episode_number))
+                elif l.season_number is not None:
+                    show_seen["seasons"].add(l.season_number)
+                else:
+                    show_seen["whole"] = True
+            for show_id, show_seen in seen.items():
+                sizes = watching_sizes.get(watching_by_id[show_id].tmdb_id) or {}
+                if show_seen["whole"] and sizes:
+                    diary_episodes[show_id] = sum(c for n, c in sizes.items() if n > 0)
+                    continue
+                from_seasons = sum(sizes.get(n, 1) for n in show_seen["seasons"])
+                loose = sum(1 for (season, _ep) in show_seen["episodes"] if season not in show_seen["seasons"])
+                diary_episodes[show_id] = from_seasons + loose
+        in_progress = sorted(
+            (
+                {
+                    **show_summary(show),
+                    "episodes_watched": max(
+                        diary_episodes.get(show.id, 0),
+                        _count_watched_episodes(show.watched_episodes),
+                    ),
+                    "last_watched": last_logged[show.id].isoformat() if last_logged.get(show.id) else None,
+                }
+                for show in watching_shows
+            ),
+            key=lambda s: (s["last_watched"] is not None, s["last_watched"] or ""),
+            reverse=True,
+        )
+
+        status_counts = {
+            status: count for status, count in db.session.query(TvShow.status, sql_func.count(TvShow.id))
+            .group_by(TvShow.status).all()
+            if status and status != 'NONE'
+        }
+
+        result = {
+            "success": True,
+            "year": year_param,
+            "available_years": available_years,
+            "episodes_watched": episodes_watched,
+            "shows_watched": shows_watched,
+            "seasons_watched": seasons_watched,
+            "total_entries": len(logs),
+            "total_likes": total_likes,
+            "total_reviews": total_reviews,
+            "total_rewatches": total_rewatches,
+            "average_rating": average_rating,
+            "shows_completed": len(completed),
+            "avg_per_week": avg_per_week,
+            "avg_per_month": avg_per_month,
+            "by_week": by_week,
+            "by_month": by_month,
+            "by_day": by_day,
+            "episodes_by_year": episodes_by_year,
+            "rating_distribution": rating_distribution,
+            "most_watched": most_watched,
+            "highest_rated": highest_rated,
+            "biggest_binge": biggest_binge,
+            "longest_streak": longest_streak,
+            "completed": completed,
+            "in_progress": in_progress,
+            "status_counts": status_counts,
+        }
+
+        if fingerprint:
+            _tv_stats_cache[year_param] = (fingerprint, result)
+
+        return jsonify(result)
+    except Exception as e:
+        print(f"TV stats error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
 
 # ==========================================
 # 🎬 MOVIE TRACKER ENDPOINTS
@@ -330,23 +843,72 @@ def get_movie_tags():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
-# --- MOVIE STATS CACHE ---
+# --- STATS CACHES ---
+# The backend runs as several gunicorn worker processes, each with its own
+# memory. Clearing a plain in-process cache on write only clears the worker that
+# handled that write, so the others kept serving stale stats indefinitely.
+#
+# Each cached entry is therefore stored alongside a fingerprint of the data it
+# was computed from. Every stats request recomputes that fingerprint (one cheap
+# aggregate query) and only reuses the cache when it still matches — correct on
+# every worker, and for writes made outside the API (utils scripts, direct SQL).
 _stats_cache = {}
+_tv_stats_cache = {}
+
+_MOVIE_STATS_FINGERPRINT_SQL = """
+SELECT
+  (SELECT md5(coalesce(string_agg(
+      concat_ws('|', id, movie_id, date, rating, liked, rewatch, md5(coalesce(review, '')), tags),
+      ',' ORDER BY id), '')) FROM movie_diary_logs)
+  || (SELECT md5(coalesce(string_agg(
+      concat_ws('|', id, tmdb_id, name, poster_path, runtime, release_year, release_date),
+      ',' ORDER BY id), '')) FROM movies)
+"""
+
+_TV_STATS_FINGERPRINT_SQL = """
+SELECT
+  (SELECT md5(coalesce(string_agg(
+      concat_ws('|', id, tv_show_id, season_number, episode_number, date, rating, liked, rewatch,
+                md5(coalesce(review, '')), tags),
+      ',' ORDER BY id), '')) FROM tv_diary_logs)
+  || (SELECT md5(coalesce(string_agg(
+      concat_ws('|', id, tmdb_id, name, poster_path, status, watched_episodes::text),
+      ',' ORDER BY id), '')) FROM tv_shows)
+  || (SELECT md5(coalesce(string_agg(
+      concat_ws('|', id, tv_show_id, action, created_at),
+      ',' ORDER BY id), '')) FROM tv_activity_logs)
+"""
+
+
+def _stats_fingerprint(sql):
+    """Fingerprint of the rows a stats payload depends on, or None if unavailable."""
+    try:
+        return db.session.execute(sql_text(sql)).scalar()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Stats fingerprint unavailable, serving uncached: {e}")
+        return None
+
+
 def invalidate_stats_cache():
-    """Call this whenever diary logs change (add/delete/RSS sync)."""
-    global _stats_cache
+    """
+    Drop this worker's cached stats straight away after a write it handled.
+    Other workers notice the change through the fingerprint check.
+    """
     _stats_cache.clear()
+    _tv_stats_cache.clear()
 
 @media_bp.route('/api/movies/stats', methods=['GET'])
 @require_api_key
 def get_movie_stats():
     from sqlalchemy.sql import func, extract
     
-    year_param = request.args.get('year', str(datetime.now().year))
-    
-    # Check cache
-    if year_param in _stats_cache:
-        return jsonify(_stats_cache[year_param])
+    year_param = request.args.get('year', str(_ist_today().year))
+
+    fingerprint = _stats_fingerprint(_MOVIE_STATS_FINGERPRINT_SQL)
+    cached = _stats_cache.get(year_param)
+    if fingerprint and cached and cached[0] == fingerprint:
+        return jsonify(cached[1])
     
     try:
         # Get available years
@@ -506,8 +1068,9 @@ def get_movie_stats():
         rewatched_ids = [(mid, cnt) for mid, cnt in rewatch_count.items() if cnt >= 2]
         rewatched_ids.sort(key=lambda x: -x[1])
         most_rewatched = []
+        movies_by_id = {l.movie_id: l.movie for l in logs if l.movie}
         for mid, cnt in rewatched_ids[:10]:
-            m = Movie.query.get(mid)
+            m = movies_by_id.get(mid)
             if m:
                 most_rewatched.append({
                     "movie_id": m.id, "tmdb_id": m.tmdb_id, "name": m.name,
@@ -596,52 +1159,51 @@ def get_movie_stats():
         }
         
         # --- Extremes ---
+        # Oldest/newest compare full release dates, so two films from the same
+        # year order correctly (a year-only film counts as 1 Jan). "Newest" is the
+        # watched film released most recently up to today — never a date that
+        # hasn't happened yet, which only festival screenings or bad data produce.
+        today = _ist_today()
+        last_watched = {}
+        for l in logs:
+            if l.movie_id and l.date and (l.movie_id not in last_watched or l.date > last_watched[l.movie_id]):
+                last_watched[l.movie_id] = l.date
+
         longest_film = None
         shortest_film = None
-        oldest_film = None
-        newest_film = None
-        
-        for l in logs:
-            if not l.movie:
-                continue
-                
-            m = l.movie
-            m_year = m.release_year
-            if not m_year and m.release_date and len(m.release_date) >= 4:
-                try:
-                    m_year = int(m.release_date[:4])
-                except ValueError:
-                    pass
+        oldest_film, oldest_key = None, None
+        newest_film, newest_key = None, None
+        seen_movie_ids = set()
 
+        for l in logs:
+            m = l.movie
+            if not m or m.id in seen_movie_ids:
+                continue
+            seen_movie_ids.add(m.id)
+
+            released_on = _release_sort_date(m)
+            watched_on = last_watched.get(m.id)
             movie_obj = {
-                "id": m.id, "tmdb_id": m.tmdb_id, "name": m.name, 
-                "poster_path": m.poster_path, "runtime": m.runtime, 
-                "release_year": m_year, "release_date": m.release_date
+                "id": m.id, "tmdb_id": m.tmdb_id, "name": m.name,
+                "poster_path": m.poster_path, "runtime": m.runtime,
+                "release_year": released_on.year if released_on else m.release_year,
+                "release_date": m.release_date,
+                "watched_date": watched_on.isoformat() if watched_on else None,
             }
-            
+
             if m.runtime:
                 if not longest_film or m.runtime > longest_film["runtime"]:
                     longest_film = movie_obj
                 if not shortest_film or m.runtime < shortest_film["runtime"]:
                     shortest_film = movie_obj
-            
-            if m_year:
-                if not oldest_film or m_year < oldest_film["release_year"]:
-                    oldest_film = movie_obj
-                elif m_year == oldest_film["release_year"]:
-                    if m.release_date and oldest_film["release_date"] and m.release_date < oldest_film["release_date"]:
-                        oldest_film = movie_obj
-                    elif (not m.release_date or not oldest_film["release_date"]) and m.tmdb_id < oldest_film["tmdb_id"]:
-                        oldest_film = movie_obj
-                        
-                if not newest_film or m_year > newest_film["release_year"]:
-                    newest_film = movie_obj
-                elif m_year == newest_film["release_year"]:
-                    if m.release_date and newest_film["release_date"] and m.release_date > newest_film["release_date"]:
-                        newest_film = movie_obj
-                    elif (not m.release_date or not newest_film["release_date"]) and m.tmdb_id > newest_film["tmdb_id"]:
-                        newest_film = movie_obj
-        
+
+            if released_on and released_on <= today:
+                tie_break = m.tmdb_id or 0
+                if oldest_key is None or (released_on, -tie_break) < oldest_key:
+                    oldest_key, oldest_film = (released_on, -tie_break), movie_obj
+                if newest_key is None or (released_on, tie_break) > newest_key:
+                    newest_key, newest_film = (released_on, tie_break), movie_obj
+
         extremes = {
             "longest": longest_film,
             "shortest": shortest_film,
@@ -674,8 +1236,8 @@ def get_movie_stats():
             "longest_streak": longest_streak
         }
         
-        # Cache the result
-        _stats_cache[year_param] = result
+        if fingerprint:
+            _stats_cache[year_param] = (fingerprint, result)
         
         return jsonify(result)
     except Exception as e:
@@ -755,36 +1317,23 @@ def add_movie():
 
     rel_year = None
     try:
-        if 'year' in data and data['year']:
+        if data.get('year'):
             rel_year = int(str(data['year'])[:4])
-    except:
-        pass
-        
-    director = None
-    top_cast = None
-    runtime = None
-    
-    if TMDB_API_KEY:
-        try:
-            url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits&language=en-US"
-            headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                d = resp.json()
-                runtime = d.get('runtime')
-                rel_date = d.get('release_date')
-                if rel_date:
-                    if not rel_year:
-                        rel_year = int(rel_date[:4])
-                credits = d.get('credits', {})
-                crew = credits.get('crew', [])
-                director = next((c['name'] for c in crew if c['job'] == 'Director'), None)
-                cast = credits.get('cast', [])
-                top_cast = [{"id": c["id"], "name": c["name"], "character": c["character"], "profile_path": c.get("profile_path")} for c in cast[:3]]
-        except Exception as e:
-            print("Error fetching TMDB credits on add:", e)
-            
-    new_movie = Movie(tmdb_id=tmdb_id, name=name, poster_path=poster_path, status=status, release_year=rel_year, release_date=rel_date if 'rel_date' in locals() else None, director=director, top_cast=top_cast, runtime=runtime)
+    except (TypeError, ValueError):
+        rel_year = None
+
+    details = fetch_tmdb_movie_details(tmdb_id)
+    new_movie = Movie(
+        tmdb_id=tmdb_id,
+        name=name,
+        poster_path=poster_path,
+        status=status,
+        release_year=rel_year or details["release_year"],
+        release_date=details["release_date"],
+        director=details["director"],
+        top_cast=details["top_cast"],
+        runtime=details["runtime"],
+    )
 
     db.session.add(new_movie)
     db.session.commit()
@@ -807,6 +1356,7 @@ def update_movie(movie_id):
     if request.method == 'DELETE':
         db.session.delete(movie)
         db.session.commit()
+        invalidate_stats_cache()
         return jsonify({"success": True, "message": "Movie deleted"})
     data = request.json
     if 'status' in data and movie.status != data['status']:
@@ -839,32 +1389,23 @@ def rematch_movie(movie_id):
     
     rel_year = None
     try:
-        if 'year' in data and data['year']:
+        if data.get('year'):
             rel_year = int(str(data['year'])[:4])
-    except:
-        pass
-    movie.release_year = rel_year
+    except (TypeError, ValueError):
+        rel_year = None
 
-    if TMDB_API_KEY:
-        try:
-            url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?append_to_response=credits&language=en-US"
-            headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
-            resp = requests.get(url, headers=headers, timeout=5)
-            if resp.status_code == 200:
-                d = resp.json()
-                movie.runtime = d.get('runtime')
-                if d.get('release_date'):
-                    movie.release_date = d['release_date']
-                    if not rel_year:
-                        movie.release_year = int(d['release_date'][:4])
-                credits = d.get('credits', {})
-                crew = credits.get('crew', [])
-                movie.director = next((c['name'] for c in crew if c['job'] == 'Director'), None)
-                cast = credits.get('cast', [])
-                movie.top_cast = [{"id": c["id"], "name": c["name"], "character": c["character"], "profile_path": c.get("profile_path")} for c in cast[:3]]
-        except Exception as e:
-            print("Error fetching TMDB credits on rematch:", e)
-            
+    details = fetch_tmdb_movie_details(tmdb_id)
+    if details["fetched"]:
+        # Everything describes the newly matched film, so replace it outright —
+        # keeping the old film's release date or director would be wrong.
+        movie.runtime = details["runtime"]
+        movie.release_date = details["release_date"]
+        movie.release_year = rel_year or details["release_year"]
+        movie.director = details["director"]
+        movie.top_cast = details["top_cast"]
+    else:
+        movie.release_year = rel_year
+
     db.session.commit()
     invalidate_stats_cache()
     
@@ -972,6 +1513,7 @@ def _perform_rss_sync_generator(username, fast_mode=False):
         
         added_movies = 0
         added_logs = 0
+        detail_checked = set()  # movie ids whose TMDB details were already looked up this sync
 
         # Namespaces in Letterboxd RSS
         ns = {'letterboxd': 'https://letterboxd.com'}
@@ -1054,46 +1596,45 @@ def _perform_rss_sync_generator(username, fast_mode=False):
                     tmdb_id = first_result['id']
                     movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
                     if not movie:
-                        # Fetch runtime and release_year from TMDB movie details
-                        runtime_val = None
-                        rel_year_val = None
-                        try:
-                            detail_r = tmdb_session.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", timeout=timeout_secs).json()
-                            runtime_val = detail_r.get('runtime')
-                            rel_date = detail_r.get('release_date')
-                            if rel_date and len(rel_date) >= 4:
-                                rel_year_val = int(rel_date[:4])
-                        except Exception:
-                            pass
-                        
-                        # Fallback to first_result for release year if details failed
-                        if not rel_year_val and first_result.get('release_date'):
+                        details = fetch_tmdb_movie_details(tmdb_id, session=tmdb_session, timeout=timeout_secs)
+                        fallback_year = None
+                        if first_result.get('release_date'):
                             try:
-                                rel_year_val = int(first_result.get('release_date')[:4])
-                            except:
-                                pass
+                                fallback_year = int(first_result['release_date'][:4])
+                            except (TypeError, ValueError):
+                                fallback_year = None
 
                         movie = Movie(
                             tmdb_id=tmdb_id,
                             name=first_result.get('title') or film_title,
                             poster_path=first_result.get('poster_path'),
                             status='WATCHED',
-                            runtime=runtime_val,
-                            release_year=rel_year_val
+                            runtime=details["runtime"],
+                            release_year=details["release_year"] or fallback_year,
+                            release_date=details["release_date"] or first_result.get('release_date') or None,
+                            director=details["director"],
+                            top_cast=details["top_cast"],
                         )
                         db.session.add(movie)
                         db.session.flush() # Get ID
-                    elif not movie.runtime:
-                        # Backfill runtime if missing
-                        try:
-                            detail_r = tmdb_session.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", timeout=timeout_secs).json()
-                            movie.runtime = detail_r.get('runtime')
-                        except Exception:
-                            pass
+                        detail_checked.add(movie.id)  # details were just fetched
                     added_movies += 1
                 else:
                     continue # Couldn't find in TMDB
         
+            # Fill in details older imports never stored, so stats like Newest
+            # Release have a real date to work with. Only runs while something
+            # is missing, and at most once per film per sync.
+            if movie.tmdb_id and movie.id not in detail_checked and (movie.runtime is None or not movie.release_date):
+                detail_checked.add(movie.id)
+                details = fetch_tmdb_movie_details(movie.tmdb_id, session=tmdb_session, timeout=3 if fast_mode else 10)
+                if details["fetched"]:
+                    movie.runtime = movie.runtime or details["runtime"]
+                    movie.release_date = movie.release_date or details["release_date"]
+                    movie.release_year = movie.release_year or details["release_year"]
+                    movie.director = movie.director or details["director"]
+                    movie.top_cast = movie.top_cast or details["top_cast"]
+
             # Ensure movie status is WATCHED if we are importing a log
             if movie.status != 'WATCHED':
                 movie.status = 'WATCHED'

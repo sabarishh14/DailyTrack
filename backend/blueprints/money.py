@@ -13,7 +13,7 @@ from extensions import (
 )
 from models import *
 
-from blueprints.media import invalidate_stats_cache, _perform_rss_sync_generator
+from blueprints.media import invalidate_stats_cache, _perform_rss_sync_generator, fetch_tmdb_movie_details
 
 money_bp = Blueprint("money", __name__)
 
@@ -408,25 +408,19 @@ def add_transaction():
                     
                     movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
                     if not movie:
-                        # Try to fetch runtime from TMDB
-                        runtime_val = None
-                        try:
-                            tmdb_headers = {"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"}
-                            detail_r = requests.get(f"https://api.themoviedb.org/3/movie/{tmdb_id}", headers=tmdb_headers, timeout=5).json()
-                            runtime_val = detail_r.get('runtime')
-                            rel_date = detail_r.get('release_date')
-                            if rel_date and len(rel_date) >= 4:
-                                release_year_val = int(rel_date[:4])
-                        except Exception:
-                            pass
-                        
+                        # Fetched per movie: a year left over from an earlier row
+                        # in this batch must never leak onto this one.
+                        details = fetch_tmdb_movie_details(tmdb_id)
                         movie = Movie(
                             tmdb_id=tmdb_id,
                             name=movie_title,
                             poster_path=movie_data.get('poster_path'),
                             status='WATCHED',
-                            runtime=runtime_val,
-                            release_year=release_year_val if 'release_year_val' in locals() else None
+                            runtime=details["runtime"],
+                            release_year=details["release_year"],
+                            release_date=details["release_date"],
+                            director=details["director"],
+                            top_cast=details["top_cast"],
                         )
                         db.session.add(movie)
                         db.session.flush()
@@ -436,7 +430,9 @@ def add_transaction():
                     existing_log = MovieDiaryLog.query.filter_by(movie_id=movie.id, date=log_date).first()
                     
                     # Add automatic tags
-                    current_year = datetime.now().year
+                    # Tag by the year of the visit itself, so a backdated entry
+                    # from last December doesn't land in this year's theatre stats.
+                    current_year = log_date.year
                     auto_tags = ["overall-theatres", f"theatres-{current_year}"]
                     
                     # Convert incoming comma string or array to array

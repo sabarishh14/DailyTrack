@@ -1,17 +1,35 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import CustomSelect from '../../components/CustomSelect';
+import TvStatsSections from './TvStatsSections';
 
 // ═══════════════════════════════════════════════════════════════════════
-// STATS VIEW — Letterboxd-Inspired Movie Stats
+// STATS VIEW — Letterboxd-Inspired Movie & TV Stats
+// Follows the page's All / Movies / TV Shows switch: movie stats, TV stats,
+// or both under one shared year picker.
 // ═══════════════════════════════════════════════════════════════════════
 
 const TMDB_IMG_STATS = 'https://image.tmdb.org/t/p';
 
-export default function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, refreshTrigger }) {
+// "2026-03-14" → "14 Mar 2026"; partial or missing dates fall back to the year.
+const releaseLabel = (movie) => {
+  if (!movie) return null;
+  const raw = movie.release_date || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = new Date(`${raw}T00:00:00`);
+    if (!isNaN(d)) return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return movie.release_year;
+};
+
+export default function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, refreshTrigger, mediaType = 'movie', showMovies = true }) {
   const [error, setError] = useState(null);
-  const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
-  const [theatreFilter, setTheatreFilter] = useState('all');
-  const [showAllTheatreTags, setShowAllTheatreTags] = useState(false);
+  const [tvStats, setTvStats] = useState(null);
+  const [tvLoading, setTvLoading] = useState(false);
+  const [tvError, setTvError] = useState(null);
+
+  const showMovieStats = showMovies && mediaType !== 'tv';
+  const showTvStats = !showMovies || mediaType !== 'movie';
+  const showBoth = showMovieStats && showTvStats;
 
   const fetchStats = useCallback(async (year) => {
     setStatsLoading(true);
@@ -32,14 +50,132 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
     setStatsLoading(false);
   }, [API, getToken, setStatsData, setStatsLoading]);
 
-  useEffect(() => {
-    fetchStats(statsYear);
-    setHighestRatedFilter('current');
-  }, [statsYear, fetchStats, refreshTrigger]);
+  const fetchTvStats = useCallback(async (year) => {
+    setTvLoading(true);
+    setTvError(null);
+    try {
+      const r = await fetch(`${API}/tv/stats?year=${year}`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      const data = await r.json();
+      if (data.success) {
+        setTvStats(data);
+      } else {
+        setTvError(data.message || 'Failed to load TV stats');
+      }
+    } catch (e) {
+      setTvError(e.message);
+    }
+    setTvLoading(false);
+  }, [API, getToken]);
 
-  const handleYearChange = (e) => {
-    setStatsYear(e.target.value);
-  };
+  useEffect(() => {
+    if (showMovieStats) fetchStats(statsYear);
+  }, [statsYear, fetchStats, refreshTrigger, showMovieStats]);
+
+  useEffect(() => {
+    if (showTvStats) fetchTvStats(statsYear);
+  }, [statsYear, fetchTvStats, refreshTrigger, showTvStats]);
+
+  // Every year either kind of log exists in, newest first.
+  const yearOptions = useMemo(() => {
+    const years = new Set();
+    if (showMovieStats) (statsData?.available_years || []).forEach(y => years.add(y));
+    if (showTvStats) (tvStats?.available_years || []).forEach(y => years.add(y));
+    years.add(new Date().getFullYear());
+    return [
+      { value: 'all', label: 'All Time' },
+      ...[...years].sort((a, b) => b - a).map(y => ({ value: String(y), label: String(y) }))
+    ];
+  }, [statsData, tvStats, showMovieStats, showTvStats]);
+
+  const waitingForMovies = showMovieStats && !statsData && !error;
+  const waitingForTv = showTvStats && !tvStats && !tvError;
+
+  if (waitingForMovies || waitingForTv) {
+    return (
+      <div className="stats-loading">
+        <div className="tv-loading-spinner" style={{ width: '32px', height: '32px', borderWidth: '3px' }} />
+        <span>Loading your stats...</span>
+      </div>
+    );
+  }
+
+  const movieUnavailable = showMovieStats && !statsData;
+  const tvUnavailable = showTvStats && !tvStats;
+  if ((!showMovieStats || movieUnavailable) && (!showTvStats || tvUnavailable)) {
+    return (
+      <div className="stats-loading">
+        <span style={{ fontSize: '2rem' }}>😕</span>
+        <span>{error || tvError || 'Stats are unavailable right now'}</span>
+      </div>
+    );
+  }
+
+  const subtitle = (() => {
+    const kind = showBoth ? 'on screen' : showTvStats ? 'in TV' : 'in film';
+    return statsYear === 'all'
+      ? `Your all-time ${showBoth ? 'movie & TV' : showTvStats ? 'TV' : 'movie'} journey`
+      : `Your ${statsYear} year ${kind}`;
+  })();
+
+  return (
+    <div className="stats-container">
+      {/* ─── HERO ─── */}
+      <div className="stats-hero">
+        <div className="stats-year-display">{statsYear === 'all' ? '∞' : statsYear}</div>
+        <div style={{ width: '120px', margin: '0 auto 8px', position: 'relative', zIndex: 10 }}>
+          <CustomSelect
+            value={statsYear}
+            onChange={(val) => setStatsYear(val)}
+            options={yearOptions}
+          />
+        </div>
+        <div className="stats-subtitle">{subtitle}</div>
+        {(statsLoading || tvLoading) && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div className="tv-loading-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block' }} />
+          </div>
+        )}
+      </div>
+
+      {showMovieStats && (
+        <>
+          {showBoth && <div className="stats-media-divider"><span>🎬 Movies</span></div>}
+          {statsData ? (
+            <MovieStatsSections d={statsData} statsYear={statsYear} openModal={openModal} />
+          ) : (
+            <div className="stats-empty"><span className="stats-empty-icon">😕</span><span>{error}</span></div>
+          )}
+        </>
+      )}
+
+      {showTvStats && (
+        <>
+          {showBoth && <div className="stats-media-divider"><span>📺 TV Shows</span></div>}
+          {tvStats ? (
+            <TvStatsSections data={tvStats} statsYear={statsYear} openModal={openModal} />
+          ) : (
+            <div className="stats-empty"><span className="stats-empty-icon">😕</span><span>{tvError}</span></div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MOVIE SECTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function MovieStatsSections({ d, statsYear, openModal }) {
+  const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
+  const [theatreFilter, setTheatreFilter] = useState('all');
+  const [showAllTheatreTags, setShowAllTheatreTags] = useState(false);
+
+  useEffect(() => {
+    setHighestRatedFilter('current');
+  }, [statsYear]);
 
   // Render star icons for a given rating
   const renderStars = (rating) => {
@@ -55,10 +191,10 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
   };
 
   const filteredAndGroupedTheatreMovies = useMemo(() => {
-    if (!statsData || !statsData.theatre_stats || !statsData.theatre_stats.movies) return [];
+    if (!d || !d.theatre_stats || !d.theatre_stats.movies) return [];
 
     // Filter first, so counts are accurate for the specific filter
-    const filtered = statsData.theatre_stats.movies.filter(m =>
+    const filtered = d.theatre_stats.movies.filter(m =>
       theatreFilter === 'all' || m.tags.includes(theatreFilter)
     );
 
@@ -72,29 +208,8 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
     });
 
     return Object.values(map).map(m => ({ ...m, tags: Array.from(m.allTags) }));
-  }, [statsData, theatreFilter]);
+  }, [d, theatreFilter]);
 
-  if (statsLoading && !statsData) {
-    return (
-      <div className="stats-loading">
-        <div className="tv-loading-spinner" style={{ width: '32px', height: '32px', borderWidth: '3px' }} />
-        <span>Loading your stats...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="stats-loading">
-        <span style={{ fontSize: '2rem' }}>😕</span>
-        <span>{error}</span>
-      </div>
-    );
-  }
-
-  if (!statsData) return null;
-
-  const d = statsData;
   const maxWeek = Math.max(...d.by_week, 1);
   const maxDay = Math.max(...d.by_day, 1);
   const maxMonth = Math.max(...(d.by_month || []), 1);
@@ -114,30 +229,7 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
   }
 
   return (
-    <div className="stats-container">
-      {/* ─── HERO ─── */}
-      <div className="stats-hero">
-        <div className="stats-year-display">{statsYear === 'all' ? '∞' : statsYear}</div>
-        <div style={{ width: '120px', margin: '0 auto 8px', position: 'relative', zIndex: 10 }}>
-          <CustomSelect
-            value={statsYear}
-            onChange={(val) => setStatsYear(val)}
-            options={[
-              { value: 'all', label: 'All Time' },
-              ...(d.available_years || []).map(y => ({ value: String(y), label: String(y) }))
-            ]}
-          />
-        </div>
-        <div className="stats-subtitle">
-          {statsYear === 'all' ? 'Your all-time movie journey' : `Your ${statsYear} year in film`}
-        </div>
-        {statsLoading && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <div className="tv-loading-spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block' }} />
-          </div>
-        )}
-      </div>
-
+    <>
       {/* ─── SUMMARY COUNTERS ─── */}
       <div className="stats-counters">
         <div className="stats-counter-card">
@@ -385,8 +477,8 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
             {[
               { label: "Longest Film", data: d.extremes.longest, val: d.extremes.longest?.runtime ? `${d.extremes.longest.runtime} mins` : null, icon: "⏳" },
               { label: "Shortest Film", data: d.extremes.shortest, val: d.extremes.shortest?.runtime ? `${d.extremes.shortest.runtime} mins` : null, icon: "⏱️" },
-              { label: "Oldest Release", data: d.extremes.oldest, val: d.extremes.oldest?.release_year, icon: "🏛️" },
-              { label: "Newest Release", data: d.extremes.newest, val: d.extremes.newest?.release_year, icon: "✨" },
+              { label: "Oldest Release", data: d.extremes.oldest, val: releaseLabel(d.extremes.oldest), icon: "🏛️" },
+              { label: "Newest Release", data: d.extremes.newest, val: releaseLabel(d.extremes.newest), icon: "✨" },
               { label: "Longest Streak", data: d.longest_streak?.length > 0 ? { id: 'streak', name: d.longest_streak.start === d.longest_streak.end ? d.longest_streak.start : `${d.longest_streak.start} to ${d.longest_streak.end}` } : null, val: `${d.longest_streak?.length} days`, icon: "🔥", noClick: true },
             ].map((ext, i) => ext.data && (
               <div key={i} onClick={() => !ext.noClick && openModal({ id: ext.data.id, tmdb_id: ext.data.tmdb_id, type: 'movie', name: ext.data.name, poster_path: ext.data.poster_path })} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', cursor: ext.noClick ? 'default' : 'pointer' }}>
@@ -485,6 +577,6 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

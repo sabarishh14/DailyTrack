@@ -1,0 +1,330 @@
+import { useMemo } from 'react';
+
+// ═══════════════════════════════════════════════════════════════════════
+// TV STATS — the TV counterpart to the movie sections in StatsView.
+// Pure render: StatsView owns fetching, the year and the hero.
+// ═══════════════════════════════════════════════════════════════════════
+
+const TMDB_IMG = 'https://image.tmdb.org/t/p';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const RATING_KEYS = ['0.5', '1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0'];
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+const shortDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+const renderStars = (rating) => {
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    if (rating >= i) stars.push(<span key={i} className="star-filled">★</span>);
+    else if (rating >= i - 0.5) stars.push(<span key={i} className="star-filled">½</span>);
+  }
+  return stars;
+};
+
+function PosterTile({ show, badge, caption, onOpen, children }) {
+  return (
+    <div className="stats-poster-item" onClick={() => onOpen(show)} style={{ cursor: 'pointer' }} title={show.name}>
+      <div className="stats-poster-img-wrap">
+        {show.poster_path ? (
+          <img src={`${TMDB_IMG}/w342${show.poster_path}`} alt={show.name} loading="lazy" />
+        ) : (
+          <div className="stats-no-poster">📺</div>
+        )}
+        {badge != null && <div className="stats-poster-badge">{badge}</div>}
+      </div>
+      {children}
+      {caption && <div className="stats-poster-name">{caption}</div>}
+    </div>
+  );
+}
+
+function Section({ icon, title, hint, children }) {
+  return (
+    <div className="stats-section">
+      <div className="stats-section-header">
+        <span className="stats-section-title">{icon} {title}</span>
+        {hint && <span className="stats-section-hint">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function TvStatsSections({ data, statsYear, openModal }) {
+  const d = data;
+  const isCurrentYear = statsYear === 'all' || statsYear === String(new Date().getFullYear());
+
+  const openShow = (s) => openModal({
+    id: s.show_id, tmdb_id: s.tmdb_id, type: 'tv', name: s.name, poster_path: s.poster_path, status: s.status,
+  });
+
+  const ratingValues = useMemo(
+    () => RATING_KEYS.map(k => d.rating_distribution?.[k] || d.rating_distribution?.[String(parseFloat(k))] || 0),
+    [d.rating_distribution]
+  );
+
+  const hasActivity = d.total_entries > 0;
+  const maxWeek = Math.max(...(d.by_week || []), 1);
+  const maxMonth = Math.max(...(d.by_month || []), 1);
+  const maxDay = Math.max(...(d.by_day || []), 1);
+  const maxRating = Math.max(...ratingValues, 1);
+  const maxYear = Math.max(...(d.episodes_by_year || []).map(y => y.count), 1);
+
+  const highlights = [
+    d.biggest_binge && {
+      icon: '🍿', label: 'Biggest Binge', show: d.biggest_binge,
+      title: d.biggest_binge.name,
+      value: `${plural(d.biggest_binge.episodes, 'episode', 'episodes')} on ${shortDate(d.biggest_binge.date)}`,
+    },
+    d.longest_streak?.length > 0 && {
+      icon: '🔥', label: 'Longest Streak',
+      title: d.longest_streak.start === d.longest_streak.end ? d.longest_streak.start : `${d.longest_streak.start} – ${d.longest_streak.end}`,
+      value: plural(d.longest_streak.length, 'day', 'days'),
+    },
+    d.seasons_watched > 0 && { icon: '🗂️', label: 'Seasons Touched', title: 'Across all shows', value: plural(d.seasons_watched, 'season', 'seasons') },
+    d.total_reviews > 0 && { icon: '✍️', label: 'Reviews Written', title: 'Thoughts logged', value: plural(d.total_reviews, 'review', 'reviews') },
+    d.total_rewatches > 0 && { icon: '🔁', label: 'Rewatches', title: 'Worth another look', value: plural(d.total_rewatches, 'rewatch', 'rewatches') },
+  ].filter(Boolean);
+
+  return (
+    <>
+      {/* ─── SUMMARY COUNTERS ─── */}
+      <div className="stats-counters">
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.episodes_watched}</div>
+          <div className="stats-counter-label">Episodes</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.shows_watched}</div>
+          <div className="stats-counter-label">Shows</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.shows_completed}</div>
+          <div className="stats-counter-label">Completed</div>
+        </div>
+        <div className="stats-counter-card">
+          <div className="stats-counter-value">{d.average_rating != null ? `★ ${d.average_rating.toFixed(1)}` : '—'}</div>
+          <div className="stats-counter-label">Avg Rating</div>
+        </div>
+      </div>
+
+      {/* ─── CURRENTLY WATCHING (a live snapshot, so only for this year / all time) ─── */}
+      {isCurrentYear && d.in_progress?.length > 0 && (
+        <Section icon="▶️" title="Currently Watching" hint="Episodes marked watched">
+          <div className="stats-poster-grid">
+            {d.in_progress.map(s => (
+              <PosterTile
+                key={s.show_id}
+                show={s}
+                badge={s.episodes_watched || null}
+                caption={s.last_watched ? `Last ${shortDate(s.last_watched)}` : 'Not logged yet'}
+                onOpen={openShow}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {!hasActivity ? (
+        <div className="stats-empty">
+          <span className="stats-empty-icon">📺</span>
+          <span>No TV logged {statsYear === 'all' ? 'yet' : `in ${statsYear}`}.</span>
+        </div>
+      ) : (
+        <>
+          {/* ─── MOST WATCHED ─── */}
+          {d.most_watched?.length > 0 && (
+            <Section icon="📺" title="Most Watched Shows" hint="By episodes">
+              <div className="stats-poster-grid">
+                {d.most_watched.map(s => (
+                  <PosterTile
+                    key={s.show_id}
+                    show={s}
+                    badge={s.episodes || null}
+                    caption={s.episodes ? plural(s.episodes, 'episode', 'episodes') : plural(s.logs, 'log', 'logs')}
+                    onOpen={openShow}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* ─── HIGHEST RATED ─── */}
+          {d.highest_rated?.length > 0 && (
+            <Section icon="🏆" title="Highest Rated Shows" hint="Average of your ratings">
+              <div className="stats-poster-grid">
+                {d.highest_rated.map(s => (
+                  <PosterTile key={s.show_id} show={s} onOpen={openShow}>
+                    <div className="stats-poster-rating" title={`${s.rating} from ${plural(s.ratings_count, 'rating', 'ratings')}`}>
+                      {renderStars(s.rating)}
+                    </div>
+                  </PosterTile>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* ─── HIGHLIGHTS ─── */}
+          {highlights.length > 0 && (
+            <Section icon="✨" title="Highlights">
+              <div className="stats-highlight-grid">
+                {highlights.map(h => (
+                  <div
+                    key={h.label}
+                    className={`stats-highlight-card ${h.show ? 'clickable' : ''}`}
+                    onClick={() => h.show && openShow(h.show)}
+                  >
+                    <div className="stats-highlight-thumb">
+                      {h.show?.poster_path
+                        ? <img src={`${TMDB_IMG}/w92${h.show.poster_path}`} alt="" />
+                        : <span>{h.icon}</span>}
+                    </div>
+                    <div className="stats-highlight-body">
+                      <div className="stats-highlight-label">{h.icon} {h.label}</div>
+                      <div className="stats-highlight-title">{h.title}</div>
+                      <div className="stats-highlight-value">{h.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* ─── COMPLETED ─── */}
+          {d.completed?.length > 0 && (
+            <Section icon="✅" title="Finished" hint={statsYear === 'all' ? 'All time' : `In ${statsYear}`}>
+              <div className="stats-poster-grid">
+                {d.completed.map(s => (
+                  <PosterTile key={s.show_id} show={s} caption={shortDate(s.completed_on)} onOpen={openShow} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* ─── BY WEEK ─── */}
+          <Section icon="📈" title="By Week">
+            <div className="stats-week-chart">
+              <div className="stats-week-bars">
+                {d.by_week.map((count, i) => (
+                  <div
+                    key={i}
+                    className="stats-week-bar"
+                    style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0' }}
+                    data-count={`W${i + 1}: ${plural(count, 'log', 'logs')}`}
+                  />
+                ))}
+              </div>
+              <div className="stats-week-labels">
+                <span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span>
+              </div>
+            </div>
+          </Section>
+
+          {/* ─── EPISODES BY YEAR (all time) ─── */}
+          {statsYear === 'all' && d.episodes_by_year?.length > 0 && (
+            <Section icon="📅" title="Episodes by Year">
+              <div className="stats-month-chart">
+                <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.episodes_by_year.length > 12 ? 'flex-start' : 'center' }}>
+                  {d.episodes_by_year.map(item => (
+                    <div key={item.year} className="stats-month-bar-wrap" style={{ minWidth: '40px', flex: d.episodes_by_year.length > 12 ? '0 0 auto' : '1' }}>
+                      <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                      <div
+                        className="stats-month-bar"
+                        style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxYear) * 100)}%` : '4px' }}
+                        data-count={`${item.year}: ${plural(item.count, 'episode', 'episodes')}`}
+                      />
+                      <span className="stats-month-label">{item.year}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* ─── BY MONTH ─── */}
+          <Section icon="📊" title="By Month">
+            <div className="stats-month-chart">
+              <div className="stats-month-bars">
+                {d.by_month.map((count, i) => (
+                  <div key={i} className="stats-month-bar-wrap">
+                    <div className="stats-month-count">{count > 0 ? count : ''}</div>
+                    <div
+                      className="stats-month-bar"
+                      style={{ height: count > 0 ? `${Math.max(6, (count / maxMonth) * 100)}%` : '4px' }}
+                      data-count={`${MONTHS[i]}: ${plural(count, 'log', 'logs')}`}
+                    />
+                    <span className="stats-month-label">{MONTHS[i]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          {/* ─── AVERAGES ─── */}
+          <div className="stats-section">
+            <div className="stats-averages">
+              <div className="stats-avg-item">
+                <div className="stats-avg-value">{d.episodes_watched}</div>
+                <div className="stats-avg-label">Episodes logged</div>
+              </div>
+              <span className="stats-avg-arrow">→</span>
+              <div className="stats-avg-item">
+                <div className="stats-avg-value">{d.avg_per_month}</div>
+                <div className="stats-avg-label">Average per month</div>
+              </div>
+              <span className="stats-avg-arrow">→</span>
+              <div className="stats-avg-item">
+                <div className="stats-avg-value">{d.avg_per_week}</div>
+                <div className="stats-avg-label">Average per week</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── BOTTOM GRID ─── */}
+          <div className="stats-bottom-grid">
+            <div>
+              <div className="stats-section-header">
+                <span className="stats-section-title">📅 By Day</span>
+              </div>
+              <div className="stats-day-chart">
+                {d.by_day.map((count, i) => (
+                  <div key={i} className="stats-day-bar-wrap">
+                    <div
+                      className={`stats-day-bar ${i >= 5 ? 'weekend' : ''}`}
+                      style={{ height: count > 0 ? `${Math.max(4, (count / maxDay) * 80)}px` : '4px' }}
+                      data-count={plural(count, 'log', 'logs')}
+                    />
+                    <span className="stats-day-label">{DAYS[i]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="stats-section-header">
+                <span className="stats-section-title">⭐ Ratings</span>
+              </div>
+              <div className="stats-rating-chart">
+                {RATING_KEYS.map((k, i) => (
+                  <div key={k} className="stats-rating-bar-wrap">
+                    <div
+                      className="stats-rating-bar"
+                      style={{ height: ratingValues[i] > 0 ? `${Math.max(4, (ratingValues[i] / maxRating) * 80)}px` : '4px' }}
+                      data-count={plural(ratingValues[i], 'rating', 'ratings')}
+                    />
+                    <span className="stats-rating-label">{k.replace('.0', '').replace('.5', '½')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
