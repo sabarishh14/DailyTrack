@@ -51,6 +51,13 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   // Filter
   const [mediaType, setMediaType] = useState('all'); // 'movies', 'all', 'tv'
   const [statusFilter, setStatusFilter] = useState('WATCHING');
+  const [yearFilter, setYearFilter] = useState('all');
+  const [monthFilter, setMonthFilter] = useState('all');
+  const [weekFilter, setWeekFilter] = useState('all');
+  const [languageFilter, setLanguageFilter] = useState('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [filterOptions, setFilterOptions] = useState(null); // { years, languages } — lazy-loaded
+  const hasActiveLibraryFilters = yearFilter !== 'all' || monthFilter !== 'all' || weekFilter !== 'all' || languageFilter !== 'all';
 
   // Diary expanded reviews
   const [expandedLogs, setExpandedLogs] = useState({});
@@ -72,7 +79,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   useEffect(() => {
     setShowsPage(1);
     setDiaryPage(1);
-  }, [mediaType, statusFilter, view, showMovies]);
+  }, [mediaType, statusFilter, yearFilter, monthFilter, weekFilter, languageFilter, view, showMovies]);
 
   // Reset media type if movies are disabled while in movie mode
   useEffect(() => {
@@ -95,14 +102,37 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
     try {
       // Determine what to ask the backend based on toggles
       const typeParam = mediaType === 'all' ? (showMovies ? 'all' : 'tv') : mediaType;
-      const r = await fetch(`${API}/media/library?limit=${ITEMS_PER_PAGE}&offset=${(showsPage - 1) * ITEMS_PER_PAGE}&type=${typeParam}&status=${statusFilter}`, { headers: hdrs() });
+      const r = await fetch(`${API}/media/library?limit=${ITEMS_PER_PAGE}&offset=${(showsPage - 1) * ITEMS_PER_PAGE}&type=${typeParam}&status=${statusFilter}&year=${yearFilter}&month=${monthFilter}&week=${weekFilter}&language=${languageFilter}`, { headers: hdrs() });
       const data = await r.json();
       if (data.success) {
         setShows(data.shows || []);
         setShowsTotalCount(data.total_count || 0);
       }
     } catch (e) { console.error(e); }
-  }, [API, hdrs, showMovies, mediaType, statusFilter, showsPage]);
+  }, [API, hdrs, showMovies, mediaType, statusFilter, yearFilter, monthFilter, weekFilter, languageFilter, showsPage]);
+
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/media/filters`, { headers: hdrs() });
+      const data = await r.json();
+      if (data.success) setFilterOptions({ years: data.years || [], languages: data.languages || [] });
+    } catch (e) { console.error(e); }
+  }, [API, hdrs]);
+
+  // Jump here from a Stats chart bar. Each click is a fresh, complete slice —
+  // any dimension it doesn't mention (month/week/language/...) resets to 'all'
+  // rather than merging with whatever was already set in the Library.
+  const handleFilterLibrary = useCallback(({ year, month, week, language, mediaType: mt }) => {
+    if (!filterOptions) fetchFilterOptions();
+    setYearFilter(year != null && year !== 'all' ? String(year) : 'all');
+    setMonthFilter(month != null && month !== 'all' ? String(month) : 'all');
+    setWeekFilter(week != null && week !== 'all' ? String(week) : 'all');
+    setLanguageFilter(language || 'all');
+    if (mt) setMediaType(mt);
+    setStatusFilter('all');
+    setShowMoreFilters(true);
+    setView('library');
+  }, [filterOptions, fetchFilterOptions]);
 
   const fetchDiary = useCallback(async () => {
     try {
@@ -727,6 +757,15 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                   {f.label}
                 </button>
               ))}
+              <button
+                className={`tv-filter-pill ${showMoreFilters ? 'active' : ''}`}
+                onClick={() => { if (!filterOptions) fetchFilterOptions(); setShowMoreFilters(v => !v); }}
+              >
+                ⚙️ More Filters
+                {hasActiveLibraryFilters && (
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+                )}
+              </button>
             </div>
 
             {showsTotalCount > ITEMS_PER_PAGE && (
@@ -775,6 +814,44 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
             )}
           </div>
 
+          {showMoreFilters && (
+            <div className="tv-filters" style={{ marginTop: '-0.75rem' }}>
+              <CustomSelect
+                icon="📅"
+                value={yearFilter}
+                onChange={setYearFilter}
+                options={[{ value: 'all', label: 'All Years' }, ...(filterOptions?.years || []).map(y => ({ value: String(y), label: String(y) }))]}
+                minWidth="110px"
+              />
+              <CustomSelect
+                icon="📊"
+                value={monthFilter}
+                onChange={setMonthFilter}
+                options={[{ value: 'all', label: 'All Months' }, ...MONTHS_SHORT.map((m, i) => ({ value: String(i + 1), label: m }))]}
+                minWidth="120px"
+              />
+              <CustomSelect
+                icon="📈"
+                value={weekFilter}
+                onChange={setWeekFilter}
+                options={[{ value: 'all', label: 'All Weeks' }, ...Array.from({ length: 52 }, (_, i) => ({ value: String(i + 1), label: `Week ${i + 1}` }))]}
+                minWidth="110px"
+              />
+              <CustomSelect
+                icon="🌐"
+                value={languageFilter}
+                onChange={setLanguageFilter}
+                options={[{ value: 'all', label: 'All Languages' }, ...(filterOptions?.languages || []).map(l => ({ value: l.code, label: l.label }))]}
+                minWidth="140px"
+              />
+              {hasActiveLibraryFilters && (
+                <button className="tv-filter-pill" onClick={() => { setYearFilter('all'); setMonthFilter('all'); setWeekFilter('all'); setLanguageFilter('all'); }}>
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Grid */}
           <div className="tv-poster-grid">
             {filteredShows.map(show => (
@@ -797,9 +874,11 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               <div className="tv-empty-state">
                 <span style={{ fontSize: '2.5rem' }}>{mediaType === 'movie' ? '🎬' : mediaType === 'tv' ? '📺' : '🍿'}</span>
                 <p>
-                  {statusFilter === 'all'
-                    ? `Your library is empty. Search above to add ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}!`
-                    : `No "${statusFilter}" ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}`}
+                  {hasActiveLibraryFilters
+                    ? `No ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'} match these filters.`
+                    : statusFilter === 'all'
+                      ? `Your library is empty. Search above to add ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}!`
+                      : `No "${statusFilter}" ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'shows' : 'titles'}`}
                 </p>
               </div>
             )}
@@ -1281,7 +1360,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       )}
       {/* ─── STATS ─── */}
       {view === 'stats' && (
-        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} refreshTrigger={refreshTrigger} mediaType={mediaType} showMovies={showMovies} />
+        <StatsView API={API} getToken={getToken} statsData={statsData} setStatsData={setStatsData} statsYear={statsYear} setStatsYear={setStatsYear} statsLoading={statsLoading} setStatsLoading={setStatsLoading} openModal={openModal} onFilterLibrary={handleFilterLibrary} refreshTrigger={refreshTrigger} mediaType={mediaType} showMovies={showMovies} />
       )}
     </div>
   );

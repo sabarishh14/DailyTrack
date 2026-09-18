@@ -21,7 +21,7 @@ const releaseLabel = (movie) => {
   return movie.release_year;
 };
 
-export default function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, refreshTrigger, mediaType = 'movie', showMovies = true }) {
+export default function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, onFilterLibrary, refreshTrigger, mediaType = 'movie', showMovies = true }) {
   const [error, setError] = useState(null);
   const [tvStats, setTvStats] = useState(null);
   const [tvLoading, setTvLoading] = useState(false);
@@ -143,7 +143,7 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
         <>
           {showBoth && <div className="stats-media-divider"><span>🎬 Movies</span></div>}
           {statsData ? (
-            <MovieStatsSections d={statsData} statsYear={statsYear} openModal={openModal} />
+            <MovieStatsSections d={statsData} statsYear={statsYear} openModal={openModal} onFilterLibrary={onFilterLibrary} />
           ) : (
             <div className="stats-empty"><span className="stats-empty-icon">😕</span><span>{error}</span></div>
           )}
@@ -154,7 +154,7 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
         <>
           {showBoth && <div className="stats-media-divider"><span>📺 TV Shows</span></div>}
           {tvStats ? (
-            <TvStatsSections data={tvStats} statsYear={statsYear} openModal={openModal} />
+            <TvStatsSections data={tvStats} statsYear={statsYear} openModal={openModal} onFilterLibrary={onFilterLibrary} />
           ) : (
             <div className="stats-empty"><span className="stats-empty-icon">😕</span><span>{tvError}</span></div>
           )}
@@ -168,7 +168,7 @@ export default function StatsView({ API, getToken, statsData, setStatsData, stat
 // MOVIE SECTIONS
 // ═══════════════════════════════════════════════════════════════════════
 
-function MovieStatsSections({ d, statsYear, openModal }) {
+function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
   const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
   const [theatreFilter, setTheatreFilter] = useState('all');
   const [showAllTheatreTags, setShowAllTheatreTags] = useState(false);
@@ -386,8 +386,10 @@ function MovieStatsSections({ d, statsYear, openModal }) {
               <div
                 key={i}
                 className="stats-week-bar"
-                style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0' }}
+                style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0', cursor: onFilterLibrary ? 'pointer' : 'default' }}
                 data-count={`W${i + 1}: ${count} films`}
+                onClick={() => onFilterLibrary && onFilterLibrary({ year: statsYear, week: i + 1, mediaType: 'movie' })}
+                title={onFilterLibrary ? `See films watched in week ${i + 1}` : undefined}
               />
             ))}
           </div>
@@ -409,7 +411,13 @@ function MovieStatsSections({ d, statsYear, openModal }) {
           <div className="stats-month-chart"> {/* Reusing month chart CSS for similar bar style */}
             <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.films_by_year.length > 12 ? 'flex-start' : 'center' }}>
               {d.films_by_year.map((item, i) => (
-                <div key={item.year} className="stats-month-bar-wrap" style={{ minWidth: '40px', flex: d.films_by_year.length > 12 ? '0 0 auto' : '1' }}>
+                <div
+                  key={item.year}
+                  className="stats-month-bar-wrap"
+                  style={{ minWidth: '40px', flex: d.films_by_year.length > 12 ? '0 0 auto' : '1', cursor: onFilterLibrary ? 'pointer' : 'default' }}
+                  onClick={() => onFilterLibrary && onFilterLibrary({ year: item.year, language: 'all', mediaType: 'movie' })}
+                  title={onFilterLibrary ? `See films watched in ${item.year}` : undefined}
+                >
                   <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
                   <div
                     className="stats-month-bar"
@@ -432,17 +440,26 @@ function MovieStatsSections({ d, statsYear, openModal }) {
           </div>
           <div className="stats-month-chart">
             <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.films_by_language.length > 12 ? 'flex-start' : 'center' }}>
-              {d.films_by_language.map((item) => (
-                <div key={item.language} className="stats-month-bar-wrap" style={{ minWidth: '48px', flex: d.films_by_language.length > 12 ? '0 0 auto' : '1' }}>
-                  <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+              {d.films_by_language.map((item) => {
+                const clickable = onFilterLibrary && item.code;
+                return (
                   <div
-                    className="stats-month-bar"
-                    style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
-                    data-count={`${item.language}: ${item.count} films`}
-                  />
-                  <span className="stats-month-label">{item.language}</span>
-                </div>
-              ))}
+                    key={item.language}
+                    className="stats-month-bar-wrap"
+                    style={{ minWidth: '48px', flex: d.films_by_language.length > 12 ? '0 0 auto' : '1', cursor: clickable ? 'pointer' : 'default', opacity: item.code ? 1 : 0.6 }}
+                    onClick={() => clickable && onFilterLibrary({ year: statsYear, language: item.code, mediaType: 'movie' })}
+                    title={clickable ? `See ${item.language} films` : item.code ? undefined : 'Mixed languages — pick a specific one to filter'}
+                  >
+                    <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                    <div
+                      className="stats-month-bar"
+                      style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
+                      data-count={`${item.language}: ${item.count} films`}
+                    />
+                    <span className="stats-month-label">{item.language}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -457,7 +474,13 @@ function MovieStatsSections({ d, statsYear, openModal }) {
           <div className="stats-month-chart">
             <div className="stats-month-bars">
               {d.by_month.map((count, i) => (
-                <div key={i} className="stats-month-bar-wrap">
+                <div
+                  key={i}
+                  className="stats-month-bar-wrap"
+                  style={{ cursor: onFilterLibrary ? 'pointer' : 'default' }}
+                  onClick={() => onFilterLibrary && onFilterLibrary({ year: statsYear, month: i + 1, mediaType: 'movie' })}
+                  title={onFilterLibrary ? `See films watched in ${monthLabels[i]}` : undefined}
+                >
                   <div className="stats-month-count">{count > 0 ? count : ''}</div>
                   <div
                     className="stats-month-bar"

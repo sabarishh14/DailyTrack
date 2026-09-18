@@ -55,17 +55,26 @@ def _language_label(code):
 
 def _group_top_languages(counts, limit=10):
     """
-    {label: count} -> a chart-ready list, the biggest `limit - 1` languages plus
+    {code: count} -> a chart-ready list, the biggest `limit - 1` languages plus
     everything else folded into a single "Other" bar. Keeps the chart to a size
     that still centers instead of forcing a scrollable, left-aligned row.
+
+    `code` is the raw ISO 639-1 code (or "unknown" for unset), kept alongside
+    the display label so a bar click can filter the library by the exact same
+    value. The "Other" bucket has no single code — it isn't a valid filter, so
+    its `code` is None and the frontend disables clicking it.
     """
+    def entry(code, count):
+        label = "Unknown" if code == "unknown" else _language_label(code)
+        return {"code": code, "language": label, "count": count}
+
     items = sorted(counts.items(), key=lambda kv: -kv[1])
     if len(items) <= limit:
-        return [{"language": k, "count": v} for k, v in items]
+        return [entry(c, v) for c, v in items]
     top = items[:limit - 1]
     other_count = sum(v for _, v in items[limit - 1:])
-    result = [{"language": k, "count": v} for k, v in top]
-    result.append({"language": "Other", "count": other_count})
+    result = [entry(c, v) for c, v in top]
+    result.append({"code": None, "language": "Other", "count": other_count})
     return result
 
 
@@ -691,7 +700,7 @@ def get_tv_stats():
                 show_language_map[l.tv_show_id] = l.tv_show.language
         shows_by_language_dict = {}
         for lang in show_language_map.values():
-            key = _language_label(lang)
+            key = (lang or "").lower() or "unknown"
             shows_by_language_dict[key] = shows_by_language_dict.get(key, 0) + 1
         shows_by_language = _group_top_languages(shows_by_language_dict)
 
@@ -1180,7 +1189,7 @@ def get_movie_stats():
                 movie_language_map[l.movie_id] = l.movie.language
         films_by_language_dict = {}
         for lang in movie_language_map.values():
-            key = _language_label(lang)
+            key = (lang or "").lower() or "unknown"
             films_by_language_dict[key] = films_by_language_dict.get(key, 0) + 1
         films_by_language = _group_top_languages(films_by_language_dict)
 
@@ -1829,6 +1838,61 @@ def sync_letterboxd_rss():
 
     return Response(stream_with_context(_perform_rss_sync_generator(username)), mimetype='application/x-ndjson')
 
+def _matches_language(item_language, language_filter):
+    """language_filter is a raw ISO code, "unknown", or "all" (no filter)."""
+    if language_filter == 'all':
+        return True
+    lang = (item_language or '').lower()
+    if language_filter == 'unknown':
+        return not lang
+    return lang == language_filter.lower()
+
+
+def _iso_week_bucket(d):
+    """
+    ISO week (1-52) for a date, folding the year-boundary weeks the same way
+    the stats charts do: an early-Jan date in ISO week 52/53 counts as week 1,
+    a late-Dec date in ISO week 1 counts as week 53 which then folds into 52.
+    Keeps a "week N" library filter pointing at exactly the dates a "week N"
+    chart bar counted.
+    """
+    wk = d.isocalendar()[1]
+    if d.month == 1 and wk >= 52:
+        wk = 1
+    elif d.month == 12 and wk == 1:
+        wk = 53
+    return 52 if wk == 53 else wk
+
+
+def _diary_filtered_ids(rows, year_filter, month_filter, week_filter):
+    """
+    rows: iterable of (item_id, date) from a diary log table. Returns the set
+    of ids with at least one log matching every active filter ('all' skips
+    that dimension), or None if no date filter is active at all.
+    """
+    if year_filter == 'all' and month_filter == 'all' and week_filter == 'all':
+        return None
+    try:
+        yr = int(year_filter) if year_filter != 'all' else None
+        mo = int(month_filter) if month_filter != 'all' else None
+        wk = int(week_filter) if week_filter != 'all' else None
+    except ValueError:
+        return set()
+
+    ids = set()
+    for item_id, d in rows:
+        if not d:
+            continue
+        if yr is not None and d.year != yr:
+            continue
+        if mo is not None and d.month != mo:
+            continue
+        if wk is not None and _iso_week_bucket(d) != wk:
+            continue
+        ids.add(item_id)
+    return ids
+
+
 @media_bp.route('/api/media/library', methods=['GET'])
 @require_api_key
 def get_media_library():
@@ -1836,9 +1900,25 @@ def get_media_library():
     offset = request.args.get('offset', 0, type=int)
     media_type = request.args.get('type', 'all')
     status_filter = request.args.get('status', 'all')
-    
+    year_filter = request.args.get('year', 'all')
+    month_filter = request.args.get('month', 'all')
+    week_filter = request.args.get('week', 'all')
+    language_filter = request.args.get('language', 'all')
+
+    # "By year/month/week" means "watched then" (from diary logs), not a
+    # release date — the same thing the stats charts count. Resolved once per
+    # media kind as a set of ids so the item loop below stays a membership test.
+    movie_date_ids = _diary_filtered_ids(
+        db.session.query(MovieDiaryLog.movie_id, MovieDiaryLog.date).all(),
+        year_filter, month_filter, week_filter,
+    )
+    show_date_ids = _diary_filtered_ids(
+        db.session.query(TvDiaryLog.tv_show_id, TvDiaryLog.date).all(),
+        year_filter, month_filter, week_filter,
+    )
+
     combined = []
-    
+
     if media_type in ['all', 'movie']:
         from sqlalchemy.sql import func
         movies = db.session.query(Movie, func.max(MovieDiaryLog.date).label('latest_log')).outerjoin(MovieDiaryLog, Movie.id == MovieDiaryLog.movie_id).group_by(Movie.id).all()
@@ -1847,11 +1927,15 @@ def get_media_library():
                 continue
             if status_filter != 'all' and m.status != status_filter:
                 continue
-            
+            if movie_date_ids is not None and m.id not in movie_date_ids:
+                continue
+            if not _matches_language(m.language, language_filter):
+                continue
+
             sort_date = m.added_on
             if latest_log:
                 sort_date = datetime.combine(latest_log, datetime.min.time())
-                
+
             combined.append({
                 "id": m.id,
                 "tmdb_id": m.tmdb_id,
@@ -1861,7 +1945,7 @@ def get_media_library():
                 "added_on": sort_date,
                 "type": "movie"
             })
-            
+
     if media_type in ['all', 'tv']:
         from sqlalchemy.sql import func
         shows = db.session.query(TvShow, func.max(TvDiaryLog.date).label('latest_log')).outerjoin(TvDiaryLog, TvShow.id == TvDiaryLog.tv_show_id).group_by(TvShow.id).all()
@@ -1870,7 +1954,11 @@ def get_media_library():
                 continue
             if status_filter != 'all' and s.status != status_filter:
                 continue
-            
+            if show_date_ids is not None and s.id not in show_date_ids:
+                continue
+            if not _matches_language(s.language, language_filter):
+                continue
+
             sort_date = s.added_on
             if latest_log:
                 sort_date = datetime.combine(latest_log, datetime.min.time())
@@ -1884,24 +1972,48 @@ def get_media_library():
                 "added_on": sort_date,
                 "type": "tv"
             })
-            
+
     # Sort by added_on DESC, then by id DESC
     combined.sort(key=lambda x: (x['added_on'] or datetime.min, x['id']), reverse=True)
-    
+
     # Now convert datetime to string after sorting
     for item in combined:
         if item['added_on']:
             item['added_on'] = item['added_on'].isoformat()
-    
+
     total_count = len(combined)
     paginated = combined[offset:offset+limit]
-    
+
     return jsonify({
-        "success": True, 
-        "shows": paginated, 
+        "success": True,
+        "shows": paginated,
         "total_count": total_count,
         "hasMore": (offset + limit) < total_count
     })
+
+
+@media_bp.route('/api/media/filters', methods=['GET'])
+@require_api_key
+def get_media_filters():
+    """Years and languages the Library's 'More filters' dropdowns can offer."""
+    from sqlalchemy.sql import extract
+
+    movie_years = {int(r[0]) for r in db.session.query(extract('year', MovieDiaryLog.date)).distinct() if r[0]}
+    tv_years = {int(r[0]) for r in db.session.query(extract('year', TvDiaryLog.date)).distinct() if r[0]}
+    years = sorted(movie_years | tv_years, reverse=True)
+
+    movie_langs = {r[0] for r in db.session.query(Movie.language).distinct()}
+    tv_langs = {r[0] for r in db.session.query(TvShow.language).distinct()}
+    all_langs = movie_langs | tv_langs
+
+    languages = sorted(
+        ({"code": c.lower(), "label": _language_label(c)} for c in all_langs if c),
+        key=lambda x: x["label"]
+    )
+    if any(not c for c in all_langs):
+        languages.append({"code": "unknown", "label": "Unknown"})
+
+    return jsonify({"success": True, "years": years, "languages": languages})
 
 @media_bp.route('/api/media/diary', methods=['GET'])
 @require_api_key

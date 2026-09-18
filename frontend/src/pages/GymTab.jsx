@@ -34,7 +34,7 @@ function GymTab({ physical, onOpenModal }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
 
         {/* Cleaned Up Days Active Stat Block */}
-        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', background: 'var(--card)', padding: '1rem 1.5rem', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap', background: 'var(--card)', padding: '1rem 1.5rem', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxWidth: '100%' }}>
 
           {/* BIG Number */}
           <div style={{ fontSize: '3.2rem', fontWeight: 800, color: 'var(--accent2)', lineHeight: 0.85, fontFamily: "'Syne', sans-serif", position: 'relative', top: '-3px' }}>
@@ -47,22 +47,23 @@ function GymTab({ physical, onOpenModal }) {
             <span style={{ fontSize: '0.75rem', color: 'var(--text3)', fontWeight: 500 }}>in {MONTHS[physMonth]} {physYear}</span>
           </div>
 
-          <div style={{ width: '1px', height: '40px', background: 'var(--border)' }}></div>
-
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
-            <CustomSelect
-              value={physMonth}
-              onChange={val => setPhysMonth(parseInt(val))}
-              options={MONTHS.map((m, i) => ({ label: m, value: i }))}
-              minWidth="130px"
-            />
-            <CustomSelect
-              value={physYear}
-              onChange={val => setPhysYear(parseInt(val))}
-              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
-              minWidth="100px"
-            />
+          {/* Filters — divider travels with them so wrapping never strands a bare line */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ width: '1px', height: '40px', background: 'var(--border)' }}></div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <CustomSelect
+                value={physMonth}
+                onChange={val => setPhysMonth(parseInt(val))}
+                options={MONTHS.map((m, i) => ({ label: m, value: i }))}
+                minWidth="130px"
+              />
+              <CustomSelect
+                value={physYear}
+                onChange={val => setPhysYear(parseInt(val))}
+                options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+                minWidth="100px"
+              />
+            </div>
           </div>
         </div>
 

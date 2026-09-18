@@ -56,7 +56,7 @@ function Section({ icon, title, hint, children }) {
   );
 }
 
-export default function TvStatsSections({ data, statsYear, openModal }) {
+export default function TvStatsSections({ data, statsYear, openModal, onFilterLibrary }) {
   const d = data;
   const isCurrentYear = statsYear === 'all' || statsYear === String(new Date().getFullYear());
 
@@ -216,8 +216,10 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
                   <div
                     key={i}
                     className="stats-week-bar"
-                    style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0' }}
+                    style={{ height: count > 0 ? `${Math.max(4, (count / maxWeek) * 100)}%` : '0', cursor: onFilterLibrary ? 'pointer' : 'default' }}
                     data-count={`W${i + 1}: ${plural(count, 'episode', 'episodes')}`}
+                    onClick={() => onFilterLibrary && onFilterLibrary({ year: statsYear, week: i + 1, mediaType: 'tv' })}
+                    title={onFilterLibrary ? `See shows watched in week ${i + 1}` : undefined}
                   />
                 ))}
               </div>
@@ -233,7 +235,13 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
               <div className="stats-month-chart">
                 <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.episodes_by_year.length > 12 ? 'flex-start' : 'center' }}>
                   {d.episodes_by_year.map(item => (
-                    <div key={item.year} className="stats-month-bar-wrap" style={{ minWidth: '40px', flex: d.episodes_by_year.length > 12 ? '0 0 auto' : '1' }}>
+                    <div
+                      key={item.year}
+                      className="stats-month-bar-wrap"
+                      style={{ minWidth: '40px', flex: d.episodes_by_year.length > 12 ? '0 0 auto' : '1', cursor: onFilterLibrary ? 'pointer' : 'default' }}
+                      onClick={() => onFilterLibrary && onFilterLibrary({ year: item.year, language: 'all', mediaType: 'tv' })}
+                      title={onFilterLibrary ? `See shows watched in ${item.year}` : undefined}
+                    >
                       <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
                       <div
                         className="stats-month-bar"
@@ -253,17 +261,26 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
             <Section icon="🌐" title="Shows by Language">
               <div className="stats-month-chart">
                 <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.shows_by_language.length > 12 ? 'flex-start' : 'center' }}>
-                  {d.shows_by_language.map(item => (
-                    <div key={item.language} className="stats-month-bar-wrap" style={{ minWidth: '48px', flex: d.shows_by_language.length > 12 ? '0 0 auto' : '1' }}>
-                      <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                  {d.shows_by_language.map(item => {
+                    const clickable = onFilterLibrary && item.code;
+                    return (
                       <div
-                        className="stats-month-bar"
-                        style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
-                        data-count={`${item.language}: ${plural(item.count, 'show', 'shows')}`}
-                      />
-                      <span className="stats-month-label">{item.language}</span>
-                    </div>
-                  ))}
+                        key={item.language}
+                        className="stats-month-bar-wrap"
+                        style={{ minWidth: '48px', flex: d.shows_by_language.length > 12 ? '0 0 auto' : '1', cursor: clickable ? 'pointer' : 'default', opacity: item.code ? 1 : 0.6 }}
+                        onClick={() => clickable && onFilterLibrary({ year: statsYear, language: item.code, mediaType: 'tv' })}
+                        title={clickable ? `See ${item.language} shows` : item.code ? undefined : 'Mixed languages — pick a specific one to filter'}
+                      >
+                        <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                        <div
+                          className="stats-month-bar"
+                          style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
+                          data-count={`${item.language}: ${plural(item.count, 'show', 'shows')}`}
+                        />
+                        <span className="stats-month-label">{item.language}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </Section>
@@ -274,7 +291,13 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
             <div className="stats-month-chart">
               <div className="stats-month-bars">
                 {d.by_month.map((count, i) => (
-                  <div key={i} className="stats-month-bar-wrap">
+                  <div
+                    key={i}
+                    className="stats-month-bar-wrap"
+                    style={{ cursor: onFilterLibrary ? 'pointer' : 'default' }}
+                    onClick={() => onFilterLibrary && onFilterLibrary({ year: statsYear, month: i + 1, mediaType: 'tv' })}
+                    title={onFilterLibrary ? `See shows watched in ${MONTHS[i]}` : undefined}
+                  >
                     <div className="stats-month-count">{count > 0 ? count : ''}</div>
                     <div
                       className="stats-month-bar"

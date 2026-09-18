@@ -2337,6 +2337,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     width: 100% !important;
   }
 
+  /* The date-range chip holds two native date inputs at a fixed px width each —
+     on a half-width mobile grid cell they overflow past the card edge. Give it
+     the full row, like the other wide controls above, and let the inputs shrink
+     instead of clipping. */
+  .filter-bar>.date-filter-chip {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .date-filter-chip input[type="date"] {
+    width: auto !important;
+    min-width: 0;
+    flex: 1;
+  }
+
   /* ── Floating Action Bar ── */
   .floating-action-bar {
     bottom: 85px;
