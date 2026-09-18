@@ -214,6 +214,7 @@ function MovieStatsSections({ d, statsYear, openModal }) {
   const maxDay = Math.max(...d.by_day, 1);
   const maxMonth = Math.max(...(d.by_month || []), 1);
   const maxYear = d.films_by_year ? Math.max(...d.films_by_year.map(y => y.count), 1) : 1;
+  const maxLanguage = d.films_by_language ? Math.max(...d.films_by_language.map(l => l.count), 1) : 1;
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -416,6 +417,30 @@ function MovieStatsSections({ d, statsYear, openModal }) {
                     data-count={`${item.year}: ${item.count} films`}
                   />
                   <span className="stats-month-label">{item.year}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── BY LANGUAGE ─── */}
+      {d.films_by_language && d.films_by_language.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-section-header">
+            <span className="stats-section-title">🌐 Films by Language</span>
+          </div>
+          <div className="stats-month-chart">
+            <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.films_by_language.length > 12 ? 'flex-start' : 'center' }}>
+              {d.films_by_language.map((item) => (
+                <div key={item.language} className="stats-month-bar-wrap" style={{ minWidth: '48px', flex: d.films_by_language.length > 12 ? '0 0 auto' : '1' }}>
+                  <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                  <div
+                    className="stats-month-bar"
+                    style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
+                    data-count={`${item.language}: ${item.count} films`}
+                  />
+                  <span className="stats-month-label">{item.language}</span>
                 </div>
               ))}
             </div>

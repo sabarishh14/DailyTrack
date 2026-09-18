@@ -75,6 +75,7 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
   const maxDay = Math.max(...(d.by_day || []), 1);
   const maxRating = Math.max(...ratingValues, 1);
   const maxYear = Math.max(...(d.episodes_by_year || []).map(y => y.count), 1);
+  const maxLanguage = Math.max(...(d.shows_by_language || []).map(l => l.count), 1);
 
   const highlights = [
     d.biggest_binge && {
@@ -240,6 +241,27 @@ export default function TvStatsSections({ data, statsYear, openModal }) {
                         data-count={`${item.year}: ${plural(item.count, 'episode', 'episodes')}`}
                       />
                       <span className="stats-month-label">{item.year}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* ─── BY LANGUAGE ─── */}
+          {d.shows_by_language?.length > 0 && (
+            <Section icon="🌐" title="Shows by Language">
+              <div className="stats-month-chart">
+                <div className="stats-month-bars" style={{ overflowX: 'auto', paddingBottom: '8px', justifyContent: d.shows_by_language.length > 12 ? 'flex-start' : 'center' }}>
+                  {d.shows_by_language.map(item => (
+                    <div key={item.language} className="stats-month-bar-wrap" style={{ minWidth: '48px', flex: d.shows_by_language.length > 12 ? '0 0 auto' : '1' }}>
+                      <div className="stats-month-count">{item.count > 0 ? item.count : ''}</div>
+                      <div
+                        className="stats-month-bar"
+                        style={{ height: item.count > 0 ? `${Math.max(6, (item.count / maxLanguage) * 100)}%` : '4px' }}
+                        data-count={`${item.language}: ${plural(item.count, 'show', 'shows')}`}
+                      />
+                      <span className="stats-month-label">{item.language}</span>
                     </div>
                   ))}
                 </div>

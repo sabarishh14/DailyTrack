@@ -127,6 +127,7 @@ class TvShow(db.Model):
     poster_path = db.Column(db.String(255))
     status = db.Column(db.String(50), default="TO WATCH") # WATCHING, WATCHED, TO WATCH, DROPPED
     watched_episodes = db.Column(db.JSON, default=dict) # e.g. {"1": [1, 2, 3]} mapping season string to array of episode numbers
+    language = db.Column(db.String(10), nullable=True) # ISO 639-1 original language, fetched from TMDB
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 class TvDiaryLog(db.Model):
     __tablename__ = "tv_diary_logs"
@@ -164,6 +165,7 @@ class Movie(db.Model):
     release_date = db.Column(db.String(20), nullable=True) # e.g. "YYYY-MM-DD"
     director = db.Column(db.String(255), nullable=True)
     top_cast = db.Column(db.JSON, nullable=True)
+    language = db.Column(db.String(10), nullable=True) # ISO 639-1 original language, fetched from TMDB
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
 class MovieDiaryLog(db.Model):
     __tablename__ = "movie_diary_logs"

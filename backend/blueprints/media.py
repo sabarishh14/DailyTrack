@@ -29,10 +29,72 @@ def _ist_today():
     return datetime.now(IST).date()
 
 
+# ISO 639-1 -> display name for the languages that actually show up in this
+# library. An unmapped code just renders as its uppercase form.
+_LANGUAGE_NAMES = {
+    "en": "English", "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "ml": "Malayalam",
+    "kn": "Kannada", "bn": "Bengali", "mr": "Marathi", "pa": "Punjabi", "gu": "Gujarati",
+    "ja": "Japanese", "ko": "Korean", "zh": "Chinese", "cn": "Chinese", "fr": "French",
+    "es": "Spanish", "de": "German", "it": "Italian", "pt": "Portuguese", "ru": "Russian",
+    "ar": "Arabic", "th": "Thai", "id": "Indonesian", "tr": "Turkish", "nl": "Dutch",
+    "sv": "Swedish", "da": "Danish", "no": "Norwegian", "fi": "Finnish", "pl": "Polish",
+    "he": "Hebrew", "vi": "Vietnamese", "fa": "Persian", "ur": "Urdu",
+    "tl": "Tagalog", "si": "Sinhala", "lv": "Latvian", "ro": "Romanian",
+    "cs": "Czech", "el": "Greek", "hu": "Hungarian", "uk": "Ukrainian", "ms": "Malay",
+    "ne": "Nepali", "as": "Assamese", "or": "Odia", "sr": "Serbian", "sk": "Slovak",
+    "bg": "Bulgarian", "hr": "Croatian", "lt": "Lithuanian", "et": "Estonian",
+}
+
+
+def _language_label(code):
+    """A display name for an ISO 639-1 code, or "Unknown" when unset."""
+    if not code:
+        return "Unknown"
+    return _LANGUAGE_NAMES.get(code.lower(), code.upper())
+
+
+def _group_top_languages(counts, limit=10):
+    """
+    {label: count} -> a chart-ready list, the biggest `limit - 1` languages plus
+    everything else folded into a single "Other" bar. Keeps the chart to a size
+    that still centers instead of forcing a scrollable, left-aligned row.
+    """
+    items = sorted(counts.items(), key=lambda kv: -kv[1])
+    if len(items) <= limit:
+        return [{"language": k, "count": v} for k, v in items]
+    top = items[:limit - 1]
+    other_count = sum(v for _, v in items[limit - 1:])
+    result = [{"language": k, "count": v} for k, v in top]
+    result.append({"language": "Other", "count": other_count})
+    return result
+
+
+def fetch_tmdb_tv_language(tmdb_id, session=None, timeout=5):
+    """Original language (ISO 639-1) for a show from TMDB, or None on failure."""
+    if not TMDB_API_KEY or not tmdb_id:
+        return None
+    url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?language=en-US"
+    try:
+        if session is not None:
+            resp = session.get(url, timeout=timeout)
+        else:
+            resp = requests.get(
+                url,
+                headers={"accept": "application/json", "Authorization": f"Bearer {TMDB_API_KEY}"},
+                timeout=timeout,
+            )
+        if resp.status_code != 200:
+            return None
+        return resp.json().get('original_language') or None
+    except Exception as e:
+        print(f"TMDB language fetch failed for {tmdb_id}: {e}")
+        return None
+
+
 def fetch_tmdb_movie_details(tmdb_id, session=None, timeout=5):
     """
     Fetch the details every movie row should carry (runtime, release date/year,
-    director, top 3 cast) in one TMDB call.
+    director, top 3 cast, original language) in one TMDB call.
 
     Shared by every path that creates or re-matches a Movie — manual add,
     rematch, Letterboxd import and Cinema transactions — so they all store the
@@ -42,7 +104,7 @@ def fetch_tmdb_movie_details(tmdb_id, session=None, timeout=5):
     """
     result = {
         "fetched": False, "runtime": None, "release_date": None,
-        "release_year": None, "director": None, "top_cast": None,
+        "release_year": None, "director": None, "top_cast": None, "language": None,
     }
     if not TMDB_API_KEY or not tmdb_id:
         return result
@@ -87,6 +149,7 @@ def fetch_tmdb_movie_details(tmdb_id, session=None, timeout=5):
         "release_year": release_year,
         "director": director,
         "top_cast": top_cast,
+        "language": d.get('original_language') or None,
     })
     return result
 
@@ -302,7 +365,8 @@ def add_tv_show():
         name=name,
         poster_path=poster_path,
         status=status,
-        watched_episodes={}
+        watched_episodes={},
+        language=fetch_tmdb_tv_language(tmdb_id),
     )
     db.session.add(new_show)
     db.session.flush() # to get new_show.id
@@ -402,6 +466,32 @@ def add_tv_diary():
     invalidate_stats_cache()
     return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
 
+
+def _diary_date_and_episode_updates(data, include_episode):
+    """
+    Optional date / season / episode changes for a diary PUT. Returns
+    (updates, error_message). A key that's absent is left alone; an explicit
+    null season/episode clears it (e.g. an episode log becoming a season log).
+    """
+    updates = {}
+    if data.get('date'):
+        try:
+            updates['date'] = datetime.strptime(str(data['date'])[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return None, "date must be YYYY-MM-DD"
+    if include_episode:
+        for key in ('season_number', 'episode_number'):
+            if key in data:
+                value = data[key]
+                if value in (None, ''):
+                    updates[key] = None
+                else:
+                    try:
+                        updates[key] = int(value)
+                    except (TypeError, ValueError):
+                        return None, f"{key} must be a number"
+    return updates, None
+
 @media_bp.route('/api/tv/diary', methods=['PUT'])
 @require_api_key
 def update_tv_diary():
@@ -416,7 +506,14 @@ def update_tv_diary():
     if 'liked' in data: update_data['liked'] = data['liked']
     if 'rewatch' in data: update_data['rewatch'] = data['rewatch']
     if 'tags' in data: update_data['tags'] = data['tags'] or None
-    
+
+    extra, error = _diary_date_and_episode_updates(data, include_episode=True)
+    if error:
+        return jsonify({"success": False, "message": error}), 400
+    update_data.update(extra)
+    if not update_data:
+        return jsonify({"success": True})
+
     TvDiaryLog.query.filter(TvDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
     db.session.commit()
     invalidate_stats_cache()
@@ -586,6 +683,17 @@ def get_tv_stats():
         for l in logs:
             episodes_by_year_map[l.date.year] = episodes_by_year_map.get(l.date.year, 0) + episode_weight[l.id]
         episodes_by_year = [{"year": y, "count": c} for y, c in sorted(episodes_by_year_map.items())]
+
+        # Shows by language (unique shows per language)
+        show_language_map = {}
+        for l in logs:
+            if l.tv_show and l.tv_show_id not in show_language_map:
+                show_language_map[l.tv_show_id] = l.tv_show.language
+        shows_by_language_dict = {}
+        for lang in show_language_map.values():
+            key = _language_label(lang)
+            shows_by_language_dict[key] = shows_by_language_dict.get(key, 0) + 1
+        shows_by_language = _group_top_languages(shows_by_language_dict)
 
         # --- Per-show rollups ---
         per_show = {}
@@ -768,6 +876,7 @@ def get_tv_stats():
             "by_month": by_month,
             "by_day": by_day,
             "episodes_by_year": episodes_by_year,
+            "shows_by_language": shows_by_language,
             "rating_distribution": rating_distribution,
             "most_watched": most_watched,
             "highest_rated": highest_rated,
@@ -865,7 +974,7 @@ SELECT
       concat_ws('|', id, movie_id, date, rating, liked, rewatch, md5(coalesce(review, '')), tags),
       ',' ORDER BY id), '')) FROM movie_diary_logs)
   || (SELECT md5(coalesce(string_agg(
-      concat_ws('|', id, tmdb_id, name, poster_path, runtime, release_year, release_date),
+      concat_ws('|', id, tmdb_id, name, poster_path, runtime, release_year, release_date, language),
       ',' ORDER BY id), '')) FROM movies)
 """
 
@@ -876,7 +985,7 @@ SELECT
                 md5(coalesce(review, '')), tags),
       ',' ORDER BY id), '')) FROM tv_diary_logs)
   || (SELECT md5(coalesce(string_agg(
-      concat_ws('|', id, tmdb_id, name, poster_path, status, watched_episodes::text),
+      concat_ws('|', id, tmdb_id, name, poster_path, status, watched_episodes::text, language),
       ',' ORDER BY id), '')) FROM tv_shows)
   || (SELECT md5(coalesce(string_agg(
       concat_ws('|', id, tv_show_id, action, created_at),
@@ -1063,7 +1172,18 @@ def get_movie_stats():
                     films_by_year_dict[y] = set()
                 films_by_year_dict[y].add(l.movie_id)
         films_by_year = [{"year": y, "count": len(ids)} for y, ids in sorted(films_by_year_dict.items())]
-        
+
+        # Films by language (unique movies per language)
+        movie_language_map = {}
+        for l in logs:
+            if l.movie and l.movie_id not in movie_language_map:
+                movie_language_map[l.movie_id] = l.movie.language
+        films_by_language_dict = {}
+        for lang in movie_language_map.values():
+            key = _language_label(lang)
+            films_by_language_dict[key] = films_by_language_dict.get(key, 0) + 1
+        films_by_language = _group_top_languages(films_by_language_dict)
+
         # Most rewatched (movies with the most diary entries, minimum 2)
         rewatch_count = {}
         for l in logs:
@@ -1236,6 +1356,7 @@ def get_movie_stats():
             "theatre_stats": theatre_stats,
             "extremes": extremes,
             "films_by_year": films_by_year,
+            "films_by_language": films_by_language,
             "most_rewatched": most_rewatched,
             "longest_streak": longest_streak
         }
@@ -1337,6 +1458,7 @@ def add_movie():
         director=details["director"],
         top_cast=details["top_cast"],
         runtime=details["runtime"],
+        language=details["language"],
     )
 
     db.session.add(new_movie)
@@ -1407,6 +1529,7 @@ def rematch_movie(movie_id):
         movie.release_year = rel_year or details["release_year"]
         movie.director = details["director"]
         movie.top_cast = details["top_cast"]
+        movie.language = details["language"]
     else:
         movie.release_year = rel_year
 
@@ -1480,6 +1603,14 @@ def update_movie_diary():
     if 'liked' in data: update_data['liked'] = data['liked']
     if 'rewatch' in data: update_data['rewatch'] = data['rewatch']
     if 'tags' in data: update_data['tags'] = data['tags'] or None
+
+    extra, error = _diary_date_and_episode_updates(data, include_episode=False)
+    if error:
+        return jsonify({"success": False, "message": error}), 400
+    update_data.update(extra)
+    if not update_data:
+        return jsonify({"success": True})
+
     MovieDiaryLog.query.filter(MovieDiaryLog.id.in_(log_ids)).update(update_data, synchronize_session=False)
     db.session.commit()
     invalidate_stats_cache()
@@ -1618,6 +1749,7 @@ def _perform_rss_sync_generator(username, fast_mode=False):
                             release_date=details["release_date"] or first_result.get('release_date') or None,
                             director=details["director"],
                             top_cast=details["top_cast"],
+                            language=details["language"],
                         )
                         db.session.add(movie)
                         db.session.flush() # Get ID
@@ -1638,6 +1770,7 @@ def _perform_rss_sync_generator(username, fast_mode=False):
                     movie.release_year = movie.release_year or details["release_year"]
                     movie.director = movie.director or details["director"]
                     movie.top_cast = movie.top_cast or details["top_cast"]
+                    movie.language = movie.language or details["language"]
 
             # Ensure movie status is WATCHED if we are importing a log
             if movie.status != 'WATCHED':
