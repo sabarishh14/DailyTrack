@@ -36,7 +36,7 @@ export default function ReconciliationModal({ accounts, onClose, onRefresh }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto' }}>
+        <div className="modal-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '70vh' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ fontSize: '0.85rem', color: 'var(--text2)', maxWidth: '400px', lineHeight: 1.5 }}>
               Upload UPI screenshots to your specific Drive folder, then click Scan to detect discrepancies.
@@ -46,45 +46,47 @@ export default function ReconciliationModal({ accounts, onClose, onRefresh }) {
             </button>
           </div>
 
-          <div className="data-table">
-            <div className="table-header" style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
-              <span>Account</span>
-              <span>App Tracked</span>
-              <span>Bank Real</span>
-              <span>Action Required</span>
-            </div>
-            {accounts.filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360').map((acc, i) => {
+          <div className="reconcile-list">
+            {accounts.filter(a => a.balance_tracked && a.account !== 'CC-PINNACLE 6360').map((acc) => {
               const tracked = acc.balance || 0;
               const real = acc.real_balance;
               const diff = real !== null && real !== undefined ? tracked - real : null;
 
               let status = "";
-              let actionClass = "";
+              let statusClass = "";
 
               if (diff === null) {
                 status = "Not Scanned";
-                actionClass = "text3";
+                statusClass = "unscanned";
               } else if (diff === 0) {
-                status = "✅ NO CHANGE";
-                actionClass = "pos";
+                status = "✅ Matched";
+                statusClass = "matched";
               } else if (diff < 0) {
                 // C4 - D4 < 0: Move money OUT of real account
-                status = `🔴 REDUCE ₹${Math.abs(diff)}`;
-                actionClass = "neg";
+                status = `🔴 Reduce ${fmt(Math.abs(diff))}`;
+                statusClass = "reduce";
               } else {
                 // C4 - D4 > 0: Move money INTO real account
-                status = `🟢 INCREASE ₹${Math.abs(diff)}`;
-                actionClass = "pos";
+                status = `🟢 Increase ${fmt(Math.abs(diff))}`;
+                statusClass = "increase";
               }
 
               return (
-                <div key={acc.account} className={`table-row ${i % 2 === 0 ? 'row-even' : ''}`} style={{ gridTemplateColumns: '1.5fr 1.2fr 1.2fr 1.5fr' }}>
-                  <span style={{ fontWeight: 600 }}>{BANKS[acc.account]?.emoji} {acc.account}</span>
-                  <span style={{ fontFamily: 'Syne, sans-serif' }}>{fmt(tracked)}</span>
-                  <span style={{ fontFamily: 'Syne, sans-serif', color: real !== null ? 'var(--accent2)' : 'var(--text3)' }}>
-                    {real !== null ? fmt(real) : "—"}
-                  </span>
-                  <span className={actionClass} style={{ fontWeight: 800, fontSize: '0.85rem' }}>{status}</span>
+                <div key={acc.account} className="reconcile-row" style={{ '--accent': BANKS[acc.account]?.color }}>
+                  <div className="reconcile-row-id">
+                    <span className="acc-emoji">{BANKS[acc.account]?.emoji}</span>
+                    <div className="reconcile-row-text">
+                      <span className="reconcile-account-name">{acc.account}</span>
+                      <span className="reconcile-row-figures">
+                        {fmt(tracked)}
+                        <span className="reconcile-arrow">→</span>
+                        <span style={{ color: real !== null ? 'var(--accent2)' : 'var(--text3)' }}>
+                          {real !== null ? fmt(real) : "—"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`reconcile-status-badge ${statusClass}`}>{status}</span>
                 </div>
               );
             })}

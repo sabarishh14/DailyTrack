@@ -551,6 +551,101 @@ body {
   font-weight: 700;
 }
 
+/* ── Reconcile Balances — one compact line per account (no more vertical
+   space than the old table rows used), so the whole list still fits without
+   scrolling. Still a plain flex list rather than a fixed-column grid, so
+   phones get normal vertical scrolling instead of the horizontal pan a
+   grid-table needs. ── */
+.reconcile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reconcile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, var(--border));
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  transition: all 0.15s;
+}
+
+.reconcile-row:hover {
+  border-color: var(--border2);
+  background: var(--card2);
+}
+
+.reconcile-row-id {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.reconcile-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.reconcile-account-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reconcile-row-figures {
+  font-size: 0.75rem;
+  color: var(--text2);
+  font-family: 'Syne', sans-serif;
+  white-space: nowrap;
+}
+
+.reconcile-arrow {
+  color: var(--text3);
+  margin: 0 0.15rem;
+}
+
+.reconcile-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reconcile-status-badge.matched,
+.reconcile-status-badge.increase {
+  background: rgba(52, 211, 153, 0.12);
+  color: #86efac;
+}
+
+.reconcile-status-badge.reduce {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.reconcile-status-badge.unscanned {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text3);
+}
+
+[data-theme="light"] .reconcile-status-badge.unscanned {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .inv-summary-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
