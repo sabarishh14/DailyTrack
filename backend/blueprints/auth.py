@@ -9,6 +9,7 @@ from extensions import (
     db, require_api_key, require_admin,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
+    jwt, firebase_auth,
 )
 from models import *
 
