@@ -1202,7 +1202,7 @@ def get_movie_stats():
         rewatched_ids.sort(key=lambda x: -x[1])
         most_rewatched = []
         movies_by_id = {l.movie_id: l.movie for l in logs if l.movie}
-        for mid, cnt in rewatched_ids[:10]:
+        for mid, cnt in rewatched_ids[:50]:
             m = movies_by_id.get(mid)
             if m:
                 most_rewatched.append({

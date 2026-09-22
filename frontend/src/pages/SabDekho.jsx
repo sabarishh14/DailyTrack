@@ -7,6 +7,27 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Library poster size — the TMDB width actually requested per tier, so
+// "small" genuinely downloads a smaller image instead of just squeezing a
+// full w185 into a tighter grid cell.
+const POSTER_IMG_SIZE = { small: 'w92', medium: 'w154', large: 'w342' };
+
+// A tiny "n x n squares" icon standing in for how many columns that density gives you.
+function GridSizeIcon({ cols }) {
+  const box = 14;
+  const gap = 2;
+  const cell = (box - gap * (cols - 1)) / cols;
+  const squares = [];
+  for (let r = 0; r < cols; r++) {
+    for (let c = 0; c < cols; c++) {
+      squares.push(
+        <rect key={`${r}-${c}`} x={c * (cell + gap)} y={r * (cell + gap)} width={cell} height={cell} rx={cell > 5 ? 1.5 : 1} />
+      );
+    }
+  }
+  return <svg width={box} height={box} viewBox={`0 0 ${box} ${box}`} fill="currentColor">{squares}</svg>;
+}
+
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
 function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   const [view, setView] = useState('library'); // library | diary | stats
@@ -58,6 +79,10 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [filterOptions, setFilterOptions] = useState(null); // { years, languages } — lazy-loaded
   const hasActiveLibraryFilters = yearFilter !== 'all' || monthFilter !== 'all' || weekFilter !== 'all' || languageFilter !== 'all';
+
+  // Poster size — remembered across visits, like theme/accent.
+  const [posterSize, setPosterSize] = useState(() => localStorage.getItem('dt_poster_size') || 'medium');
+  useEffect(() => { localStorage.setItem('dt_poster_size', posterSize); }, [posterSize]);
 
   // Diary expanded reviews
   const [expandedLogs, setExpandedLogs] = useState({});
@@ -768,50 +793,65 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               </button>
             </div>
 
-            {showsTotalCount > ITEMS_PER_PAGE && (
-              <div className="tv-pagination">
-                <button
-                  onClick={() => setShowsPage(prev => Math.max(1, prev - 1))}
-                  disabled={showsPage === 1}
-                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === 1 ? 'var(--text2)' : 'var(--text)', cursor: showsPage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
-                >
-                  ←
-                </button>
-
-                {Array.from({ length: Math.min(5, Math.ceil(showsTotalCount / ITEMS_PER_PAGE)) }, (_, i) => {
-                  const totalPages = Math.ceil(showsTotalCount / ITEMS_PER_PAGE);
-                  let pageNum;
-                  if (totalPages <= 5) pageNum = i + 1;
-                  else if (showsPage < 3) pageNum = i + 1;
-                  else if (showsPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = showsPage - 2 + i;
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setShowsPage(pageNum)}
-                      style={{
-                        padding: '0.35rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
-                        border: pageNum === showsPage ? '1px solid var(--accent)' : '1px solid var(--border)',
-                        background: pageNum === showsPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
-                        color: pageNum === showsPage ? 'var(--accent)' : 'var(--text2)',
-                        fontWeight: pageNum === showsPage ? 600 : 400
-                      }}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => setShowsPage(prev => Math.min(Math.ceil(showsTotalCount / ITEMS_PER_PAGE), prev + 1))}
-                  disabled={showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE)}
-                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'var(--text2)' : 'var(--text)', cursor: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
-                >
-                  →
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="tv-media-toggle tv-size-toggle">
+                {['small', 'medium', 'large'].map((size, i) => (
+                  <button
+                    key={size}
+                    className={posterSize === size ? 'active' : ''}
+                    onClick={() => setPosterSize(size)}
+                    title={`${size.charAt(0).toUpperCase()}${size.slice(1)} thumbnails`}
+                  >
+                    <GridSizeIcon cols={4 - i} />
+                  </button>
+                ))}
               </div>
-            )}
+
+              {showsTotalCount > ITEMS_PER_PAGE && (
+                <div className="tv-pagination">
+                  <button
+                    onClick={() => setShowsPage(prev => Math.max(1, prev - 1))}
+                    disabled={showsPage === 1}
+                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === 1 ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === 1 ? 'var(--text2)' : 'var(--text)', cursor: showsPage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+                  >
+                    ←
+                  </button>
+
+                  {Array.from({ length: Math.min(5, Math.ceil(showsTotalCount / ITEMS_PER_PAGE)) }, (_, i) => {
+                    const totalPages = Math.ceil(showsTotalCount / ITEMS_PER_PAGE);
+                    let pageNum;
+                    if (totalPages <= 5) pageNum = i + 1;
+                    else if (showsPage < 3) pageNum = i + 1;
+                    else if (showsPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                    else pageNum = showsPage - 2 + i;
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setShowsPage(pageNum)}
+                        style={{
+                          padding: '0.35rem 0.65rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem',
+                          border: pageNum === showsPage ? '1px solid var(--accent)' : '1px solid var(--border)',
+                          background: pageNum === showsPage ? 'rgba(var(--accent-rgb), 0.2)' : 'var(--bg-input)',
+                          color: pageNum === showsPage ? 'var(--accent)' : 'var(--text2)',
+                          fontWeight: pageNum === showsPage ? 600 : 400
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => setShowsPage(prev => Math.min(Math.ceil(showsTotalCount / ITEMS_PER_PAGE), prev + 1))}
+                    disabled={showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE)}
+                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'rgba(255,255,255,0.05)' : 'var(--bg-input)', color: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'var(--text2)' : 'var(--text)', cursor: showsPage === Math.ceil(showsTotalCount / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {showMoreFilters && (
@@ -853,11 +893,11 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
           )}
 
           {/* Grid */}
-          <div className="tv-poster-grid">
+          <div className="tv-poster-grid" data-size={posterSize}>
             {filteredShows.map(show => (
               <div key={`${show.type}-${show.id}`} className="tv-poster-card" onClick={() => openModal(show)}>
                 <div className="tv-poster-img-wrap">
-                  {show.poster_path ? <img src={`${TMDB_IMG}/w185${show.poster_path}`} alt={show.name} loading="lazy" style={show.isAdding ? { filter: 'blur(4px) grayscale(0.5)' } : {}} /> : <div className="tv-poster-fallback"><span>{show.type === 'movie' ? '🎬' : '📺'}</span>{show.name}</div>}
+                  {show.poster_path ? <img src={`${TMDB_IMG}/${POSTER_IMG_SIZE[posterSize]}${show.poster_path}`} alt={show.name} loading="lazy" style={show.isAdding ? { filter: 'blur(4px) grayscale(0.5)' } : {}} /> : <div className="tv-poster-fallback"><span>{show.type === 'movie' ? '🎬' : '📺'}</span>{show.name}</div>}
                   <div className="tv-poster-gradient" />
                   {show.isAdding && (
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 10 }}>

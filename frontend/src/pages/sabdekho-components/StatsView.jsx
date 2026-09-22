@@ -21,6 +21,19 @@ const releaseLabel = (movie) => {
   return movie.release_year;
 };
 
+// Poster grids (Highest Rated, Theatre Experiences, Most Rewatched) start
+// collapsed to this many so a long history doesn't load/render dozens of
+// posters up front; "Show More" reveals the rest on demand.
+const POSTER_GRID_INITIAL_COUNT = 12;
+
+function ShowMoreButton({ expanded, remaining, onToggle }) {
+  return (
+    <button className="stats-show-more-btn" onClick={onToggle}>
+      {expanded ? '− Show Less' : `+ Show ${remaining} More`}
+    </button>
+  );
+}
+
 export default function StatsView({ API, getToken, statsData, setStatsData, statsYear, setStatsYear, statsLoading, setStatsLoading, openModal, onFilterLibrary, refreshTrigger, mediaType = 'movie', showMovies = true }) {
   const [error, setError] = useState(null);
   const [tvStats, setTvStats] = useState(null);
@@ -172,10 +185,24 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
   const [highestRatedFilter, setHighestRatedFilter] = useState('current'); // 'current' | 'older'
   const [theatreFilter, setTheatreFilter] = useState('all');
   const [showAllTheatreTags, setShowAllTheatreTags] = useState(false);
+  const [showAllHighestRated, setShowAllHighestRated] = useState(false);
+  const [showAllTheatreMovies, setShowAllTheatreMovies] = useState(false);
+  const [showAllRewatched, setShowAllRewatched] = useState(false);
 
   useEffect(() => {
     setHighestRatedFilter('current');
   }, [statsYear]);
+
+  // Switching year or the current/older toggle changes the underlying list —
+  // collapse back so a filter change doesn't suddenly dump a huge expanded
+  // grid on screen.
+  useEffect(() => {
+    setShowAllHighestRated(false);
+  }, [statsYear, highestRatedFilter]);
+
+  useEffect(() => {
+    setShowAllTheatreMovies(false);
+  }, [theatreFilter]);
 
   // Render star icons for a given rating
   const renderStars = (rating) => {
@@ -228,6 +255,14 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
   if (statsYear !== 'all') {
     highestRatedList = highestRatedFilter === 'current' ? (d.highest_rated_current || []) : (d.highest_rated_older || []);
   }
+  const visibleHighestRated = showAllHighestRated ? highestRatedList : highestRatedList.slice(0, POSTER_GRID_INITIAL_COUNT);
+
+  const rewatchedList = d.most_rewatched || [];
+  const visibleRewatched = showAllRewatched ? rewatchedList : rewatchedList.slice(0, POSTER_GRID_INITIAL_COUNT);
+
+  const visibleTheatreMovies = showAllTheatreMovies
+    ? filteredAndGroupedTheatreMovies
+    : filteredAndGroupedTheatreMovies.slice(0, POSTER_GRID_INITIAL_COUNT);
 
   return (
     <>
@@ -276,7 +311,7 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
             )}
           </div>
           <div className="stats-poster-grid">
-            {highestRatedList.map(m => (
+            {visibleHighestRated.map(m => (
               <div
                 key={m.movie_id}
                 className="stats-poster-item"
@@ -294,6 +329,13 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
               </div>
             ))}
           </div>
+          {highestRatedList.length > POSTER_GRID_INITIAL_COUNT && (
+            <ShowMoreButton
+              expanded={showAllHighestRated}
+              remaining={highestRatedList.length - POSTER_GRID_INITIAL_COUNT}
+              onToggle={() => setShowAllHighestRated(v => !v)}
+            />
+          )}
         </div>
       )}
 
@@ -337,7 +379,7 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
           )}
 
           <div className="stats-poster-grid stats-theatre-grid">
-            {filteredAndGroupedTheatreMovies.map((m) => (
+            {visibleTheatreMovies.map((m) => (
               <div
                 key={m.movie_id}
                 className="stats-poster-item"
@@ -372,6 +414,13 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
               </div>
             ))}
           </div>
+          {filteredAndGroupedTheatreMovies.length > POSTER_GRID_INITIAL_COUNT && (
+            <ShowMoreButton
+              expanded={showAllTheatreMovies}
+              remaining={filteredAndGroupedTheatreMovies.length - POSTER_GRID_INITIAL_COUNT}
+              onToggle={() => setShowAllTheatreMovies(v => !v)}
+            />
+          )}
         </div>
       )}
 
@@ -553,7 +602,7 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
             <span className="stats-section-title">🔁 Most Rewatched</span>
           </div>
           <div className="stats-poster-grid">
-            {d.most_rewatched.map((m) => (
+            {visibleRewatched.map((m) => (
               <div key={m.movie_id} className="stats-poster-item" onClick={() => openModal({ id: m.movie_id, tmdb_id: m.tmdb_id, type: 'movie', name: m.name, poster_path: m.poster_path })}>
                 <div className="stats-poster-img-wrap">
                   {m.poster_path ? (
@@ -582,6 +631,13 @@ function MovieStatsSections({ d, statsYear, openModal, onFilterLibrary }) {
               </div>
             ))}
           </div>
+          {rewatchedList.length > POSTER_GRID_INITIAL_COUNT && (
+            <ShowMoreButton
+              expanded={showAllRewatched}
+              remaining={rewatchedList.length - POSTER_GRID_INITIAL_COUNT}
+              onToggle={() => setShowAllRewatched(v => !v)}
+            />
+          )}
         </div>
       )}
 
