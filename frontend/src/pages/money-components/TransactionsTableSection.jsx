@@ -21,7 +21,8 @@ export default function TransactionsTableSection({
   setFilterFY,
   filterDesc, setFilterDesc,
 
-  tableFiltered,
+  tableTotal,
+  tableSums,
   totalPages,
   paginatedRows,
   currentPage, setCurrentPage,
@@ -46,7 +47,7 @@ export default function TransactionsTableSection({
   isBulkEditOpen, setIsBulkEditOpen,
   isBulkCopyOpen, setIsBulkCopyOpen,
 
-  transactions,
+  selectedTransactions,
   categories,
   onRefresh,
 }) {
@@ -201,16 +202,16 @@ export default function TransactionsTableSection({
       </div>
 
       {/* Stats Bar & Pagination - Above Table */}
-      {tableFiltered.length > 0 && (
+      {tableTotal > 0 && (
         <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
           <div className="tx-stats-bar" style={{ marginBottom: '1.5rem' }}>
             <span>
-              Page <strong style={{ color: 'var(--text)' }}>{currentPage + 1} of {totalPages}</strong> · Showing <strong style={{ color: 'var(--text)' }}>{paginatedRows.length}</strong> of {tableFiltered.length} transactions
+              Page <strong style={{ color: 'var(--text)' }}>{currentPage + 1} of {totalPages}</strong> · Showing <strong style={{ color: 'var(--text)' }}>{paginatedRows.length}</strong> of {tableTotal} transactions
             </span>
             <span>
-              <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
+              <span className="pos" style={{ fontWeight: 600 }}>{fmt(tableSums.credit)}</span>
               {' '}in &nbsp;·&nbsp;
-              <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}</span>
+              <span className="neg" style={{ fontWeight: 600 }}>{fmt(tableSums.debit)}</span>
               {' '}out
             </span>
           </div>
@@ -342,7 +343,7 @@ export default function TransactionsTableSection({
             <span>Actions</span>
           </div>
         </div>
-        {tableFiltered.length > 0 ? (
+        {paginatedRows.length > 0 ? (
           paginatedRows.map((t, i) => {
             const d = new Date(t.date);
             const monthLabel = d.toLocaleString('default', { month: 'long' });
@@ -416,12 +417,12 @@ export default function TransactionsTableSection({
 
         {/* Bulk Edit Modal */}
         {isBulkEditOpen && (
-          <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
+          <BulkEditTransactionModal transactions={selectedTransactions} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
         )}
 
         {/* Bulk Copy Modal */}
         {isBulkCopyOpen && (
-          <BulkEditTransactionModal transactions={transactions.filter(t => selectedIds.has(t.id))} categories={categories} isCopy={true} onClose={() => { setIsBulkCopyOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
+          <BulkEditTransactionModal transactions={selectedTransactions} categories={categories} isCopy={true} onClose={() => { setIsBulkCopyOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
         )}
       </div>
     </section>

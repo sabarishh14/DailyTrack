@@ -13,7 +13,7 @@ from extensions import (
 from models import *
 from access import require_api_key, require_admin, require_access, current_access
 
-import google.generativeai as genai
+from google import genai
 from sqlalchemy import text
 
 chat_bp = Blueprint("chat", __name__)
@@ -55,8 +55,11 @@ def handle_chat_query():
     if not api_key:
         return jsonify({"success": False, "message": "Nagapandi is sleeping (API key missing)."})
         
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-3.5-flash-lite')
+    client = genai.Client(api_key=api_key)
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+    def generate(prompt_text):
+        return client.models.generate_content(model=model_name, contents=prompt_text).text or ""
     
     prompt = f'''
     You are 'Nagapandi', a highly capable AI assistant for a personal tracking app (LifeTrack). 
@@ -87,8 +90,7 @@ def handle_chat_query():
     '''
     
     try:
-        response = model.generate_content(prompt)
-        resp_text = response.text.strip()
+        resp_text = generate(prompt).strip()
         if resp_text.startswith('```json'): resp_text = resp_text[7:]
         if resp_text.startswith('```'): resp_text = resp_text[3:]
         if resp_text.endswith('```'): resp_text = resp_text[:-3]
@@ -111,9 +113,9 @@ def handle_chat_query():
         Formulate a very fast, conversational, and direct answer based ONLY on the database result. 
         Keep it brief, smooth, and friendly. Use emojis where appropriate. Do NOT mention "the database returned". 
         '''
-        final_response = model.generate_content(prompt2)
+        final_response = generate(prompt2)
         
-        return jsonify({"success": True, "result": final_response.text.strip()})
+        return jsonify({"success": True, "result": final_response.strip()})
         
     except Exception as e:
         print("Nagapandi Error:", e)

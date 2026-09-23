@@ -81,6 +81,7 @@ db.init_app(app)
 
 from blueprints.core import core_bp
 from blueprints.money import money_bp
+from blueprints.money_query import money_query_bp
 from blueprints.activities import activities_bp
 from blueprints.invest import invest_bp
 from blueprints.auth import auth_bp
@@ -90,6 +91,7 @@ from blueprints.chat import chat_bp
 
 app.register_blueprint(core_bp)
 app.register_blueprint(money_bp)
+app.register_blueprint(money_query_bp)
 app.register_blueprint(activities_bp)
 app.register_blueprint(invest_bp)
 app.register_blueprint(auth_bp)

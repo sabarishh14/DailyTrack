@@ -7,13 +7,29 @@ import SabDekho from '../pages/SabDekho';
 
 import { TABS, API } from '../constants';
 import { getToken } from '../utils';
+import { apiPost } from '../api/money';
 
-const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction, getToken, enableNagapandi, tabs = TABS }) => {
+const GlobalSearchModal = ({ isOpen, onClose, onNavigate, onEditTx, onAction, getToken, enableNagapandi, tabs = TABS, canSearchMoney = false, canToggleBalances = false }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatResponse, setChatResponse] = useState(null);
   const inputRef = useRef(null);
+  const [txResults, setTxResults] = useState([]);
+
+  // Transactions are searched on the server (description, category or amount),
+  // debounced so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const term = query.trim();
+    if (!isOpen || !canSearchMoney || term.length < 2) { setTxResults([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      apiPost('/transactions/query', { filters: { search: term }, sort_by: 'date', sort_dir: 'desc', limit: 10 })
+        .then(res => { if (!cancelled && res.success) setTxResults(res.transactions); })
+        .catch(() => { });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query, isOpen, canSearchMoney]);
 
   useEffect(() => {
     if (isOpen) {
@@ -34,16 +50,12 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
 
   const quickActions = [
     { type: 'ACTION', id: 'act-1', label: 'Toggle Theme', action: () => onAction('theme'), icon: '🎨' },
-    { type: 'ACTION', id: 'act-2', label: 'Toggle Balances Visibility', action: () => onAction('balances'), icon: '👁️' },
+    ...(canToggleBalances ? [{ type: 'ACTION', id: 'act-2', label: 'Toggle Balances Visibility', action: () => onAction('balances'), icon: '👁️' }] : []),
   ].filter(a => a.label.toLowerCase().includes(q));
 
-  const txMatches = q ? transactions.filter(t =>
-    (t.description || '').toLowerCase().includes(q) ||
-    t.amount.toString().includes(q) ||
-    (t.category_id || '').toLowerCase().includes(q)
-  ).slice(0, 10).map(t => ({
+  const txMatches = q ? txResults.map(t => ({
     type: 'TX', id: `tx-${t.id}`,
-    label: `${t.description} (₹${t.amount}) • ${new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    label: `${t.description || t.heading} (₹${t.amount}) • ${t.heading} • ${new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
     action: () => onEditTx(t),
     icon: '💸'
   })) : [];

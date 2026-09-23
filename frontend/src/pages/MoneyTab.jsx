@@ -19,9 +19,14 @@ import TransactionDetailsModal from './money-components/TransactionDetailsModal'
 import SnapshotPoster from './money-components/SnapshotPoster';
 import TransactionsTableSection from './money-components/TransactionsTableSection';
 import { useAccess } from '../access/AccessContext';
+import { apiGet, apiPost, tri, useApi, useMoneyMeta, EMPTY_META, monthKey } from '../api/money';
 
-function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx }) {
+function MoneyTab({ accounts, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx, dataVersion, isActive = true }) {
   const canEdit = useAccess().can('money', 'edit');
+  // Everything below is computed server-side; nothing loads until the tab is opened.
+  const [hasOpened, setHasOpened] = useState(isActive);
+  useEffect(() => { if (isActive) setHasOpened(true); }, [isActive]);
+  const meta = useMoneyMeta(dataVersion, hasOpened).data || EMPTY_META;
 const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
 
@@ -172,43 +177,22 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     return () => clearTimeout(timer);
   }, [filterDesc]);
 
-  // Memoize expensive computations
-  const { allMonths, allYears, allHeadings, allAccountsList, allTypes, allFYs } = useMemo(() => { // <-- Destructure allYears, allFYs
-    const years = [...new Set(transactions.map(t => {
-      if (!t.date) return null;
-      const d = new Date(t.date);
-      if (isNaN(d.getTime())) return null;
-      return d.getFullYear().toString();
-    }))]
-      .filter(Boolean)
-      .sort().reverse();
-
-    // Generate Financial Year options from transactions
-    // FY runs April 1 to March 31. A date in Jan-Mar belongs to FY starting previous year.
-    const fySet = new Set();
-    transactions.forEach(t => {
-      if (!t.date) return;
-      const d = new Date(t.date);
-      if (isNaN(d.getTime())) return;
-      const month = d.getMonth(); // 0-indexed
-      const year = d.getFullYear();
-      const fyStart = month >= 3 ? year : year - 1; // Apr(3)-Dec = current year, Jan-Mar = prev year
-      fySet.add(`FY ${fyStart}-${fyStart + 1}`);
-    });
-    const fys = [...fySet].sort().reverse();
-
-    return {
-      allMonths: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-      allYears: years,
-      allFYs: fys,
-      allHeadings: [...new Set(transactions.map(t => t.heading))].sort(),
-      allAccountsList: [...new Set(transactions.map(t => t.account))].sort(),
-      allTypes: [...new Set(transactions.map(t => t.type))].sort().map(t => t.charAt(0).toUpperCase() + t.slice(1))
-    };
-  }, [transactions]);
+  // Filter options (years, FYs, categories, accounts, types) come from the server.
+  const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const allYears = meta.years;
+  const allFYs = meta.fys;
+  const allHeadings = meta.headings;
+  const allAccountsList = meta.accounts;
+  const allTypes = meta.types;
+  const recentDescriptions = meta.recent_descriptions;
 
   // Optimistic split overrides — local state for instant UI
   const [splitOverrides, setSplitOverrides] = useState({});
+
+  // Only transactions that have splits are fetched for the splits dashboard.
+  const splitsRes = useApi(() => apiGet('/splits/list'), dataVersion, hasOpened);
+  const splitTransactions = splitsRes.data?.transactions || [];
+  useEffect(() => { setSplitOverrides({}); }, [splitsRes.data]);
 
   // Split dashboard computed data (merges optimistic overrides)
   const { activeSplits, settledSplits, splitBalances, totalOwed } = useMemo(() => {
@@ -217,7 +201,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     const bals = {};
     let owed = 0;
 
-    transactions.forEach(t => {
+    splitTransactions.forEach(t => {
       const effectiveSplit = splitOverrides[t.id] || t.split;
       if (!effectiveSplit || !effectiveSplit.members || effectiveSplit.members.length === 0) return;
       const txWithSplit = { ...t, split: effectiveSplit };
@@ -246,7 +230,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
       .sort((a, b) => b.amount - a.amount);
 
     return { activeSplits: active, settledSplits: settled, splitBalances: balsArr, totalOwed: owed };
-  }, [transactions, splitOverrides]);
+  }, [splitTransactions, splitOverrides]);
 
   // Multi-select toggle functions
   // Helper to check match based on 3-State filtering
@@ -257,48 +241,25 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     return true;
   };
 
-  // Memoize analyzer filtered results (with Drill-Down logic)
-  const { analyzerFiltered, pieArr, isShowingDescriptions } = useMemo(() => {
-    const filtered = transactions.filter(t => {
-      if (t.exclude_analytics) return false; // Hides it from charts and stats
-      if (!t.date) return false;
-      const d = new Date(t.date);
-      if (isNaN(d.getTime())) return false;
-      const month = d.toLocaleString('default', { month: 'long' });
-      const year = d.getFullYear().toString();
-      const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
-      const accountMatch = checkMatch(chartAccounts, t.account);
-      const typeMatch = checkMatch(chartTypes, capitalizedType);
-      const monthMatch = checkMatch(chartMonths, month);
-      const yearMatch = checkMatch(chartYears, year);
-      const headingMatch = checkMatch(chartHeadings, t.heading);
-      // Date range filter for analyzer
-      const dateMatch = (() => {
-        if (!chartDateFromDebounced) return true;
-        const txDate = new Date(t.date);
-        const from = new Date(chartDateFromDebounced);
-        const to = chartDateToDebounced ? new Date(chartDateToDebounced) : from;
-        return txDate >= from && txDate <= to;
-      })();
-      return accountMatch && typeMatch && monthMatch && yearMatch && headingMatch && dateMatch;
-    });
-
-    // If exactly one heading is included, drill down into descriptions!
-    const isShowingDescriptions = chartHeadings.included.size === 1;
-    const pieData = {};
-
-    filtered.forEach(t => {
-      let key = t.heading;
-      if (isShowingDescriptions) {
-        key = (t.description && t.description.trim() !== '') ? t.description.trim() : "No Description";
-      }
-      pieData[key] = (pieData[key] || 0) + Math.abs(parseFloat(t.amount));
-    });
-
-    const pieArray = Object.entries(pieData).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-
-    return { analyzerFiltered: filtered, pieArr: pieArray, isShowingDescriptions };
-  }, [transactions, chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings, chartDateFromDebounced, chartDateToDebounced]);
+  // Spending analyser: filtering and grouping run in SQL (/api/money/analyze).
+  const analyzerFilters = useMemo(() => ({
+    accounts: tri(chartAccounts),
+    types: tri(chartTypes),
+    months: tri(chartMonths),
+    years: tri(chartYears),
+    headings: tri(chartHeadings),
+    date_from: chartDateFromDebounced || null,
+    date_to: chartDateToDebounced || null,
+  }), [chartAccounts, chartTypes, chartMonths, chartYears, chartHeadings, chartDateFromDebounced, chartDateToDebounced]);
+  const analyzerKey = `${JSON.stringify(analyzerFilters)}|${dataVersion}`;
+  const analyzerRes = useApi(() => apiPost('/money/analyze', { filters: analyzerFilters }), analyzerKey, hasOpened);
+  const pieArr = analyzerRes.data?.groups || [];
+  const isShowingDescriptions = chartHeadings.included.size === 1;
+  const analyzerStats = {
+    count: analyzerRes.data?.count || 0,
+    credit: analyzerRes.data?.credit || { count: 0, sum: 0 },
+    debit: analyzerRes.data?.debit || { count: 0, sum: 0 },
+  };
 
   const renderActiveFilters = (c) => {
     const filters = [];
@@ -524,84 +485,32 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     setCaptureMode(null);
   };
 
-  // Memoize table filtered and sorted results
-  const tableFiltered = useMemo(() => {
-    return transactions.filter(t => {
-      if (!t.date) return false;
-      const d = new Date(t.date);
-      if (isNaN(d.getTime())) return false;
-      const month = d.toLocaleString('default', { month: 'long' });
-      const year = d.getFullYear().toString();
-      const dateStr = t.date || '';
-      const capitalizedType = t.type ? t.type.charAt(0).toUpperCase() + t.type.slice(1) : '';
-      const accountMatch = checkMatch(filterAccounts, t.account);
-      const dateMatch = (() => {
-        if (!filterDateFromDebounced) return true;
-        const txDate = new Date(dateStr);
-        const from = new Date(filterDateFromDebounced);
-        const to = filterDateToDebounced ? new Date(filterDateToDebounced) : from;
-        return txDate >= from && txDate <= to;
-      })();
-      const monthMatch = checkMatch(filterMonths, month);
+  // Transactions table: filtered, sorted and paged on the server (/api/transactions/query).
+  const tableFilters = useMemo(() => ({
+    accounts: tri(filterAccounts),
+    types: tri(filterTypes),
+    months: tri(filterMonths),
+    years: tri(filterYears),
+    headings: tri(filterHeadings),
+    visibility: tri(filterVisibility),
+    date_from: filterDateFromDebounced || null,
+    date_to: filterDateToDebounced || null,
+    description: filterDescDebounced || null,
+  }), [filterAccounts, filterTypes, filterMonths, filterYears, filterHeadings, filterVisibility, filterDateFromDebounced, filterDateToDebounced, filterDescDebounced]);
+  const tableKey = `${JSON.stringify(tableFilters)}|${sortBy}|${sortDir}|${currentPage}|${rowsPerPage}|${dataVersion}`;
+  const tableRes = useApi(() => apiPost('/transactions/query', {
+    filters: tableFilters, sort_by: sortBy, sort_dir: sortDir,
+    offset: currentPage * rowsPerPage, limit: rowsPerPage,
+  }), tableKey, hasOpened);
+  const paginatedRows = tableRes.data?.transactions || [];
+  const tableTotal = tableRes.data?.total || 0;
+  const tableSums = { credit: tableRes.data?.credit_total || 0, debit: tableRes.data?.debit_total || 0 };
+  const totalPages = Math.ceil(tableTotal / rowsPerPage);
 
-      const yearStr = d.getFullYear().toString();
-      const yearMatch = checkMatch(filterYears, yearStr);
-
-      const typeMatch = checkMatch(filterTypes, capitalizedType);
-      const headingMatch = checkMatch(filterHeadings, t.heading);
-      const descMatch = !filterDescDebounced || (t.description || '').toLowerCase().includes(filterDescDebounced.toLowerCase());
-
-      const visibilityMatch = (() => {
-        if (filterVisibility.included.size === 0 && filterVisibility.excluded.size === 0) return true;
-        const statusLabel = t.exclude_analytics ? "Excluded" : "Active";
-        return checkMatch(filterVisibility, statusLabel);
-      })();
-
-      return accountMatch && dateMatch && monthMatch && yearMatch && typeMatch && headingMatch && descMatch && visibilityMatch;
-    }).sort((a, b) => {
-      let aVal, bVal;
-      if (sortBy === 'date') {
-        aVal = new Date(a.date).getTime();
-        bVal = new Date(b.date).getTime();
-      } else if (sortBy === 'account') {
-        aVal = a.account;
-        bVal = b.account;
-      } else if (sortBy === 'type') {
-        aVal = a.type;
-        bVal = b.type;
-      } else if (sortBy === 'month') {
-        aVal = new Date(a.date).getTime();
-        bVal = new Date(b.date).getTime();
-      } else if (sortBy === 'amount') {
-        aVal = parseFloat(a.amount);
-        bVal = parseFloat(b.amount);
-      } else if (sortBy === 'heading') {
-        aVal = a.heading;
-        bVal = b.heading;
-      } else if (sortBy === 'desc') {
-        aVal = a.description || '';
-        bVal = b.description || '';
-      }
-
-      if (typeof aVal === 'string') {
-        const res = sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        // Tie-breaker: If dates/strings are identical, show the most recently added first
-        return res !== 0 ? res : b.id - a.id;
-      } else {
-        const res = sortDir === 'asc' ? aVal - bVal : bVal - aVal;
-        // Tie-breaker: If numbers are identical, show the most recently added first
-        return res !== 0 ? res : b.id - a.id;
-      }
-    });
-  }, [transactions, filterAccounts, filterDateFromDebounced, filterDateToDebounced, filterMonths, filterYears, filterTypes, filterHeadings, filterDescDebounced, filterVisibility, sortBy, sortDir]); // <-- UPDATE DEPENDENCIES
-
-  // Paginate the filtered results
-  const totalPages = Math.ceil(tableFiltered.length / rowsPerPage);
-  const paginatedRows = useMemo(() => {
-    const start = currentPage * rowsPerPage;
-    const end = start + rowsPerPage;
-    return tableFiltered.slice(start, end);
-  }, [tableFiltered, currentPage, rowsPerPage]);
+  // Selection can span pages, so remember every row we've shown for bulk edit.
+  const seenRowsRef = useRef({});
+  paginatedRows.forEach(t => { seenRowsRef.current[t.id] = t; });
+  const selectedTransactions = [...selectedIds].map(id => seenRowsRef.current[id]).filter(Boolean);
 
   // Reset to page 0 when filters change
   useEffect(() => {
@@ -773,18 +682,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     });
   };
 
-  const currentMonthSpending = useMemo(() => {
-    const spending = {};
-    const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    
-    transactions.forEach(t => {
-      if (t.type === 'Debit' && !t.exclude_analytics && t.date.startsWith(currentMonthStr)) {
-        spending[t.heading] = (spending[t.heading] || 0) + parseFloat(t.amount);
-      }
-    });
-    return spending;
-  }, [transactions]);
+  const spendRes = useApi(() => apiGet(`/money/summary?spend_month=${monthKey()}`), dataVersion, hasOpened);
+  const currentMonthSpending = spendRes.data?.spending || {};
 
   const handleInlineBudgetSave = async (category) => {
     try {
@@ -1172,26 +1071,26 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
             )}
 
             {/* Transaction Count Stats */}
-            {analyzerFiltered.length > 0 && (
+            {analyzerStats.count > 0 && (
               <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center', gap: '1rem' }}>
                   <div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '0.5rem' }}>Income Txns</div>
                     <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--pos)' }}>
-                      {analyzerFiltered.filter(t => t.type === 'Credit').length}
+                      {analyzerStats.credit.count}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '0.25rem' }}>
-                      {fmt(analyzerFiltered.filter(t => t.type === 'Credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}
+                      {fmt(analyzerStats.credit.sum)}
                     </div>
                   </div>
                   <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
                   <div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: '0.5rem' }}>Expense Txns</div>
                     <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--neg)' }}>
-                      {analyzerFiltered.filter(t => t.type === 'Debit').length}
+                      {analyzerStats.debit.count}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '0.25rem' }}>
-                      {fmt(analyzerFiltered.filter(t => t.type === 'Debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0))}
+                      {fmt(analyzerStats.debit.sum)}
                     </div>
                   </div>
                 </div>
@@ -1245,7 +1144,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         filterDateTo={filterDateTo} setFilterDateTo={setFilterDateTo}
         setFilterFY={setFilterFY}
         filterDesc={filterDesc} setFilterDesc={setFilterDesc}
-        tableFiltered={tableFiltered}
+        tableTotal={tableTotal}
+        tableSums={tableSums}
         totalPages={totalPages}
         paginatedRows={paginatedRows}
         currentPage={currentPage} setCurrentPage={setCurrentPage}
@@ -1265,7 +1165,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         handleBulkDelete={handleBulkDelete}
         isBulkEditOpen={isBulkEditOpen} setIsBulkEditOpen={setIsBulkEditOpen}
         isBulkCopyOpen={isBulkCopyOpen} setIsBulkCopyOpen={setIsBulkCopyOpen}
-        transactions={transactions}
+        selectedTransactions={selectedTransactions}
         categories={categories}
         onRefresh={onRefresh}
       />
@@ -1274,7 +1174,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         <EditTransactionModal
           tx={editingTx}
           categories={categories}
-          recentDescriptions={[...new Set((transactions || []).map(t => t.description).filter(d => d && d.trim() !== ''))]}
+          recentDescriptions={recentDescriptions}
           onClose={() => setEditingTx(null)}
           onRefresh={onRefresh}
         />
@@ -1284,7 +1184,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         <EditTransactionModal
           tx={copyingTx}
           categories={categories}
-          recentDescriptions={[...new Set((transactions || []).map(t => t.description).filter(d => d && d.trim() !== ''))]}
+          recentDescriptions={recentDescriptions}
           onClose={() => setCopyingTx(null)}
           onRefresh={onRefresh}
           isCopy={true}
@@ -1294,7 +1194,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
       {/* CATEGORY MANAGER MODAL */}
       {isCategoryModalOpen && (
         <CategoryExclusionModal
-          transactions={transactions}
+          excludedHeadings={meta.excluded_headings}
           allHeadings={allHeadings}
           onClose={() => setIsCategoryModalOpen(false)}
           onRefresh={onRefresh}
@@ -1330,7 +1230,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         isShowingDescriptions={isShowingDescriptions}
         filterDesc={filterDesc}
         chartHeadings={chartHeadings}
-        analyzerFiltered={analyzerFiltered}
+        analyzerCount={analyzerStats.count}
         renderActiveFilters={renderActiveFilters}
         PIE_COLORS={PIE_COLORS}
       />

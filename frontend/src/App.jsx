@@ -60,15 +60,17 @@ export default function App() {
 
   const [loadingLogs, setLoadingLogs] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
+  // Bumped after every full refresh; server-computed money views refetch on it.
+  const [dataVersion, setDataVersion] = useState(0);
+  // Lives here (not in Home) so Cmd+K "Toggle Balances Visibility" can flip it.
+  const [showBalances, setShowBalances] = useState(false);
+const [categories, setCategories] = useState([]);
   const [budgets, setBudgets] = useState([]); // 🚀 NEW STATE FOR BUDGETS
   const [physical, setPhysical] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [manualAssets, setManualAssets] = useState([]); // 🚀 NEW STATE
   const [assetList, setAssetList] = useState({}); // 🚀 NEW: Dropdown options
-  const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
 
   // 🔐 ACCESS CONTROL: what this user may see/do (refreshed from /auth/me)
   const [accessRaw, setAccessRaw] = useState(loadStoredAccess);
@@ -213,9 +215,7 @@ export default function App() {
     setAccessRaw(null);
     setAuthNotice(typeof notice === 'string' ? notice : '');
     setIsLoggedIn(false);
-    setAllTransactionsLoaded(false);
-    setTransactions([]);
-    setAccounts([]);
+setAccounts([]);
     setPhysical([]);
     setInvestments([]);
   }, []);
@@ -306,45 +306,6 @@ export default function App() {
   // Dynamically calculate if we are in "mini" mode based on width!
   const sidebarMinimized = sidebarWidth < 140;
 
-  // Load all transactions (for MoneyTab) - lazy loaded when needed
-  const fetchAllTransactions = useCallback(async () => {
-    if (allTransactionsLoaded || !getToken() || !accessRef.current.can('money')) return;
-    try {
-      let offset = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        if (!getToken()) break; // stop mid-loop if logged out
-        const r = await fetch(`${API}/transactions?limit=500&offset=${offset}`, {
-          headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
-        if (r.status === 401) { logout(await revokedNotice(r)); break; }
-        const res = await r.json();
-
-        if (!res.transactions || res.transactions.length === 0) break;
-
-        // PROGRESSIVE UPDATE: Show data immediately as each batch arrives!
-        if (getToken()) {
-          setTransactions(prev => {
-            // Filter out duplicates just in case React fires this twice
-            const existingIds = new Set(prev.map(t => t.id));
-            const newTxs = res.transactions.filter(t => !existingIds.has(t.id));
-            return [...prev, ...newTxs];
-          });
-        }
-
-        hasMore = res.hasMore;
-        offset += 500;
-      }
-
-      if (getToken()) {
-        setAllTransactionsLoaded(true);
-      }
-    } catch (e) {
-      console.error("Failed to load all transactions", e);
-    }
-  }, [allTransactionsLoaded, logout]);
-
   const refreshBudgets = useCallback(async () => {
     if (!getToken()) return;
     try {
@@ -408,13 +369,12 @@ export default function App() {
       // Only ask for what this user can see; everything else resolves empty.
       const when = (allowed, url, name, empty) => allowed ? fetchWithCheck(url, name) : Promise.resolve(empty);
       const money = acl.can('money'), invest = acl.can('invest');
-      const [acc, phy, inv, manAssets, txRes, listRes, catRes, budRes] = await Promise.all([
+      const [acc, phy, inv, manAssets, listRes, catRes, budRes] = await Promise.all([
         when(money, `${API}/accounts`, 'Accounts', []),
         when(acl.can('gym'), `${API}/physical`, 'Health & Fitness', []),
         when(invest, `${API}/investments`, 'Investments', []),
         when(invest, `${API}/manual_assets`, 'Manual Assets', []),
-        when(money, `${API}/transactions?limit=100&offset=0`, 'Transactions (Batch 1)', { transactions: [] }),
-        when(invest, `${API}/assets/list`, 'Market Symbols', {}),
+when(invest, `${API}/assets/list`, 'Market Symbols', {}),
         when(money, `${API}/transactions/categories`, 'Categories', { success: true, categories: [] }),
         when(money, `${API}/budgets`, 'Budgets', { success: true, budgets: [] })
       ]);
@@ -422,9 +382,7 @@ export default function App() {
       if (showLoading) addLog("Data parsed successfully. Finalizing UI...");
 
       setAccounts(acc);
-      setTransactions(txRes.transactions);
-      setAllTransactionsLoaded(false);
-      setPhysical(phy);
+setPhysical(phy);
       setInvestments(inv);
       setManualAssets(manAssets);
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
@@ -435,6 +393,7 @@ export default function App() {
 
       // Also trigger SabDekho refresh
       setSabDekhoRefresh(prev => prev + 1);
+      setDataVersion(v => v + 1);
 
       if (showLoading) setAppLoading(false);
     } catch (e) {
@@ -459,24 +418,19 @@ export default function App() {
 
   useEffect(() => { if (isLoggedIn) fetchAll(true); }, [fetchAll, isLoggedIn]);
 
-  // Load all transactions when MoneyTab is opened
-  useEffect(() => {
-    if (tab === 1) {
-      fetchAllTransactions();
-    }
-  }, [tab, fetchAllTransactions]);
-
-  const today = new Date();
+const today = new Date();
   const dateStr = today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const renderTab = () => {
     return (
       <>
-        {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} transactions={transactions ?? []} physical={physical ?? []} investments={investments ?? []} budgets={budgets ?? []} onSyncBalances={syncBalances} fetchAllTransactions={fetchAllTransactions} onRefresh={fetchAll} />}
-        <div style={{ display: tab === 1 ? 'contents' : 'none' }}>
-          <MemoizedMoneyTab accounts={accounts} transactions={transactions} categories={categories} budgets={budgets} onRefresh={fetchAll} refreshBudgets={refreshBudgets} globalActionTx={globalActionTx} setGlobalActionTx={setGlobalActionTx} />
-        </div>
-        {tab === 2 && <MemoizedAddTab accounts={accounts} transactions={transactions} categories={categories} onAdd={fetchAll} />}
+        {tab === 0 && <MemoizedHomeTab accounts={accounts ?? []} physical={physical ?? []} investments={investments ?? []} budgets={budgets ?? []} onRefresh={fetchAll} dataVersion={dataVersion} showBalances={showBalances} setShowBalances={setShowBalances} />}
+        {access.can('money') && (
+          <div style={{ display: tab === 1 ? 'contents' : 'none' }}>
+            <MemoizedMoneyTab accounts={accounts} categories={categories} budgets={budgets} onRefresh={fetchAll} refreshBudgets={refreshBudgets} globalActionTx={globalActionTx} setGlobalActionTx={setGlobalActionTx} dataVersion={dataVersion} isActive={tab === 1} />
+          </div>
+        )}
+        {tab === 2 && <MemoizedAddTab accounts={accounts} categories={categories} onAdd={fetchAll} dataVersion={dataVersion} />}
         {tab === 3 && <MemoizedGymTab physical={physical} onOpenModal={() => setIsActivityModalOpen(true)} />}
         {tab === 4 && <MemoizedInvestTab investments={investments} manualAssets={manualAssets} assetList={assetList} onAdd={fetchAll} />}
         {tab === 5 && <MemoizedSabDekho API={API} getToken={getToken} showMovies={showMovies} refreshTrigger={sabDekhoRefresh} />}
@@ -484,22 +438,6 @@ export default function App() {
     );
   };
 
-  const syncBalances = useCallback(async (data) => {
-    // data = { KOTAK: 12000, IDBI: 5000, FEDERAL: 0, CUB: 0, INDIAN: 0, ICICI: 0 }
-    await Promise.all(
-      Object.entries(data).map(([account, balance]) =>
-        fetch(`${API}/accounts`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getToken()}`
-          },
-          body: JSON.stringify({ account, balance: parseFloat(balance) }),
-        })
-      )
-    );
-    fetchAll(); // refresh UI
-  }, [fetchAll]);
 
 
   if (!isLoggedIn) return <LoginPage notice={authNotice} onLogin={(acc) => { setAuthNotice(''); if (acc) { setAccessRaw(acc); storeAccess(acc); } setIsLoggedIn(true); }} />;
@@ -580,12 +518,13 @@ export default function App() {
         enableNagapandi={isAdmin && enableNagapandi}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        transactions={transactions}
-        onNavigate={(id) => setTab(id)}
+        canSearchMoney={access.can('money')}
+        canToggleBalances={access.money.balancesVisible}
+onNavigate={(id) => setTab(id)}
         onEditTx={(tx) => { setTab(1); setGlobalActionTx(tx); }}
         onAction={(action) => {
           if (action === 'theme') setTheme(theme === 'dark' ? 'light' : 'dark');
-          if (action === 'balances') setShowBalances(!showBalances);
+          if (action === 'balances') { setShowBalances(v => !v); setTab(0); }
         }}
       />
 

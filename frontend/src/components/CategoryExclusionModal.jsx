@@ -8,19 +8,17 @@ import SabDekho from '../pages/SabDekho';
 import { API } from '../constants';
 import { getToken } from '../utils';
 
-export default function CategoryExclusionModal({ transactions, allHeadings, onClose, onRefresh }) {
+export default function CategoryExclusionModal({ excludedHeadings = [], allHeadings, onClose, onRefresh }) {
   const [loadingCat, setLoadingCat] = useState(null);
   const [search, setSearch] = useState("");
 
   // 1. Compute exclusion status for all categories (Prevents recalculating during sorts)
   const exclusionMap = useMemo(() => {
+    const excluded = new Set(excludedHeadings);
     const map = {};
-    allHeadings.forEach(cat => {
-      const catTxs = transactions.filter(t => t.heading === cat);
-      map[cat] = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
-    });
+    allHeadings.forEach(cat => { map[cat] = excluded.has(cat); });
     return map;
-  }, [allHeadings, transactions]);
+  }, [allHeadings, excludedHeadings]);
 
   // 2. Filter by search, then sort (Excluded items at the top, then Alphabetical)
   const displayHeadings = useMemo(() => {

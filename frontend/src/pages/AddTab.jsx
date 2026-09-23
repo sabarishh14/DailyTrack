@@ -7,24 +7,23 @@ import SabDekho from './SabDekho';
 
 import { API, BANKS } from '../constants';
 import { getToken, evaluateMath, buildDescriptionIndex, guessDescription } from '../utils';
+import { useMoneyMeta, EMPTY_META } from '../api/money';
 import CustomSelect from '../components/CustomSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TmdbMovieSearchInput from '../components/TmdbMovieSearchInput';
 import TagPillInput from '../components/TagPillInput';
 
-function AddTab({ accounts, transactions, categories, onAdd }) {
+function AddTab({ accounts, categories, onAdd, dataVersion }) {
   const today = new Date().toISOString().split('T')[0];
 
-  const recentDescriptions = [...new Set(
-    (transactions || [])
-      .map(t => t.description)
-      .filter(desc => desc && desc.trim() !== '')
-  )];
+  // Suggestions come pre-grouped from the server instead of from every transaction.
+  const meta = useMoneyMeta(dataVersion).data || EMPTY_META;
+  const recentDescriptions = meta.recent_descriptions;
 
   // Description suggestion: once category (and ideally amount) is set, suggest
   // a description from how this category has been described before. Built once
-  // per transaction list, reused on every guess.
-  const descriptionIndex = useMemo(() => buildDescriptionIndex(transactions), [transactions]);
+  // per data refresh, reused on every guess.
+  const descriptionIndex = useMemo(() => buildDescriptionIndex(meta.descriptions), [meta.descriptions]);
 
   const createEmptyRow = () => ({
     id: Date.now() + Math.random(),
@@ -217,10 +216,6 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
     try {
       const payload = evaluatedRows.map(r => {
         const catName = r.heading.trim();
-        const catTxs = transactions.filter(t => t.heading === catName);
-
-        // ✨ MAGIC RULE: if all previous transactions in this category are excluded, automatically exclude this new one!
-        const isAutoExclude = catTxs.length > 0 && catTxs.every(t => t.exclude_analytics);
 
         const payloadRow = {
           account: r.account,
@@ -229,8 +224,10 @@ function AddTab({ accounts, transactions, categories, onAdd }) {
           heading: catName,
           description: r.description.trim() || "",
           amount: parseFloat(r.amount),
-          exclude_analytics: isAutoExclude,
-          movie_tags: r.movie_tags,
+          // ✨ MAGIC RULE (now server-side): if every earlier transaction in this
+          // category is excluded, the backend excludes this new one too.
+          exclude_analytics: false,
+movie_tags: r.movie_tags,
           movie_data: r.movie_data,
           lbx_username: localStorage.getItem('dt_lbx_username') || 'sabarishh14'
         };

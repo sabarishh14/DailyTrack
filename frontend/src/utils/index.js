@@ -36,6 +36,15 @@ export function evaluateMath(expr) {
   }
 }
 
+// Year pickers: every year from the start of tracking up to the current one,
+// so they never go stale when a new year starts.
+export function yearOptions(firstYear = 2024) {
+  const current = new Date().getFullYear();
+  const years = [];
+  for (let y = Math.min(firstYear, current); y <= current; y++) years.push(y);
+  return years;
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -47,24 +56,27 @@ export function formatDate(dateStr) {
 // are known, from how that category has been described before. No network
 // call — runs entirely over the transaction history already loaded in the app.
 
-function mostCommon(values) {
+// Entries carry a `count` (the server groups identical heading/description/
+// amount rows), so "most common" is weighted by how often each was used.
+function mostCommon(entries) {
   const counts = {};
-  let best = values[0], bestCount = 0;
-  for (const v of values) {
-    counts[v] = (counts[v] || 0) + 1;
-    if (counts[v] > bestCount) { bestCount = counts[v]; best = v; }
+  let best = entries[0]?.description, bestCount = 0;
+  for (const e of entries) {
+    counts[e.description] = (counts[e.description] || 0) + (e.count || 1);
+    if (counts[e.description] > bestCount) { bestCount = counts[e.description]; best = e.description; }
   }
   return best;
 }
 
-// Build once per transaction list (e.g. in a useMemo) and reuse across guesses.
-export function buildDescriptionIndex(transactions) {
-  return (transactions || [])
+// Build once (e.g. in a useMemo) from /api/money/meta `descriptions` or raw transactions.
+export function buildDescriptionIndex(entries) {
+  return (entries || [])
     .filter(t => t.description && t.description.trim() && t.heading)
     .map(t => ({
       heading: t.heading,
       description: t.description.trim(),
       amount: Number(t.amount) || 0,
+      count: t.count || 1,
     }));
 }
 
@@ -82,10 +94,10 @@ export function guessDescription(heading, amount, index) {
       const scale = Math.max(e.amount, amt, 1);
       return Math.abs(e.amount - amt) / scale <= 0.15;
     });
-    if (close.length > 0) return mostCommon(close.map(e => e.description));
+    if (close.length > 0) return mostCommon(close);
   }
 
   // No amount yet, or nothing close in amount — fall back to whatever
   // description is used most often for this category overall.
-  return mostCommon(matches.map(e => e.description));
+  return mostCommon(matches);
 }

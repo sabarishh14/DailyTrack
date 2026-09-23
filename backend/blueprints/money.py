@@ -369,6 +369,16 @@ def add_transaction():
             return _out_of_scope()
         # Cinema entries also write to SabDekho, so only link them for users who may.
         can_link_movies = access.can("sabdekho", "edit")
+
+        # If every existing transaction in a category is excluded from analytics,
+        # new ones in that category are excluded too.
+        new_headings = {item.get('heading') for item in transactions_data}
+        excluded_flag = db.func.coalesce(Transaction.exclude_analytics, False)
+        auto_excluded = {h for (h,) in db.session.query(Transaction.heading)
+                         .filter(Transaction.heading.in_(new_headings))
+                         .group_by(Transaction.heading)
+                         .having(db.func.count() == db.func.sum(db.case((excluded_flag, 1), else_=0)))
+                         .all()}
         
         # --- NEW: Perform a preemptive RSS sync if any transaction is a Cinema transaction
         # so that recent Letterboxd logs are in the DB before we append tags to them.
@@ -398,7 +408,7 @@ def add_transaction():
                 heading=item['heading'],
                 description=item.get('description', ''),
                 amount=amount,
-                exclude_analytics=item.get('exclude_analytics', False)
+                exclude_analytics=bool(item.get('exclude_analytics')) or item.get('heading') in auto_excluded
             )
             db.session.add(new_tx)
             db.session.flush() # Force insert of transaction to satisfy foreign key constraints

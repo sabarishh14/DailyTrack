@@ -7,7 +7,7 @@ export default function SnapshotPoster({
   isShowingDescriptions,
   filterDesc,
   chartHeadings,
-  analyzerFiltered,
+  analyzerCount,
   renderActiveFilters,
   PIE_COLORS,
 }) {
@@ -64,8 +64,8 @@ export default function SnapshotPoster({
                 </div>
                 <div style={{ fontSize: '18px', color: c.text2, fontWeight: 500 }}>
                   {isShowingDescriptions || chartHeadings.included.size === 1
-                    ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`
-                    : `Categories: ${pieArr.length} | Transactions: ${analyzerFiltered.length}`}
+                    ? `Unique Items: ${pieArr.length} | Transactions: ${analyzerCount}`
+                    : `Categories: ${pieArr.length} | Transactions: ${analyzerCount}`}
                 </div>
               </div>
 

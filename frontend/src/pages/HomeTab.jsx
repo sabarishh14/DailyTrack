@@ -10,11 +10,12 @@ import { getToken, formatDate, fmt, fmtPct } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import ReconciliationModal from '../components/ReconciliationModal';
 import { useAccess } from '../access/AccessContext';
+import { apiGet, apiPost, useApi, monthKey } from '../api/money';
+import { yearOptions } from '../utils';
 
-function HomeTab({ accounts, transactions, physical, investments, budgets, onSyncBalances, fetchAllTransactions, onRefresh }) {
+function HomeTab({ accounts = [], physical = [], investments = [], budgets, onRefresh, dataVersion, showBalances, setShowBalances }) {
   const access = useAccess();
-  if (!physical || !transactions || !accounts) return null;
-  const canMoney = access.can('money');
+  const canMoney= access.can('money');
   const canGym = access.can('gym');
   const canInvest = access.can('invest');
   const showBalancesSection = access.money.balancesVisible;
@@ -27,9 +28,7 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
   const [syncing, setSyncing] = useState(false);
   const [syncingSheetsTransactions, setSyncingSheetsTransactions] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
-  const fileRef = useRef(null);
-  const [showBalances, setShowBalances] = useState(false); // <-- Default to hidden for privacy
-  const [showInvestments, setShowInvestments] = useState(false);
+const [showInvestments, setShowInvestments] = useState(false);
 
   // 🚀 GLOBAL ESCAPE: Closes Home-level Modals
   useEffect(() => {
@@ -40,40 +39,32 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
-  // Trigger the background fetch when looking at the money section
-  useEffect(() => {
-    if (fetchAllTransactions) {
-      fetchAllTransactions();
-    }
-  }, [moneyMonth, moneyYear, fetchAllTransactions]);
+  // Income/expense for the picked month and this month's category spend are
+  // totalled on the server, so Home never downloads the transaction history.
+  const moneyML = `${moneyYear}-${String(moneyMonth + 1).padStart(2, '0')}`;
+  const summaryRes = useApi(
+    () => apiGet(`/money/summary?month=${moneyML}&spend_month=${monthKey()}`),
+    `${moneyML}|${dataVersion}`,
+    canMoney
+  );
+  const income = summaryRes.data?.income || {};
+  const expense = summaryRes.data?.expense || {};
+  const monthSpending = summaryRes.data?.spending || {};
 
-  const SHEETS_URL = "https://script.google.com/macros/s/AKfycbxmBBF0-oRREVy66H-mL6DGpdgY5fjgL8S1Nr13HBBVVfTbznemzSBWtnsYpPPbGbdb2A/exec";
-
+  // The Sheet is read by the backend; its Apps Script URL no longer ships to the browser.
   const syncBalances = async () => {
     setSyncing(true); setSyncMsg('');
     try {
-      const res = await fetch(SHEETS_URL);
-      const data = await res.json();
-      // data looks like: { KOTAK: 12000, IDBI: 5000, ... }
-      await onSyncBalances(data);
-      setSyncMsg('✅ Balances synced!');
+      const res = await apiPost('/sync/sheet-balances', {});
+      if (!res.success) throw new Error(res.message || 'Sheet sync failed');
+      await onRefresh();
+      setSyncMsg(`✅ Balances synced! (${res.updated} accounts)`);
     } catch (e) {
       setSyncMsg('❌ Sync failed: ' + e.message);
     } finally {
       setSyncing(false);
       setTimeout(() => setSyncMsg(''), 3000);
     }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      onImportCSV(ev.target.result);
-    };
-    reader.readAsText(file);
-    e.target.value = ''; // reset so same file can be re-imported
   };
 
   const syncTransactionsFromSheets = async () => {
@@ -150,18 +141,9 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
 
   const budgetSummary = useMemo(() => {
     if (!budgets || budgets.length === 0) return { over: 0, total: 0, active: false };
-    const spending = {};
-    const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    
-    transactions.forEach(t => {
-      if (t.type === 'Debit' && !t.exclude_analytics && t.date && t.date.startsWith(currentMonthStr)) {
-        spending[t.heading] = (spending[t.heading] || 0) + parseFloat(t.amount);
-      }
-    });
 
     const items = budgets.map(b => {
-      const spent = spending[b.category] || 0;
+      const spent = monthSpending[b.category] || 0;
       const limit = b.monthly_limit;
       const percentage = Math.min((spent / limit) * 100, 100);
       const isOver = spent > limit;
@@ -173,24 +155,7 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
 
     const overCount = items.filter(i => i.isOver).length;
     return { over: overCount, total: items.length, active: true, items };
-  }, [budgets, transactions]);
-
-
-  // Money section: Income/Expenses by month
-  const moneyML = `${moneyYear}-${String(moneyMonth + 1).padStart(2, '0')}`;
-  const moneyTransactions = transactions.filter(t => {
-    if (!t.date) return false;
-    const d = new Date(t.date);
-    const ml = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return ml === moneyML;
-  });
-
-  const income = {}, expense = {};
-  accounts.forEach(a => { income[a.account] = 0; expense[a.account] = 0; });
-  moneyTransactions.forEach(t => {
-    if (t.type === 'Credit') income[t.account] = (income[t.account] || 0) + parseFloat(t.amount);
-    if (t.type === 'Debit') expense[t.account] = (expense[t.account] || 0) + parseFloat(t.amount);
-  });
+  }, [budgets, monthSpending]);
 
   return (
     <div>
@@ -259,7 +224,7 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
             <CustomSelect
               value={physYear}
               onChange={val => setPhysYear(parseInt(val))}
-              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+              options={yearOptions().map(y => ({ label: String(y), value: y }))}
               minWidth="90px"
             />
           </div>
@@ -386,7 +351,7 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
             <CustomSelect
               value={moneyYear}
               onChange={val => setMoneyYear(parseInt(val))}
-              options={[2024, 2025, 2026].map(y => ({ label: String(y), value: y }))}
+              options={yearOptions().map(y => ({ label: String(y), value: y }))}
               minWidth="100px"
             />
           </div>
