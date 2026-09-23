@@ -6,11 +6,12 @@ import json
 import pytz
 import requests
 from extensions import (
-    db, require_api_key, require_admin,
+    db,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
 )
 from models import *
+from access import require_api_key, require_admin, require_access, current_access
 
 import hashlib
 from dateutil.relativedelta import relativedelta
@@ -19,7 +20,7 @@ from pyxirr import xirr
 invest_bp = Blueprint("invest", __name__)
 
 @invest_bp.route('/api/cron/process-recurring', methods=['POST'])
-@require_api_key
+@require_access("invest")
 def process_recurring():
     if request.method == 'OPTIONS': 
         return '', 200
@@ -76,7 +77,7 @@ def process_recurring():
         
     return jsonify({"success": True, "processed": processed})
 @invest_bp.route('/api/investments/xirr', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_portfolio_xirr():
     try:
         # 1. Get all Investment transactions (Cash Outflows)
@@ -112,7 +113,7 @@ def get_portfolio_xirr():
         return jsonify({"success": False, "message": str(e)})
 # ---- INVESTMENTS ----
 @invest_bp.route('/api/investments', methods=['GET'])
-@require_api_key  
+@require_access("invest")
 def get_investments():
     records = PortfolioSnapshot.query.order_by(PortfolioSnapshot.date.desc()).all()
 
@@ -149,7 +150,7 @@ def get_investments():
 
     return jsonify(result)
 @invest_bp.route('/api/cron/tasks', methods=['GET', 'POST', 'OPTIONS'])
-@require_api_key
+@require_access("invest")
 def handle_recurring_tasks():
     if request.method == 'OPTIONS': return '', 200
     
@@ -178,7 +179,7 @@ def handle_recurring_tasks():
         db.session.commit()
         return jsonify({"success": True, "message": "Automation added"})
 @invest_bp.route('/api/cron/tasks/<int:tid>', methods=['DELETE', 'OPTIONS'])
-@require_api_key
+@require_access("invest")
 def delete_recurring_task(tid):
     if request.method == 'OPTIONS': return '', 200
     task = RecurringTask.query.filter_by(id=tid).first()
@@ -214,7 +215,7 @@ def update_latest_portfolio_snapshot():
     latest_snap.synced = False
     db.session.commit()
 @invest_bp.route('/api/manual_assets/<int:aid>', methods=['DELETE'])
-@require_api_key
+@require_access("invest")
 def delete_manual_asset(aid):
     asset = ManualAsset.query.filter_by(id=aid).first()
     if asset:
@@ -224,7 +225,7 @@ def delete_manual_asset(aid):
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Asset not found"}), 404
 @invest_bp.route('/api/manual_assets', methods=['GET', 'POST'])
-@require_api_key
+@require_access("invest")
 def handle_manual_assets():
     if request.method == 'GET':
         assets = ManualAsset.query.order_by(ManualAsset.category, ManualAsset.name).all()
@@ -287,7 +288,7 @@ def handle_manual_assets():
         update_latest_portfolio_snapshot()
         return jsonify({"success": True, "message": "Asset & Automation added successfully"})
 @invest_bp.route('/api/manual_assets/<int:aid>', methods=['PUT', 'OPTIONS'])
-@require_api_key
+@require_access("invest")
 def edit_manual_asset(aid):
     if request.method == 'OPTIONS': return '', 200
     try:
@@ -338,7 +339,7 @@ def edit_manual_asset(aid):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 @invest_bp.route('/api/equity', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_equity():
     # Fetch the latest available equity snapshot
     latest_date = db.session.query(db.func.max(EquityHolding.date)).scalar()
@@ -355,7 +356,7 @@ def get_equity():
         "current_value": r.current_value
     } for r in records])
 @invest_bp.route('/api/sync/kite', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("invest")
 def sync_kite_direct():
     print("🔄 Starting direct Kite sync...")
     data = request.json
@@ -512,7 +513,7 @@ def sync_kite_direct():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 @invest_bp.route('/api/investments/<date_str>/equity_holdings', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_daily_equity_holdings(date_str):
     date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
     holdings = EquityHolding.query.filter_by(date=date_obj).all()
@@ -526,7 +527,7 @@ def get_daily_equity_holdings(date_str):
         "ret_pct": ((h.current_value - h.invested_value) / h.invested_value * 100) if h.invested_value > 0 else 0
     } for h in holdings])
 @invest_bp.route('/api/sync/investments-to-sheets', methods=['POST'])
-@require_api_key  
+@require_access("invest")
 def sync_investments_to_sheets():
     try:
         # Fetch only unsynced snapshots
@@ -572,7 +573,7 @@ def sync_investments_to_sheets():
         print(f"❌ Sheets Sync Error: {str(e)}")
         return jsonify({"success": False, "message": str(e)})
 @invest_bp.route('/api/investments/<date_str>/holdings', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_daily_holdings(date_str):
     date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
     holdings = MutualFundHolding.query.filter_by(date=date_obj).all()
@@ -586,7 +587,7 @@ def get_daily_holdings(date_str):
         "ret_pct": ((h.current_value - h.invested_value) / h.invested_value * 100) if h.invested_value > 0 else 0
     } for h in holdings])
 @invest_bp.route('/api/assets/list', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_asset_list():
     # Dynamically pull all unique assets you currently own
     latest_eq_date = db.session.query(db.func.max(EquityHolding.date)).scalar()
@@ -605,7 +606,7 @@ def get_asset_list():
         "GOLD": [a.name for a in manual_assets if a.category in ['SGB', 'RealEstate']]
     })
 @invest_bp.route('/api/investments/history', methods=['GET'])
-@require_api_key
+@require_access("invest")
 def get_asset_history():
     symbol = request.args.get('symbol')
     asset_type = request.args.get('type') # EQUITY, MF, PROVIDENT, etc.

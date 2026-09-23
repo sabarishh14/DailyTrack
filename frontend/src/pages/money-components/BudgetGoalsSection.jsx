@@ -1,4 +1,5 @@
 import { fmt } from '../../utils';
+import { useAccess } from '../../access/AccessContext';
 
 export default function BudgetGoalsSection({
   budgetExpanded,
@@ -12,6 +13,7 @@ export default function BudgetGoalsSection({
   setEditingBudgetValue,
   handleInlineBudgetSave,
 }) {
+  const canEdit = useAccess().can('money', 'edit');
   return (
     <div className="analyser-card">
       <div
@@ -35,6 +37,7 @@ export default function BudgetGoalsSection({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {canEdit && (
           <button
             className="budget-settings-btn"
             onClick={(e) => { e.stopPropagation(); setIsBudgetModalOpen(true); }}
@@ -43,6 +46,7 @@ export default function BudgetGoalsSection({
           >
             ⚙️
           </button>
+          )}
           <span className={`analyser-chevron ${budgetExpanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
         </div>
       </div>
@@ -52,11 +56,13 @@ export default function BudgetGoalsSection({
           {budgets.length === 0 ? (
             <div className="budget-empty-state" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text3)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎯</div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>Set your first budget goal</div>
-              <div style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>Track your monthly spending limits by category.</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>{canEdit ? 'Set your first budget goal' : 'No budget goals yet'}</div>
+              <div style={{ fontSize: '0.85rem', marginBottom: canEdit ? '1.5rem' : 0 }}>Track your monthly spending limits by category.</div>
+              {canEdit && (
               <button className="action-btn" onClick={() => setIsBudgetModalOpen(true)} style={{ margin: '0 auto', display: 'flex' }}>
                 Manage Budgets
               </button>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -101,9 +107,9 @@ export default function BudgetGoalsSection({
                           />
                         ) : (
                           <span
-                            style={{ color: 'var(--text2)', cursor: 'pointer', borderBottom: '1px dashed var(--border)' }}
-                            onClick={() => { setEditingBudgetCategory(b.category); setEditingBudgetValue(b.monthly_limit); }}
-                            title="Edit Limit"
+                            style={canEdit ? { color: 'var(--text2)', cursor: 'pointer', borderBottom: '1px dashed var(--border)' } : { color: 'var(--text2)' }}
+                            onClick={canEdit ? () => { setEditingBudgetCategory(b.category); setEditingBudgetValue(b.monthly_limit); } : undefined}
+                            title={canEdit ? 'Edit Limit' : undefined}
                           >
                             {fmt(limit)}
                           </span>

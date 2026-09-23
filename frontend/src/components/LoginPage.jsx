@@ -8,7 +8,7 @@ import SabDekho from '../pages/SabDekho';
 import { API } from '../constants';
 import { auth, googleProvider } from '../config/firebase';
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, notice }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,7 +29,7 @@ export default function LoginPage({ onLogin }) {
       if (data.success) {
         localStorage.setItem('dt_token', data.token);
         if (data.isAdmin) localStorage.setItem('dt_is_admin', 'true');
-        onLogin();
+        onLogin(data.access);
       } else {
         setError(data.message || 'Login failed.');
       }
@@ -49,6 +49,7 @@ export default function LoginPage({ onLogin }) {
           <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: '0.4rem' }}>Personal Dashboard</div>
         </div>
 
+        {notice && !error && <div className="login-notice">{notice}</div>}
         {error && <div style={{ fontSize: '0.8rem', color: 'var(--neg)', textAlign: 'center', width: '100%' }}>{error}</div>}
 
         <button

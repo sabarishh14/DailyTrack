@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import SabDekho from './pages/SabDekho';
 
-import { API } from './constants';
+import { API, TABS } from './constants';
 import { getToken } from './utils';
 import { auth } from './config/firebase';
 import MemoizedHomeTab from './pages/HomeTab';
@@ -17,13 +17,23 @@ import MemoizedSabDekho from './pages/SabDekho';
 import LoginPage from './components/LoginPage';
 import LoadingScreen from './components/LoadingScreen';
 import AddActivityModal from './components/AddActivityModal';
-import SecretAdminModal from './components/SecretAdminModal';
+import AccessControlModal from './components/AccessControlModal';
+import { AccessProvider, buildAccess, loadStoredAccess, storeAccess, canOpenTab } from './access/AccessContext';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import EditTransactionModal from './components/EditTransactionModal';
 import FloatingChatWidget from './components/FloatingChatWidget';
 import Sidebar from './components/layout/Sidebar';
 import TopBar from './components/layout/TopBar';
 import MobileBottomNav from './components/layout/MobileBottomNav';
+
+// Turns a 401 into the message shown on the login screen.
+const revokedNotice = async (res) => {
+  try {
+    const body = await res.clone().json();
+    if (body.code === 'ACCESS_REVOKED') return 'Your access to DailyTrack has been removed. Contact the owner if this is a mistake.';
+  } catch { /* not JSON */ }
+  return 'Your session has expired. Please sign in again.';
+};
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('dt_token'));
@@ -60,10 +70,18 @@ export default function App() {
   const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
 
+  // 🔐 ACCESS CONTROL: what this user may see/do (refreshed from /auth/me)
+  const [accessRaw, setAccessRaw] = useState(loadStoredAccess);
+  const access = useMemo(() => buildAccess(accessRaw), [accessRaw]);
+  const accessRef = useRef(access);
+  accessRef.current = access;
+  const [authNotice, setAuthNotice] = useState('');
+  const visibleTabs = useMemo(() => TABS.filter(t => canOpenTab(access, t.id)), [access]);
+
   // 🚀 SECRET DEV MENU STATES
   const [logoClicks, setLogoClicks] = useState(0);
   const [isSecretMenuOpen, setIsSecretMenuOpen] = useState(false);
-  const isAdmin = localStorage.getItem('dt_is_admin') === 'true';
+  const isAdmin = access.isAdmin;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -187,10 +205,13 @@ export default function App() {
     setLbxSyncing(false);
   };
 
-  const logout = useCallback(() => {
+  const logout = useCallback((notice = '') => {
     signOut(auth);
     localStorage.removeItem('dt_token');
     localStorage.removeItem('dt_is_admin'); // <-- ADD THIS LINE
+    storeAccess(null);
+    setAccessRaw(null);
+    setAuthNotice(typeof notice === 'string' ? notice : '');
     setIsLoggedIn(false);
     setAllTransactionsLoaded(false);
     setTransactions([]);
@@ -208,6 +229,33 @@ export default function App() {
     document.documentElement.setAttribute('data-accent', accent);
     localStorage.setItem('dt_accent', accent);
   }, [accent]);
+
+  // Re-check permissions: picks up role changes live and logs out a removed user.
+  const refreshAccess = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      const r = await fetch(`${API}/auth/me`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      if (r.status === 401) return logout(await revokedNotice(r));
+      const res = await r.json();
+      if (res.success) {
+        setAccessRaw(prev => JSON.stringify(prev) === JSON.stringify(res.access) ? prev : res.access);
+        storeAccess(res.access);
+      }
+    } catch { /* offline or server waking up: keep the last known access */ }
+  }, [logout]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const tick = () => { if (document.visibilityState === 'visible') refreshAccess(); };
+    const interval = setInterval(tick, 60 * 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', tick); };
+  }, [isLoggedIn, refreshAccess]);
+
+  // If a permission change hides the open tab, fall back to Home.
+  useEffect(() => {
+    if (!canOpenTab(access, tab)) setTab(0);
+  }, [access, tab]);
 
   // Keep Hugging Face Space awake while the tab is open!
   useEffect(() => {
@@ -260,7 +308,7 @@ export default function App() {
 
   // Load all transactions (for MoneyTab) - lazy loaded when needed
   const fetchAllTransactions = useCallback(async () => {
-    if (allTransactionsLoaded || !getToken()) return;
+    if (allTransactionsLoaded || !getToken() || !accessRef.current.can('money')) return;
     try {
       let offset = 0;
       let hasMore = true;
@@ -270,7 +318,7 @@ export default function App() {
         const r = await fetch(`${API}/transactions?limit=500&offset=${offset}`, {
           headers: { 'Authorization': `Bearer ${getToken()}` }
         });
-        if (r.status === 401) { logout(); break; }
+        if (r.status === 401) { logout(await revokedNotice(r)); break; }
         const res = await r.json();
 
         if (!res.transactions || res.transactions.length === 0) break;
@@ -327,18 +375,12 @@ export default function App() {
         addLog("Initializing startup sequence...");
       }
 
-      // Trigger Lazy Cron before fetching data so UI gets the updated values
-      if (getToken()) {
-        if (showLoading) addLog("Authenticating & verifying background tasks...");
-        await fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(() => console.log("Cron passed"));
-      }
-
       // Helper function that explicitly throws an error if the server is throwing 500/503 during wake-up
       const fetchWithCheck = async (url, name) => {
         if (showLoading) addLog(`Fetching ${name}...`);
         const r = await fetch(url, { headers: { 'Authorization': `Bearer ${getToken()}` } });
         if (r.status === 401) {
-          logout();
+          logout(await revokedNotice(r));
           throw new Error("UNAUTHORIZED");
         }
         if (!r.ok) throw new Error(`Server waking up: ${r.status}`);
@@ -346,18 +388,35 @@ export default function App() {
         return r.json();
       };
 
+      // Trigger Lazy Cron before fetching data so UI gets the updated values.
+      // It runs alongside the access check (not after it) so startup isn't slower;
+      // skipped when the last known access says this user can't edit investments.
+      const known = accessRef.current;
+      const cron = (!known.email || known.can('invest', 'edit'))
+        ? fetch(`${API}/cron/process-recurring`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` } }).catch(() => console.log("Cron passed"))
+        : Promise.resolve();
+
+      // Permissions first: they decide which data this user is allowed to load.
+      if (showLoading) addLog("Authenticating & checking access...");
+      const [me] = await Promise.all([fetchWithCheck(`${API}/auth/me`, 'Access'), cron]);
+      const acl = buildAccess(me.access);
+      setAccessRaw(me.access);
+      storeAccess(me.access);
+
       if (showLoading) addLog("Connecting to LifeTrack database...");
 
-      // Fire ALL 7 requests in parallel
+      // Only ask for what this user can see; everything else resolves empty.
+      const when = (allowed, url, name, empty) => allowed ? fetchWithCheck(url, name) : Promise.resolve(empty);
+      const money = acl.can('money'), invest = acl.can('invest');
       const [acc, phy, inv, manAssets, txRes, listRes, catRes, budRes] = await Promise.all([
-        fetchWithCheck(`${API}/accounts`, 'Accounts'),
-        fetchWithCheck(`${API}/physical`, 'Health & Fitness'),
-        fetchWithCheck(`${API}/investments`, 'Investments'),
-        fetchWithCheck(`${API}/manual_assets`, 'Manual Assets'),
-        fetchWithCheck(`${API}/transactions?limit=100&offset=0`, 'Transactions (Batch 1)'),
-        fetchWithCheck(`${API}/assets/list`, 'Market Symbols'),
-        fetchWithCheck(`${API}/transactions/categories`, 'Categories'),
-        fetchWithCheck(`${API}/budgets`, 'Budgets')
+        when(money, `${API}/accounts`, 'Accounts', []),
+        when(acl.can('gym'), `${API}/physical`, 'Health & Fitness', []),
+        when(invest, `${API}/investments`, 'Investments', []),
+        when(invest, `${API}/manual_assets`, 'Manual Assets', []),
+        when(money, `${API}/transactions?limit=100&offset=0`, 'Transactions (Batch 1)', { transactions: [] }),
+        when(invest, `${API}/assets/list`, 'Market Symbols', {}),
+        when(money, `${API}/transactions/categories`, 'Categories', { success: true, categories: [] }),
+        when(money, `${API}/budgets`, 'Budgets', { success: true, budgets: [] })
       ]);
 
       if (showLoading) addLog("Data parsed successfully. Finalizing UI...");
@@ -369,7 +428,9 @@ export default function App() {
       setInvestments(inv);
       setManualAssets(manAssets);
       setAssetList(listRes); // 🚀 SAVE SYMBOLS
-      if (catRes && catRes.success) setCategories(catRes.categories);
+      // A category-scoped user may add to allowed categories that have no history yet.
+      if (acl.money.categories) setCategories(acl.money.categories);
+      else if (catRes && catRes.success) setCategories(catRes.categories);
       if (budRes && budRes.success) setBudgets(budRes.budgets);
 
       // Also trigger SabDekho refresh
@@ -441,10 +502,11 @@ export default function App() {
   }, [fetchAll]);
 
 
-  if (!isLoggedIn) return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+  if (!isLoggedIn) return <LoginPage notice={authNotice} onLogin={(acc) => { setAuthNotice(''); if (acc) { setAccessRaw(acc); storeAccess(acc); } setIsLoggedIn(true); }} />;
   if (appLoading) return <LoadingScreen logs={loadingLogs} />;
 
   return (
+    <AccessProvider access={accessRaw}>
     <div className="app">
       {/* Sidebar */}
       <Sidebar
@@ -454,6 +516,7 @@ export default function App() {
         startResizing={startResizing}
         handleLogoClick={handleLogoClick}
         sidebarMinimized={sidebarMinimized}
+        tabs={visibleTabs}
         tab={tab}
         setTab={setTab}
         today={today}
@@ -478,6 +541,9 @@ export default function App() {
           menuRef={menuRef}
           accent={accent}
           setAccent={setAccent}
+          isAdmin={isAdmin}
+          onOpenAccessControl={() => setIsSecretMenuOpen(true)}
+          canSyncLetterboxd={access.can('sabdekho', 'edit')}
           enableNagapandi={enableNagapandi}
           toggleNagapandi={toggleNagapandi}
           showMovies={showMovies}
@@ -504,12 +570,14 @@ export default function App() {
 
       {/* 🚀 HIDDEN DEVELOPER MENU */}
       {isSecretMenuOpen && isAdmin && (
-        <SecretAdminModal onClose={() => setIsSecretMenuOpen(false)} />
+        <AccessControlModal currentEmail={access.email} onClose={() => { setIsSecretMenuOpen(false); refreshAccess(); }} />
       )}
 
 
       {/* 🚀 GLOBAL SEARCH UI */}
       <GlobalSearchModal getToken={getToken}
+        tabs={visibleTabs}
+        enableNagapandi={isAdmin && enableNagapandi}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         transactions={transactions}
@@ -532,10 +600,11 @@ export default function App() {
         />
       )}
 
-      {enableNagapandi && <FloatingChatWidget getToken={getToken} />}
+      {isAdmin && enableNagapandi && <FloatingChatWidget getToken={getToken} />}
       {/* 📱 Mobile Bottom Navigation */}
-      <MobileBottomNav tab={tab} setTab={setTab} handleLogoClick={handleLogoClick} />
+      <MobileBottomNav tabs={visibleTabs} tab={tab} setTab={setTab} handleLogoClick={handleLogoClick} />
     </div>
+    </AccessProvider>
 
 
   );

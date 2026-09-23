@@ -7,6 +7,7 @@ export default function Sidebar({
   startResizing,
   handleLogoClick,
   sidebarMinimized,
+  tabs = TABS,
   tab,
   setTab,
   today,
@@ -42,7 +43,7 @@ export default function Sidebar({
         </div>
       </div>
       <nav className="sidebar-nav" style={{ overflowX: 'hidden' }}>
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button
             key={t.id}
             className={`nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}

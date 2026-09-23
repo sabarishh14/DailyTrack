@@ -6,11 +6,12 @@ import json
 import pytz
 import requests
 from extensions import (
-    db, require_api_key, require_admin,
+    db,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
 )
 from models import *
+from access import require_api_key, require_admin, require_access, current_access
 
 from sqlalchemy.orm import joinedload
 import xml.etree.ElementTree as ET
@@ -252,7 +253,7 @@ def _week_month_day_counts(dated_items):
 # ==========================================
 
 @media_bp.route('/api/media/search', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def search_media():
     query = request.args.get('q', '')
     if not query:
@@ -300,7 +301,7 @@ def search_media():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @media_bp.route('/api/tv/details/<int:tmdb_id>', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_tv_details(tmdb_id):
     if not TMDB_API_KEY:
         return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
@@ -325,7 +326,7 @@ def get_tv_details(tmdb_id):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @media_bp.route('/api/tv/shows', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_tv_shows():
     shows = TvShow.query.order_by(TvShow.added_on.desc()).all()
     result = []
@@ -342,7 +343,7 @@ def get_tv_shows():
     return jsonify({"success": True, "shows": result})
 
 @media_bp.route('/api/tv/shows', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def add_tv_show():
     data = request.json
     tmdb_id = data.get('tmdb_id')
@@ -397,7 +398,7 @@ def add_tv_show():
     })
 
 @media_bp.route('/api/tv/shows/<int:show_id>', methods=['PUT', 'DELETE'])
-@require_api_key
+@require_access("sabdekho")
 def update_tv_show(show_id):
     show = TvShow.query.get(show_id)
     if not show:
@@ -424,7 +425,7 @@ def update_tv_show(show_id):
     return jsonify({"success": True, "message": "Show updated"})
 
 @media_bp.route('/api/tv/diary', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_tv_diary():
     logs = TvDiaryLog.query.order_by(TvDiaryLog.date.desc(), TvDiaryLog.created_at.desc()).all()
     result = []
@@ -447,7 +448,7 @@ def get_tv_diary():
     return jsonify({"success": True, "logs": result})
 
 @media_bp.route('/api/tv/diary', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def add_tv_diary():
     data = request.json
     tv_show_id = data.get('tv_show_id')
@@ -502,7 +503,7 @@ def _diary_date_and_episode_updates(data, include_episode):
     return updates, None
 
 @media_bp.route('/api/tv/diary', methods=['PUT'])
-@require_api_key
+@require_access("sabdekho")
 def update_tv_diary():
     data = request.json
     log_ids = data.get('log_ids', [])
@@ -529,7 +530,7 @@ def update_tv_diary():
     return jsonify({"success": True})
 
 @media_bp.route('/api/tv/diary', methods=['DELETE'])
-@require_api_key
+@require_access("sabdekho")
 def delete_tv_diary():
     log_ids = request.json.get('log_ids', [])
     if not log_ids:
@@ -621,7 +622,7 @@ def _count_watched_episodes(watched_episodes):
 
 
 @media_bp.route('/api/tv/stats', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_tv_stats():
     """
     Year-in-TV stats, the counterpart to /api/movies/stats.
@@ -912,7 +913,7 @@ def get_tv_stats():
 # ==========================================
 
 @media_bp.route('/api/movies/search', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def search_tmdb_movies():
     query = request.args.get('q', '').strip()
     if not query:
@@ -950,7 +951,7 @@ def search_tmdb_movies():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @media_bp.route('/api/movies/tags', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_movie_tags():
     try:
         logs = MovieDiaryLog.query.filter(MovieDiaryLog.tags.isnot(None)).all()
@@ -1021,7 +1022,7 @@ def invalidate_stats_cache():
     _tv_stats_cache.clear()
 
 @media_bp.route('/api/movies/stats', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_movie_stats():
     from sqlalchemy.sql import func, extract
     
@@ -1381,7 +1382,7 @@ def get_movie_stats():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @media_bp.route('/api/movies/details/<int:tmdb_id>', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_movie_details(tmdb_id):
     if not TMDB_API_KEY:
         return jsonify({"success": False, "message": "TMDB_API_KEY not set"}), 500
@@ -1407,7 +1408,7 @@ def get_movie_details(tmdb_id):
         return jsonify({"success": False, "message": str(e)}), 500
 
 @media_bp.route('/api/movies', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_movies():
     movies = Movie.query.filter(Movie.status != 'NONE').order_by(Movie.added_on.desc()).all()
     result = []
@@ -1423,7 +1424,7 @@ def get_movies():
     return jsonify({"success": True, "movies": result})
 
 @media_bp.route('/api/movies', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def add_movie():
     data = request.json
     tmdb_id = data.get('tmdb_id')
@@ -1483,7 +1484,7 @@ def add_movie():
     })
 
 @media_bp.route('/api/movies/<int:movie_id>', methods=['PUT', 'DELETE'])
-@require_api_key
+@require_access("sabdekho")
 def update_movie(movie_id):
     movie = Movie.query.get(movie_id)
     if not movie:
@@ -1500,7 +1501,7 @@ def update_movie(movie_id):
     return jsonify({"success": True, "message": "Movie updated"})
 
 @media_bp.route('/api/movies/<int:movie_id>/rematch', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def rematch_movie(movie_id):
     movie = Movie.query.get(movie_id)
     if not movie:
@@ -1555,7 +1556,7 @@ def rematch_movie(movie_id):
     })
 
 @media_bp.route('/api/movies/diary', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_movie_diary():
     logs = MovieDiaryLog.query.order_by(MovieDiaryLog.date.desc(), MovieDiaryLog.created_at.desc()).all()
     result = []
@@ -1577,7 +1578,7 @@ def get_movie_diary():
     return jsonify({"success": True, "logs": result})
 
 @media_bp.route('/api/movies/diary', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def add_movie_diary():
     data = request.json
     movie_id = data.get('movie_id') or data.get('tv_show_id') # keeping tv_show_id property name for frontend compatibility
@@ -1600,7 +1601,7 @@ def add_movie_diary():
     return jsonify({"success": True, "message": "Logged successfully", "id": new_log.id})
 
 @media_bp.route('/api/movies/diary', methods=['PUT'])
-@require_api_key
+@require_access("sabdekho")
 def update_movie_diary():
     data = request.json
     log_ids = data.get('log_ids', [])
@@ -1626,7 +1627,7 @@ def update_movie_diary():
     return jsonify({"success": True})
 
 @media_bp.route('/api/movies/diary', methods=['DELETE'])
-@require_api_key
+@require_access("sabdekho")
 def delete_movie_diary():
     log_ids = request.json.get('log_ids', [])
     if not log_ids:
@@ -1827,7 +1828,7 @@ def _perform_rss_sync_generator(username, fast_mode=False):
         yield json.dumps({"success": False, "message": str(e)}) + "\n"
 
 @media_bp.route('/api/movies/sync/rss', methods=['POST'])
-@require_api_key
+@require_access("sabdekho")
 def sync_letterboxd_rss():
     data = request.json
     username = data.get('username')
@@ -1894,7 +1895,7 @@ def _diary_filtered_ids(rows, year_filter, month_filter, week_filter):
 
 
 @media_bp.route('/api/media/library', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_media_library():
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
@@ -1993,7 +1994,7 @@ def get_media_library():
 
 
 @media_bp.route('/api/media/filters', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_media_filters():
     """Years and languages the Library's 'More filters' dropdowns can offer."""
     from sqlalchemy.sql import extract
@@ -2016,7 +2017,7 @@ def get_media_filters():
     return jsonify({"success": True, "years": years, "languages": languages})
 
 @media_bp.route('/api/media/diary', methods=['GET'])
-@require_api_key
+@require_access("sabdekho")
 def get_media_diary():
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import CustomSelect from '../components/CustomSelect';
 import { StarRating, StarDisplay } from './sabdekho-components/StarRating';
 import StatsView from './sabdekho-components/StatsView';
+import { useAccess } from '../access/AccessContext';
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -30,7 +31,8 @@ function GridSizeIcon({ cols }) {
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────
 function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
-  const [view, setView] = useState('library'); // library | diary | stats
+  const canEdit = useAccess().can('sabdekho', 'edit');
+const [view, setView] = useState('library'); // library | diary | stats
   const [shows, setShows] = useState([]);
   const [diaryLogs, setDiaryLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -261,7 +263,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
     if (show.type !== 'movie') {
       setLogRewatch(false);
     }
-    setModalView('log');
+    setModalView(canEdit ? 'log' : 'details');
     try {
       const endpoint = show.type === 'movie' ? `/movies/details/${show.tmdb_id}` : `/tv/details/${show.tmdb_id}`;
       const [r, logsR] = await Promise.all([
@@ -744,6 +746,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
       {view === 'library' && (
         <div>
           {/* Search */}
+          {canEdit && (
           <div className="tv-search-wrap" ref={searchRef}>
             <div className="tv-search-bar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
@@ -768,6 +771,7 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               </div>
             )}
           </div>
+          )}
 
           {/* Filters & Pagination */}
           <div className="tv-controls-header">
@@ -957,10 +961,12 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                                     {log.liked && <span style={{ marginLeft: '6px', fontSize: '0.9em', color: '#ff4d4f' }}>❤️</span>}
                                     {log.rewatch && <span style={{ marginLeft: '6px', fontSize: '0.9em' }}>🔄</span>}
                                   </h4>
+                                  {canEdit && (
                                   <div className="tv-diary-entry-actions">
                                     <button onClick={() => editLog(log)} title="Edit Log">✏️</button>
                                     <button onClick={() => deleteLog(log.log_ids || [log.id], log.type)} title="Delete Log">🗑️</button>
                                   </div>
+                                  )}
                                 </div>
                                 <div className="tv-diary-entry-meta">
                                   {log.type === 'movie' ? (
@@ -1097,8 +1103,8 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                   </div>
                 )}
                 <div className="tv-modal-status-row">
-                  {(selectedShow.type === 'movie' ? ['WATCHED', 'TO WATCH'] : ['WATCHING', 'WATCHED', 'TO WATCH', 'DROPPED']).map(s => (
-                    <button key={s} className={`tv-status-option ${selectedShow.status === s ? 'active' : ''}`} onClick={() => updateStatus(s)}>
+                  {(selectedShow.type === 'movie' ? ['WATCHED', 'TO WATCH'] : ['WATCHING', 'WATCHED', 'TO WATCH', 'DROPPED']).filter(s => canEdit || selectedShow.status === s).map(s => (
+                    <button key={s} className={`tv-status-option ${selectedShow.status === s ? 'active' : ''}`} onClick={canEdit ? () => updateStatus(s) : undefined} style={canEdit ? undefined : { cursor: 'default' }}>
                       {s === 'WATCHING' ? '👁️' : s === 'WATCHED' ? '✅' : s === 'TO WATCH' ? '📋' : '🗑️'} {s}
                     </button>
                   ))}
@@ -1124,9 +1130,11 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
 
             {/* Tabs */}
             <div className="tv-modal-tabs">
+              {canEdit && (
               <button className={modalView === 'log' ? 'active' : ''} onClick={() => setModalView('log')}>
                 <span>📝</span><span>Log</span>
               </button>
+              )}
               {selectedShowLogs.length > 0 && (
                 <button className={modalView === 'diary' ? 'active' : ''} onClick={() => setModalView('diary')}>
                   <span>📖</span><span> Diary ({groupedModalLogs.length})</span>
@@ -1135,8 +1143,8 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
               <button className={modalView === 'details' ? 'active' : ''} onClick={() => setModalView('details')}>
                 <span>👥</span><span>Details</span>
               </button>
-              {selectedShow.type === 'movie' && (
-                <button className={modalView === 'rematch' ? 'active' : ''} onClick={() => { setModalView('rematch'); setRematchQuery(''); setRematchResults([]); }}>
+              {canEdit && selectedShow.type === 'movie' && (
+                <button className={modalView === 'rematch' ? 'active' : ''}onClick={() => { setModalView('rematch'); setRematchQuery(''); setRematchResults([]); }}>
                   <span>🔄</span><span>Fix Match</span>
                 </button>
               )}
@@ -1314,10 +1322,10 @@ function SabDekho({ API, getToken, showMovies, refreshTrigger }) {
                             </div>
                           )}
                         </div>
-                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                          <button onClick={() => { editLog(log); setModalView('log'); }} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Log">✏️</button>
+                        {canEdit && <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                          <button onClick={() => { editLog(log); setModalView('log'); }}style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Log">✏️</button>
                           <button onClick={() => deleteLog(log.log_ids || [log.id], log.type)} style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Log">🗑️</button>
-                        </div>
+                        </div>}
                       </div>
 
                       {log.review && (

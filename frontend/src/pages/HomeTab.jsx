@@ -9,9 +9,16 @@ import { API, MONTHS, BANKS } from '../constants';
 import { getToken, formatDate, fmt, fmtPct } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import ReconciliationModal from '../components/ReconciliationModal';
+import { useAccess } from '../access/AccessContext';
 
 function HomeTab({ accounts, transactions, physical, investments, budgets, onSyncBalances, fetchAllTransactions, onRefresh }) {
+  const access = useAccess();
   if (!physical || !transactions || !accounts) return null;
+  const canMoney = access.can('money');
+  const canGym = access.can('gym');
+  const canInvest = access.can('invest');
+  const showBalancesSection = access.money.balancesVisible;
+  const fullMoney = access.money.fullAccess;
   const [isReconcileOpen, setIsReconcileOpen] = useState(false);
   const [physMonth, setPhysMonth] = useState(new Date().getMonth());
   const [physYear, setPhysYear] = useState(new Date().getFullYear());
@@ -187,7 +194,20 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
 
   return (
     <div>
+      {!canMoney && !canGym && !canInvest && (
+        <div className="access-empty-state">
+          <div className="access-empty-icon">{access.can('sabdekho') ? '📺' : '🔒'}</div>
+          <div className="access-empty-title">{access.can('sabdekho') ? 'SabDekho is shared with you' : 'Nothing shared with you here yet'}</div>
+          <div className="access-empty-sub">
+            {access.can('sabdekho')
+              ? 'Open SabDekho from the menu to browse the library, diary and stats.'
+              : "Your account is active, but the owner hasn't given you access to any dashboards. Ask them to update your permissions."}
+          </div>
+        </div>
+      )}
+
       {/* Action buttons row */}
+      {fullMoney && (
       <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <button className="action-btn" onClick={syncBalances} disabled={syncing} style={{ minWidth: '200px', justifyContent: 'center' }}>
           {syncing ? '⏳ Syncing...' : '🔄 Sync Balances from Sheet'}
@@ -197,9 +217,12 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
         </button>
         {syncMsg && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: syncMsg.startsWith('✅') ? 'var(--pos)' : syncMsg.startsWith('❌') ? 'var(--neg)' : 'var(--text2, #f59e0b)', width: '100%', textAlign: 'center', marginTop: '0.5rem' }}>{syncMsg}</span>}
       </div>
+      )}
 
       {/* Hero row: Net Worth + Physical Activity */}
-      <div className="home-hero">
+      {(showBalancesSection || canGym) && (
+      <div className="home-hero" style={showBalancesSection && canGym ? undefined : { gridTemplateColumns: '1fr' }}>
+        {showBalancesSection && (
         <div className="net-worth-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
@@ -218,6 +241,8 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
             </button>
           </div>
         </div>
+        )}
+        {canGym && (
         <div className="phys-home-card">
           <div className="phys-num">{physActive}</div>
           <div style={{ flex: 1 }}>
@@ -239,15 +264,20 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
             />
           </div>
         </div>
+        )}
       </div>
+      )}
 
       {/* Accounts */}
+      {showBalancesSection && (
       <section className="section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <h2 className="section-title" style={{ margin: 0 }}>🏦 Account Balances</h2>
+          {fullMoney && (
           <button className="action-btn secondary" onClick={() => setIsReconcileOpen(true)} style={{ padding: '0.45rem 1rem' }}>
             ⚖️ Reconcile
           </button>
+          )}
         </div>
         <div className="accounts-grid">
           {accounts
@@ -278,8 +308,10 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
             ))}
         </div>
       </section>
+      )}
 
       {/* Budget Summary Section */}
+      {canMoney && (
       <section className="section">
         <h2 className="section-title" style={{ margin: 0, marginBottom: '1.25rem' }}>🎯 Budget Goals {budgetSummary.active && <span style={{ fontSize: '0.85rem', fontWeight: 500, color: budgetSummary.over > 0 ? 'var(--neg)' : 'var(--text3)', marginLeft: '8px' }}>({budgetSummary.over === 0 ? 'All good this month!' : `${budgetSummary.over} over limit`})</span>}</h2>
         {budgetSummary.active ? (
@@ -306,8 +338,10 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
           </div>
         )}
       </section>
+      )}
 
       {/* Investments */}
+      {canInvest && (
       <section className="section">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
           <h2 className="section-title" style={{ margin: 0, flex: 'none', display: 'flex' }}>📊 Investment Portfolio</h2>
@@ -335,8 +369,10 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
           ))}
         </div>
       </section>
+      )}
 
       {/* Money: Income & Expenses by Account */}
+      {canMoney && (
       <section className="section">
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 className="section-title" style={{ margin: 0 }}>💰 Money</h2>
@@ -401,6 +437,7 @@ function HomeTab({ accounts, transactions, physical, investments, budgets, onSyn
           </div>
         </div>
       </section>
+      )}
       {isReconcileOpen && (
         <ReconciliationModal
           accounts={accounts}

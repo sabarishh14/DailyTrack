@@ -119,6 +119,10 @@ class AllowedEmail(db.Model):
     __tablename__ = "allowed_emails"
     email = db.Column(db.String(120), primary_key=True)
     added_on = db.Column(db.DateTime, default=datetime.utcnow)
+    # Access control (see ACCESS_CONTROL.md). role NULL = pre-RBAC guest with full access.
+    role = db.Column(db.String(20), nullable=True)          # admin | member
+    permissions = db.Column(db.JSON, nullable=True)         # {"modules": {...}, "money_scope": {...}}
+    updated_on = db.Column(db.DateTime, nullable=True)
 class TvShow(db.Model):
     __tablename__ = "tv_shows"
     id = db.Column(db.BigInteger, primary_key=True)

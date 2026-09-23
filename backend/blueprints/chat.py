@@ -6,19 +6,47 @@ import json
 import pytz
 import requests
 from extensions import (
-    db, require_api_key, require_admin,
+    db,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
 )
 from models import *
+from access import require_api_key, require_admin, require_access, current_access
 
 import google.generativeai as genai
 from sqlalchemy import text
 
 chat_bp = Blueprint("chat", __name__)
 
+# Nagapandi only ever needs these tables; anything else in generated SQL is refused.
+CHAT_BLOCKED = re.compile(r"\b(pg_\w*|information_schema|allowed_emails|accounts|budgets|splits|sync_log)\b", re.IGNORECASE)
+
+
+def _validate_generated_sql(sql):
+    sql = (sql or "").strip().rstrip(";").strip()
+    if not re.match(r"^(select|with)\b", sql, re.IGNORECASE):
+        return None, "Nagapandi can only run read-only queries."
+    if ";" in sql:
+        return None, "Nagapandi can only run a single query."
+    if CHAT_BLOCKED.search(sql):
+        return None, "Nagapandi can't look at that data."
+    return sql, None
+
+
+def _run_readonly(sql):
+    """Run model-written SQL where Postgres itself forbids writes, on its own
+    connection so a bad query can never touch the request's session."""
+    with db.engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            conn.execute(text("SET TRANSACTION READ ONLY"))
+            conn.execute(text("SET LOCAL statement_timeout = '5s'"))
+            return conn.execute(text(sql)).fetchall()
+        finally:
+            trans.rollback()
+
 @chat_bp.route('/api/chat', methods=['POST'])
-@require_api_key
+@require_admin
 def handle_chat_query():
     data = request.json
     user_query = data.get('query')
@@ -68,11 +96,11 @@ def handle_chat_query():
         parsed = json.loads(resp_text.strip())
         sql_query = parsed.get("sql")
         
-        if not sql_query or not sql_query.strip().upper().startswith("SELECT"):
-            return jsonify({"success": False, "message": "Nagapandi can only run read-only queries."})
-            
-        result_proxy = db.session.execute(text(sql_query))
-        rows = result_proxy.fetchall()
+        sql_query, error = _validate_generated_sql(sql_query)
+        if error:
+            return jsonify({"success": False, "message": error})
+
+        rows = _run_readonly(sql_query)
         db_result = str([dict(row._mapping) for row in rows])[:2000] # Cap size
         
         prompt2 = f'''

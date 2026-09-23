@@ -1,4 +1,5 @@
 import { fmt } from '../../utils';
+import { useAccess } from '../../access/AccessContext';
 
 export default function SplitsSection({
   splitsExpanded,
@@ -11,6 +12,7 @@ export default function SplitsSection({
   handleSettlePerson,
   handleToggleSplitPaid,
 }) {
+  const canEdit = useAccess().can('money', 'edit');
   if (activeSplits.length === 0 && settledSplits.length === 0) return null;
 
   return (
@@ -56,6 +58,7 @@ export default function SplitsSection({
                     <div className="splits-person-name">{b.name}</div>
                     <div className="splits-person-amount">{fmt(b.amount)}</div>
                   </div>
+                  {canEdit && (
                   <button
                     className="splits-settle-btn"
                     onClick={() => handleSettlePerson(b.name)}
@@ -67,6 +70,7 @@ export default function SplitsSection({
                       <>✓ Settle</>
                     )}
                   </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -135,6 +139,8 @@ export default function SplitsSection({
                                 <button
                                   className={`splits-toggle-btn ${m.paid ? 'is-paid' : 'is-unpaid'}`}
                                   onClick={() => handleToggleSplitPaid(t, idx)}
+                                  disabled={!canEdit}
+                                  style={canEdit ? undefined : { cursor: 'default' }}
                                 >
                                   {m.paid ? 'Paid' : 'Owes'}
                                 </button>

@@ -2,6 +2,8 @@
 
 A full-stack personal finance and lifestyle tracking system featuring real-time bank balance monitoring, transaction management with Google Sheets sync, investment portfolio tracking via Zerodha Kite API, and physical activity logging — secured with Firebase Google Authentication and a JWT-based backend API.
 
+Sharing with other people (roles, per-page view/edit levels, category limits): see [ACCESS_CONTROL.md](ACCESS_CONTROL.md).
+
 git reset --hard HEAD~1
 git push origin main --force
 

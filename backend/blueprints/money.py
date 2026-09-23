@@ -7,11 +7,12 @@ import pytz
 import requests
 import pandas as pd
 from extensions import (
-    db, require_api_key, require_admin,
+    db,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
 )
 from models import *
+from access import require_api_key, require_admin, require_access, current_access
 
 from blueprints.media import invalidate_stats_cache, _perform_rss_sync_generator, fetch_tmdb_movie_details
 
@@ -20,6 +21,13 @@ money_bp = Blueprint("money", __name__)
 def is_cc_account(acc_name):
     """Check if account is a credit card account (starts with 'CC')."""
     return bool(acc_name and acc_name.strip().upper().startswith("CC"))
+def _need_full_money():
+    """Whole-ledger operations are only for users who can see the whole ledger."""
+    if not current_access().full_money_edit:
+        return jsonify({"success": False, "code": "FORBIDDEN", "message": "This needs edit access to all money data"}), 403
+    return None
+def _out_of_scope():
+    return jsonify({"success": False, "code": "FORBIDDEN", "message": "That category or account is outside your access"}), 403
 def get_transactions_for_sync():
     # Fetch only transactions where synced=False
     new_txs = Transaction.query.filter_by(synced=False).all()
@@ -38,8 +46,10 @@ def get_transactions_for_sync():
         })
     return result
 @money_bp.route('/api/sync/check-transactions', methods=['GET'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("money")
 def check_tx_sync():
+    denied = _need_full_money()
+    if denied: return denied
     try:
         # Just count how many are waiting
         count = Transaction.query.filter_by(synced=False).count()
@@ -47,8 +57,10 @@ def check_tx_sync():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 @money_bp.route('/api/sync/db-to-sheets', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("money")
 def sync_db_to_sheets():
+    denied = _need_full_money()
+    if denied: return denied
     try:
         BATCH_SIZE = 5
         unsynced = Transaction.query.filter_by(synced=False).order_by(Transaction.date.asc(), Transaction.id.asc()).limit(BATCH_SIZE).all()
@@ -124,14 +136,16 @@ def sync_db_to_sheets():
         return jsonify({"success": False, "message": str(e)})
 # ---- ACCOUNTS ----
 @money_bp.route('/api/accounts', methods=['GET'])
-@require_api_key  
+@require_access("money")
 def get_accounts():
-    accounts = Account.query.all()
+    access = current_access()
+    accounts = [acc for acc in Account.query.all() if access.account_allowed(acc.account)]
+    show = access.balances_visible
     result = [
         {
             "account": acc.account,
-            "balance": acc.balance,
-            "real_balance": acc.real_balance, # <-- ADD THIS LINE
+            "balance": acc.balance if show else None,
+            "real_balance": acc.real_balance if show else None, # <-- ADD THIS LINE
             "balance_tracked": acc.balance_tracked
         }
         for acc in accounts
@@ -139,8 +153,10 @@ def get_accounts():
     return jsonify(result)
 
 @money_bp.route('/api/accounts', methods=['PUT'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("money")
 def update_account():
+    denied = _need_full_money()
+    if denied: return denied
     data = request.json
 
     account = Account.query.filter_by(account=data['account']).first()
@@ -154,27 +170,28 @@ def update_account():
 
     return jsonify({'success': True})
 @money_bp.route('/api/transactions/categories', methods=['GET'])
-@require_api_key
+@require_access("money")
 def get_categories():
     try:
         # SQL DISTINCT is O(1) payload size and extremely fast on the DB level
-        cats = db.session.query(Transaction.heading).distinct().all()
+        cats = current_access().scope_transactions(db.session.query(Transaction.heading)).distinct().all()
         return jsonify({"success": True, "categories": sorted([c[0] for c in cats if c[0]])})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 # ---- BUDGETS ----
 @money_bp.route('/api/budgets', methods=['GET'])
-@require_api_key
+@require_access("money")
 def get_budgets():
     try:
-        budgets = Budget.query.all()
+        access = current_access()
+        budgets = [b for b in Budget.query.all() if access.category_allowed(b.category)]
         result = [{"category": b.category, "monthly_limit": b.monthly_limit} for b in budgets]
         return jsonify({"success": True, "budgets": result})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 
 @money_bp.route('/api/budgets', methods=['PUT'])
-@require_api_key
+@require_access("money")
 def update_budget():
     data = request.json
     category = data.get('category')
@@ -182,7 +199,9 @@ def update_budget():
     
     if not category:
         return jsonify({"success": False, "message": "Category is required"}), 400
-        
+    if not current_access().category_allowed(category):
+        return _out_of_scope()
+
     try:
         budget = Budget.query.filter_by(category=category).first()
         if monthly_limit is None or float(monthly_limit) <= 0:
@@ -201,11 +220,13 @@ def update_budget():
         return jsonify({"success": False, "message": str(e)})
 
 @money_bp.route('/api/budgets/bulk', methods=['PUT'])
-@require_api_key
+@require_access("money")
 def update_budgets_bulk():
     data = request.json
     if not isinstance(data, list):
         return jsonify({"success": False, "message": "Expected an array of budgets"}), 400
+    if any(item.get('category') and not current_access().category_allowed(item.get('category')) for item in data):
+        return _out_of_scope()
         
     try:
         for item in data:
@@ -231,7 +252,7 @@ def update_budgets_bulk():
         return jsonify({"success": False, "message": str(e)})
 
 @money_bp.route('/api/budgets/suggestions', methods=['GET'])
-@require_api_key
+@require_access("money")
 def get_budget_suggestions():
     """Suggest a monthly budget per category from spending history.
 
@@ -245,7 +266,7 @@ def get_budget_suggestions():
     """
     try:
         rows = (
-            db.session.query(Transaction.heading, Transaction.month, Transaction.amount)
+            current_access().scope_transactions(db.session.query(Transaction.heading, Transaction.month, Transaction.amount))
             .filter(Transaction.type == 'Debit')
             .filter(db.or_(Transaction.exclude_analytics == False, Transaction.exclude_analytics.is_(None)))
             .all()
@@ -279,7 +300,7 @@ def get_budget_suggestions():
         return jsonify({"success": False, "message": str(e)})
 # ---- TRANSACTIONS ----
 @money_bp.route('/api/transactions', methods=['GET'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("money")
 def get_transactions():
     # Pagination and filtering parameters
     limit = request.args.get('limit', 100, type=int)
@@ -291,7 +312,7 @@ def get_transactions():
     limit = min(limit, 500)
     
     # Sort by date first, then by the timestamp ID (newest added at the top)
-    query = Transaction.query.order_by(Transaction.date.desc(), Transaction.id.desc())
+    query = current_access().scope_transactions(Transaction.query).order_by(Transaction.date.desc(), Transaction.id.desc())
     
     # Apply month filter if provided
     if month_filter:
@@ -337,16 +358,21 @@ def get_transactions():
     })
 
 @money_bp.route('/api/transactions', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("money")
 def add_transaction():
     try:
         data = request.json
         transactions_data = data if isinstance(data, list) else [data]
         added_count = 0
+        access = current_access()
+        if any(not access.tx_allowed(item.get('heading'), item.get('account')) for item in transactions_data):
+            return _out_of_scope()
+        # Cinema entries also write to SabDekho, so only link them for users who may.
+        can_link_movies = access.can("sabdekho", "edit")
         
         # --- NEW: Perform a preemptive RSS sync if any transaction is a Cinema transaction
         # so that recent Letterboxd logs are in the DB before we append tags to them.
-        lbx_username = next((item.get('lbx_username') for item in transactions_data if item.get('heading', '').strip().lower() == 'cinema' and item.get('lbx_username')), None)
+        lbx_username = next((item.get('lbx_username') for item in transactions_data if item.get('heading', '').strip().lower() == 'cinema' and item.get('lbx_username')), None) if can_link_movies else None
         if lbx_username:
             try:
                 # Silently consume the generator to execute the sync in fast mode
@@ -399,7 +425,7 @@ def add_transaction():
             # --- NEW: Link Movie Tags ---
             movie_link_errors = []
             movie_link_successes = []
-            if item.get('heading', '').strip().lower() == 'cinema' and item.get('movie_tags'):
+            if can_link_movies and item.get('heading', '').strip().lower() == 'cinema' and item.get('movie_tags'):
                 movie_data = item.get('movie_data')
                 
                 if movie_data and movie_data.get('tmdb_id'):
@@ -481,8 +507,9 @@ def add_transaction():
     except Exception as e:
         print(f"❌ Error adding transaction(s): {str(e)}")
         db.session.rollback() # Safely undo everything if there's an error
+        return jsonify({"success": False, "message": str(e)}), 500
 @money_bp.route('/api/sync/ocr-split', methods=['POST'])
-@require_api_key
+@require_access("money")
 def sync_ocr_split():
     try:
         # No link required anymore, API.gs will fetch the latest image from the folder
@@ -548,7 +575,7 @@ def sync_ocr_split():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 @money_bp.route('/api/splits', methods=['POST'])
-@require_api_key
+@require_access("money")
 def save_split():
     try:
         data = request.json
@@ -559,6 +586,9 @@ def save_split():
         
         if not transaction_id or total_amount is None:
             return jsonify({"success": False, "message": "transaction_id and total_amount required"}), 400
+        scoped_tx = Transaction.query.get(transaction_id)
+        if scoped_tx and not current_access().tx_allowed(scoped_tx.heading, scoped_tx.account):
+            return _out_of_scope()
             
         split = Split.query.filter_by(transaction_id=transaction_id).first()
         if split:
@@ -599,8 +629,11 @@ def save_split():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
 @money_bp.route('/api/splits/<int:transaction_id>', methods=['DELETE'])
-@require_api_key
+@require_access("money")
 def delete_split(transaction_id):
+    tx = Transaction.query.get(transaction_id)
+    if tx and not current_access().tx_allowed(tx.heading, tx.account):
+        return _out_of_scope()
     try:
         Split.query.filter_by(transaction_id=transaction_id).delete()
         db.session.commit()
@@ -609,8 +642,10 @@ def delete_split(transaction_id):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
 @money_bp.route('/api/sync/ocr-balances', methods=['POST'])
-@require_api_key
+@require_access("money")
 def sync_ocr_balances():
+    denied = _need_full_money()
+    if denied: return denied
     try:
         # Trigger GAS to process images
         payload = {"type": "trigger_ocr"}
@@ -640,11 +675,11 @@ def sync_ocr_balances():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
 @money_bp.route('/api/transactions/<int:tid>', methods=['DELETE'])
-@require_api_key  
+@require_access("money")
 def delete_transaction(tid):
     tx = Transaction.query.filter_by(id=tid).first()
 
-    if not tx:
+    if not tx or not current_access().tx_allowed(tx.heading, tx.account):
         return jsonify({"success": False, "message": "Transaction not found"}), 404
 
     account = Account.query.filter_by(account=tx.account).first()
@@ -677,14 +712,17 @@ def delete_transaction(tid):
 
     return jsonify({"success": True})
 @money_bp.route('/api/transactions/<int:tid>', methods=['PUT'])
-@require_api_key
+@require_access("money")
 def edit_transaction(tid):
     try:
         data = request.json
         tx = Transaction.query.filter_by(id=tid).first()
+        access = current_access()
 
-        if not tx:
+        if not tx or not access.tx_allowed(tx.heading, tx.account):
             return jsonify({"success": False, "message": "Transaction not found"}), 404
+        if not access.tx_allowed(data['heading'], data['account']):
+            return _out_of_scope()
 
         # 1. REVERT the old transaction's impact on the balance
         old_account = Account.query.filter_by(account=tx.account).first()
@@ -739,7 +777,7 @@ def edit_transaction(tid):
         db.session.rollback() # Safely undo if something breaks
         return jsonify({"success": False, "message": str(e)})
 @money_bp.route('/api/transactions/bulk-edit', methods=['PUT', 'OPTIONS'])
-@require_api_key
+@require_access("money")
 def bulk_edit_transactions():
     try:
         updates = request.json  # Expecting a list of transaction dictionaries
@@ -747,6 +785,12 @@ def bulk_edit_transactions():
             return jsonify({"success": False, "message": "Invalid payload format."}), 400
 
         updated_count = 0
+        access = current_access()
+        by_id = {t.id: t for t in Transaction.query.filter(Transaction.id.in_([u.get('id') for u in updates])).all()}
+        for data in updates:
+            old = by_id.get(data.get('id'))
+            if (old and not access.tx_allowed(old.heading, old.account)) or not access.tx_allowed(data.get('heading'), data.get('account')):
+                return _out_of_scope()
 
         for data in updates:
             tx_id = data.get('id')
@@ -810,7 +854,7 @@ def bulk_edit_transactions():
         db.session.rollback() # Safely undo everything if one breaks
         return jsonify({"success": False, "message": str(e)})
 @money_bp.route('/api/transactions/bulk-delete', methods=['POST', 'OPTIONS'])
-@require_api_key
+@require_access("money")
 def bulk_delete_transactions():
     if request.method == 'OPTIONS':
         return '', 200
@@ -820,6 +864,9 @@ def bulk_delete_transactions():
             return jsonify({"success": False, "message": "Invalid payload format."}), 400
 
         deleted_data = []
+        access = current_access()
+        if any(not access.tx_allowed(t.heading, t.account) for t in Transaction.query.filter(Transaction.id.in_(ids)).all()):
+            return _out_of_scope()
 
         for tid in ids:
             tx = Transaction.query.filter_by(id=tid).first()
@@ -859,7 +906,7 @@ def bulk_delete_transactions():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 @money_bp.route('/api/transactions/category/exclude', methods=['PUT', 'OPTIONS'])
-@require_api_key
+@require_access("money")
 def category_exclude():
     if request.method == 'OPTIONS':
         return '', 200
@@ -870,9 +917,11 @@ def category_exclude():
 
         if not heading:
             return jsonify({"success": False, "message": "Heading is required"}), 400
+        if not current_access().category_allowed(heading):
+            return _out_of_scope()
 
         # Find all transactions with this category and flip their flag
-        txs = Transaction.query.filter_by(heading=heading).all()
+        txs = current_access().scope_transactions(Transaction.query.filter_by(heading=heading)).all()
         updated_count = 0
         for tx in txs:
             if getattr(tx, 'exclude_analytics', False) != exclude:

@@ -6,17 +6,18 @@ import json
 import pytz
 import requests
 from extensions import (
-    db, require_api_key, require_admin,
+    db,
     SHEETS_URL, JWT_SECRET, ALLOWED_EMAILS, ADMIN_USER, ADMIN_PASS,
     KITE_API_KEY, KITE_API_SECRET, TMDB_API_KEY,
 )
 from models import *
+from access import require_api_key, require_admin, require_access, current_access
 
 
 activities_bp = Blueprint("activities", __name__)
 
 @activities_bp.route('/api/physical', methods=['GET'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("gym")
 def get_physical():
     records = PhysicalActivity.query.order_by(PhysicalActivity.date.desc()).all()
 
@@ -36,7 +37,7 @@ def get_physical():
 
     return jsonify(result)
 @activities_bp.route('/api/physical', methods=['POST'])
-@require_api_key  # <-- Add this line to protect the route
+@require_access("gym")
 def add_physical():
     data = request.json
     date_obj = datetime.strptime(data['date'], '%Y-%m-%d')

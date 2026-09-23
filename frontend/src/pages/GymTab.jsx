@@ -8,9 +8,11 @@ import SabDekho from './SabDekho';
 import { MONTHS } from '../constants';
 import { formatDate } from '../utils';
 import CustomSelect from '../components/CustomSelect';
+import { useAccess } from '../access/AccessContext';
 
 function GymTab({ physical, onOpenModal }) {
-  const [physMonth, setPhysMonth] = useState(new Date().getMonth());
+  const canEdit = useAccess().can('gym', 'edit');
+const [physMonth, setPhysMonth] = useState(new Date().getMonth());
   const [physYear, setPhysYear] = useState(new Date().getFullYear());
 
   // 1. Filter all records by the selected month and year
@@ -68,9 +70,11 @@ function GymTab({ physical, onOpenModal }) {
         </div>
 
 
+        {canEdit && (
         <button className="action-btn" onClick={onOpenModal}>
           ➕ Log Activity
         </button>
+        )}
       </div>
 
       {/* Data Table (Now Filtered!) */}

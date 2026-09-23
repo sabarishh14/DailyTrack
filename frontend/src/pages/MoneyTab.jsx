@@ -18,9 +18,11 @@ import SplitsSection from './money-components/SplitsSection';
 import TransactionDetailsModal from './money-components/TransactionDetailsModal';
 import SnapshotPoster from './money-components/SnapshotPoster';
 import TransactionsTableSection from './money-components/TransactionsTableSection';
+import { useAccess } from '../access/AccessContext';
 
 function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx }) {
-  const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
+  const canEdit = useAccess().can('money', 'edit');
+const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
 
   const [expanded, setExpanded] = useState(false);
@@ -848,6 +850,7 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
                 </svg>
               )}
             </button>
+            {canEdit && (
             <button
               onClick={(e) => { e.stopPropagation(); setIsCategoryModalOpen(true); }}
               className="action-btn secondary"
@@ -856,6 +859,7 @@ function MoneyTab({ accounts, transactions, categories, budgets = [], onRefresh,
             >
               <span style={{ fontSize: '14px' }}>⚙️</span>
             </button>
+            )}
             <span className={`analyser-chevron ${expanded ? 'open' : ''}`} style={{ marginLeft: '4px' }}>▼</span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { API } from '../../constants';
 import { getToken, fmt, formatDate } from '../../utils';
+import { useAccess } from '../../access/AccessContext';
 
 export default function TransactionDetailsModal({
   actionMenuTx,
@@ -10,6 +11,7 @@ export default function TransactionDetailsModal({
   setSplitOverrides,
   onRefresh,
 }) {
+  const canEdit = useAccess().can('money', 'edit');
   if (!actionMenuTx) return null;
 
   return (
@@ -55,7 +57,8 @@ export default function TransactionDetailsModal({
                     <input
                       type="checkbox"
                       checked={m.paid}
-                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
+                      disabled={!canEdit}
+                      style={{ cursor: canEdit ? 'pointer' : 'default', width: '16px', height: '16px', accentColor: 'var(--accent)' }}
                       onChange={(e) => {
                         e.stopPropagation();
                         const newMembers = [...actionMenuTx.split.members];
@@ -93,6 +96,7 @@ export default function TransactionDetailsModal({
         )}
 
         {/* Quick Exclude Toggle */}
+        {canEdit && (
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: '0.95rem', color: 'var(--text)', fontWeight: 600 }}>Spending Analyser</div>
@@ -131,8 +135,10 @@ export default function TransactionDetailsModal({
             }} />
           </button>
         </div>
+        )}
 
         {/* Action Buttons */}
+        {canEdit && (
         <div style={{ display: 'flex', flexDirection: 'column', padding: '0.5rem' }}>
           <button
             onClick={() => { setEditingTx(actionMenuTx); setActionMenuTx(null); }}
@@ -159,6 +165,7 @@ export default function TransactionDetailsModal({
             🗑️ Delete Transaction
           </button>
         </div>
+        )}
       </div>
     </div>
   );

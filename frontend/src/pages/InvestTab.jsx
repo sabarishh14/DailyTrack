@@ -12,9 +12,11 @@ import CustomSelect from '../components/CustomSelect';
 import AddManualAssetModal from '../components/AddManualAssetModal';
 import EditManualAssetModal from '../components/EditManualAssetModal';
 import PinLockOverlay from './invest-components/PinLockOverlay';
+import { useAccess } from '../access/AccessContext';
 
 function InvestTab({ investments, manualAssets, assetList, onAdd }) {
-  // 🚀 PIN LOCK STATES
+  const canEdit = useAccess().can('invest', 'edit');
+// 🚀 PIN LOCK STATES
   const [savedPin, setSavedPin] = useState(localStorage.getItem('dt_inv_pin'));
   const [isUnlocked, setIsUnlocked] = useState(sessionStorage.getItem('dt_inv_unlocked') === 'true');
   const [pinInput, setPinInput] = useState('');
@@ -784,6 +786,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
             </div>
 
             {/* Action Buttons */}
+            {canEdit && (
             <div className="invest-action-buttons" style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
               {!showTokenInput ? (
                 <>
@@ -805,6 +808,7 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Allocation Donut Card - Mobile Wrapped */}
@@ -1410,8 +1414,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                           </span>
 
                                           <span style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                            <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit">✏️</button>
-                                            <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete">🗑️</button>
+                                            {canEdit && (
+                                              <>
+                                                <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit">✏️</button>
+                                                <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete">🗑️</button>
+                                              </>
+                                            )}
                                           </span>
                                         </div>
                                       );
@@ -1479,8 +1487,12 @@ function InvestTab({ investments, manualAssets, assetList, onAdd }) {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
                                       <div style={{ fontSize: '0.7rem', color: 'var(--text3)', fontWeight: 500 }}>Last updated: {asset.last_updated}</div>
                                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>✏️</button>
-                                        <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>🗑️</button>
+                                        {canEdit && (
+                                          <>
+                                            <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingAsset(asset); }} title="Edit" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>✏️</button>
+                                            <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDeleteManualAsset(asset.id); }} title="Delete" style={{ fontSize: '1.2rem', padding: '0.4rem' }}>🗑️</button>
+                                          </>
+                                        )}
                                       </div>
                                     </div>
                                   </div>

@@ -2,6 +2,7 @@ import { fmt, formatDate, getBankEmoji } from '../../utils';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import RowsPerPageDropdown from './RowsPerPageDropdown';
 import BulkEditTransactionModal from '../../components/BulkEditTransactionModal';
+import { useAccess } from '../../access/AccessContext';
 
 export default function TransactionsTableSection({
   dropdownRef,
@@ -49,6 +50,7 @@ export default function TransactionsTableSection({
   categories,
   onRefresh,
 }) {
+  const canEdit = useAccess().can('money', 'edit');
   return (
     <section className="section" style={{ marginTop: '3rem' }}>
       <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
@@ -299,8 +301,8 @@ export default function TransactionsTableSection({
       {/* Transactions List */}
       <div className="tx-table-wrap">
         <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
-          <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={handleSelectAll}>
-            <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />
+          <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={canEdit ? handleSelectAll : undefined}>
+            {canEdit && <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />}
           </div>
           <div className="tx-col-header" onClick={() => handleSortClick('date')}>
             <span>Date</span>
@@ -351,8 +353,8 @@ export default function TransactionsTableSection({
                 style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
                 onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
               >
-                <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: 'pointer' }} onClick={(e) => handleRowSelect(e, t.id, i)}>
-                  <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'included' : ''}`} />
+                <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: canEdit ? 'pointer' : 'inherit' }} onClick={canEdit ? (e) => handleRowSelect(e, t.id, i) : undefined}>
+                  {canEdit && <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'included' : ''}`} />}
                 </span>
                 <span className="tx-date">{formatDate(t.date)}</span>
                 <span className="tx-account">
@@ -383,9 +385,15 @@ export default function TransactionsTableSection({
                   </span>
                 </span>
                 <span className="tx-actions">
-                  <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
-                  <button className="action-icon-btn copy" onClick={(e) => { e.stopPropagation(); setCopyingTx(t); }} title="Duplicate">📋</button>
-                  <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} title="Delete">🗑️</button>
+                  {canEdit ? (
+                    <>
+                      <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
+                      <button className="action-icon-btn copy" onClick={(e) => { e.stopPropagation(); setCopyingTx(t); }} title="Duplicate">📋</button>
+                      <button className="action-icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }} title="Delete">🗑️</button>
+                    </>
+                  ) : (
+                    <span className="view-only-pill" title="You have view-only access">View only</span>
+                  )}
                 </span>
               </div>
             );
@@ -394,7 +402,7 @@ export default function TransactionsTableSection({
           <div className="empty-state">📭 No transactions match your filters</div>
         )}
         {/* Floating Action Bar */}
-        {selectedIds.size > 0 && (
+        {canEdit && selectedIds.size > 0 && (
           <div className="floating-action-bar">
             <span className="fab-text">{selectedIds.size} selected</span>
             <div className="fab-actions">

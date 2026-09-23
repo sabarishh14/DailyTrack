@@ -1,9 +1,9 @@
 import { TABS } from '../../constants';
 
-export default function MobileBottomNav({ tab, setTab, handleLogoClick }) {
+export default function MobileBottomNav({ tabs = TABS, tab, setTab, handleLogoClick }) {
   return (
     <nav className="mobile-bottom-nav">
-      {TABS.map(t => (
+      {tabs.map(t => (
         <button
           key={t.id}
           className={`mobile-nav-item ${tab === t.id ? 'active' : ''} ${t.add ? 'add-item' : ''}`}

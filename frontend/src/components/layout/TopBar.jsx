@@ -20,6 +20,9 @@ export default function TopBar({
   menuRef,
   accent,
   setAccent,
+  isAdmin,
+  onOpenAccessControl,
+  canSyncLetterboxd,
   enableNagapandi,
   toggleNagapandi,
   showMovies,
@@ -98,18 +101,36 @@ export default function TopBar({
                 </div>
               </div>
 
+              {/* Admin: Access Control */}
+              {isAdmin && (
+                <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+                  <button className="menu-access-btn" onClick={() => { setIsMenuOpen(false); onOpenAccessControl(); }}>
+                    <span className="menu-access-icon">🛡️</span>
+                    <span style={{ flex: 1, textAlign: 'left' }}>
+                      <span style={{ display: 'block', fontWeight: 700 }}>Access Control</span>
+                      <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text2)', fontWeight: 500 }}>Who can see and change what</span>
+                    </span>
+                    <span style={{ color: 'var(--text2)' }}>›</span>
+                  </button>
+                </div>
+              )}
+
               {/* SabDekho Settings */}
               <div className="menu-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                <div className="menu-section-title">Features</div>
+                {isAdmin && (
+                  <>
+                    <div className="menu-section-title">Features</div>
 
-                <div className="toggle-container" onClick={toggleNagapandi} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>✨ Nagapandi AI</span>
-                  <div className={`toggle-switch ${enableNagapandi ? 'active' : ''}`}>
-                    <div className="toggle-knob" />
-                  </div>
-                </div>
+                    <div className="toggle-container" onClick={toggleNagapandi} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>✨ Nagapandi AI</span>
+                      <div className={`toggle-switch ${enableNagapandi ? 'active' : ''}`}>
+                        <div className="toggle-knob" />
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                <div className="menu-section-title" style={{ marginTop: '1rem' }}>SabDekho Settings</div>
+                <div className="menu-section-title" style={{ marginTop: isAdmin ? '1rem' : 0 }}>SabDekho Settings</div>
 
                 <div className="toggle-container" onClick={toggleShowMovies} style={{ marginTop: '12px', marginBottom: '8px', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text2)', fontSize: '0.85rem', fontWeight: 600 }}>Movies</span>
@@ -118,7 +139,7 @@ export default function TopBar({
                   </div>
                 </div>
 
-                {showMovies && (
+                {showMovies && canSyncLetterboxd && (
                   <div className="lbx-sync-container">
                     <input
                       type="text"

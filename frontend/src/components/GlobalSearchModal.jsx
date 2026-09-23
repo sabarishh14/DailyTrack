@@ -8,7 +8,7 @@ import SabDekho from '../pages/SabDekho';
 import { TABS, API } from '../constants';
 import { getToken } from '../utils';
 
-const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction, getToken, enableNagapandi }) => {
+const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx, onAction, getToken, enableNagapandi, tabs = TABS }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [chatLoading, setChatLoading] = useState(false);
@@ -29,7 +29,7 @@ const GlobalSearchModal = ({ isOpen, onClose, transactions, onNavigate, onEditTx
 
   const q = query.toLowerCase();
 
-  const navMatches = TABS.filter(t => t.label.toLowerCase().includes(q) || t.id.toString() === q)
+  const navMatches = tabs.filter(t => t.label.toLowerCase().includes(q) || t.id.toString() === q)
     .map(t => ({ type: 'NAV', id: `nav-${t.id}`, label: `Go to ${t.label}`, action: () => onNavigate(t.id), icon: t.icon }));
 
   const quickActions = [
