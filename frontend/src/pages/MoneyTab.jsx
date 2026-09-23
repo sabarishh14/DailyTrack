@@ -23,9 +23,15 @@ import { apiGet, apiPost, tri, useApi, useMoneyMeta, EMPTY_META, monthKey } from
 
 function MoneyTab({ accounts, categories, budgets = [], onRefresh, refreshBudgets, globalActionTx, setGlobalActionTx, dataVersion, isActive = true }) {
   const canEdit = useAccess().can('money', 'edit');
-  // Everything below is computed server-side; nothing loads until the tab is opened.
+  // Everything below is computed server-side. It starts loading in the
+  // background right after startup (not when the tab is first opened), so the
+  // Money tab is usually ready by the time you get to it.
   const [hasOpened, setHasOpened] = useState(isActive);
-  useEffect(() => { if (isActive) setHasOpened(true); }, [isActive]);
+  useEffect(() => {
+    if (isActive) { setHasOpened(true); return; }
+    const timer = setTimeout(() => setHasOpened(true), 300);
+    return () => clearTimeout(timer);
+  }, [isActive]);
   const meta = useMoneyMeta(dataVersion, hasOpened).data || EMPTY_META;
 const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
@@ -254,6 +260,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
   const analyzerKey = `${JSON.stringify(analyzerFilters)}|${dataVersion}`;
   const analyzerRes = useApi(() => apiPost('/money/analyze', { filters: analyzerFilters }), analyzerKey, hasOpened);
   const pieArr = analyzerRes.data?.groups || [];
+  const analyzerLoading = !analyzerRes.data;
   const isShowingDescriptions = chartHeadings.included.size === 1;
   const analyzerStats = {
     count: analyzerRes.data?.count || 0,
@@ -505,6 +512,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
   const paginatedRows = tableRes.data?.transactions || [];
   const tableTotal = tableRes.data?.total || 0;
   const tableSums = { credit: tableRes.data?.credit_total || 0, debit: tableRes.data?.debit_total || 0 };
+  const tableFirstLoad = !tableRes.data;                    // nothing to show yet → skeleton rows
+  const tableRefreshing = !!tableRes.data && tableRes.loading; // filters changed → dim old rows
   const totalPages = Math.ceil(tableTotal / rowsPerPage);
 
   // Selection can span pages, so remember every row we've shown for bulk edit.
@@ -1064,6 +1073,11 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
                   }} />
                 </div>
               </div>
+            ) : analyzerLoading ? (
+              <div className="pie-grid" aria-busy="true">
+                <div className="skeleton-block" style={{ height: '380px', borderRadius: '16px' }} />
+                <div className="skeleton-block" style={{ height: '380px', borderRadius: '16px' }} />
+              </div>
             ) : (
               <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem', gridColumn: '1 / -1' }}>
                 📭 No transactions match your filters
@@ -1146,6 +1160,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         filterDesc={filterDesc} setFilterDesc={setFilterDesc}
         tableTotal={tableTotal}
         tableSums={tableSums}
+        tableFirstLoad={tableFirstLoad}
+        tableRefreshing={tableRefreshing}
         totalPages={totalPages}
         paginatedRows={paginatedRows}
         currentPage={currentPage} setCurrentPage={setCurrentPage}

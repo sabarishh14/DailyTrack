@@ -23,6 +23,8 @@ export default function TransactionsTableSection({
 
   tableTotal,
   tableSums,
+  tableFirstLoad = false,
+  tableRefreshing = false,
   totalPages,
   paginatedRows,
   currentPage, setCurrentPage,
@@ -300,7 +302,7 @@ export default function TransactionsTableSection({
       )}
 
       {/* Transactions List */}
-      <div className="tx-table-wrap">
+      <div className={`tx-table-wrap ${tableRefreshing ? 'is-refreshing' : ''}`}>
         <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
           <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={canEdit ? handleSelectAll : undefined}>
             {canEdit && <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />}
@@ -343,7 +345,15 @@ export default function TransactionsTableSection({
             <span>Actions</span>
           </div>
         </div>
-        {paginatedRows.length > 0 ? (
+        {tableFirstLoad ? (
+          <div aria-busy="true" aria-label="Loading transactions">
+            {Array.from({ length: Math.min(rowsPerPage, 8) }).map((_, i) => (
+              <div key={i} className="tx-row tx-row-skeleton">
+                <span className="skeleton-line" style={{ width: `${55 + ((i * 17) % 35)}%` }} />
+              </div>
+            ))}
+          </div>
+        ) : paginatedRows.length > 0 ? (
           paginatedRows.map((t, i) => {
             const d = new Date(t.date);
             const monthLabel = d.toLocaleString('default', { month: 'long' });

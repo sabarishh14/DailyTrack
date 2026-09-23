@@ -50,6 +50,9 @@ const [showInvestments, setShowInvestments] = useState(false);
   const income = summaryRes.data?.income || {};
   const expense = summaryRes.data?.expense || {};
   const monthSpending = summaryRes.data?.spending || {};
+  const summaryReady = !!summaryRes.data;
+  // Shimmer instead of a misleading ₹0 until the numbers arrive.
+  const money = (value) => summaryReady ? fmt(value) : <span className="skeleton-line" style={{ width: '64px' }} />;
 
   // The Sheet is read by the backend; its Apps Script URL no longer ships to the browser.
   const syncBalances = async () => {
@@ -286,7 +289,7 @@ const [showInvestments, setShowInvestments] = useState(false);
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.category}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-                    <span style={{ color: item.isOver ? 'var(--neg)' : 'var(--text)' }}>{fmt(item.spent)}</span>
+                    <span style={{ color: item.isOver ? 'var(--neg)' : 'var(--text)' }}>{summaryReady ? fmt(item.spent) : <span className="skeleton-line" style={{ width: '48px' }} />}</span>
                     <span style={{ color: 'var(--text3)' }}>/</span>
                     <span style={{ color: 'var(--text2)' }}>{fmt(item.limit)}</span>
                   </div>
@@ -364,13 +367,13 @@ const [showInvestments, setShowInvestments] = useState(false);
               .map(a => (
                 <div key={a.account} className="acc-row">
                   <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
-                  <span className="pos">{fmt(income[a.account] || 0)}</span>
+                  <span className="pos">{money(income[a.account] || 0)}</span>
                 </div>
               ))}
             <div className="acc-row" style={{ fontWeight: 700 }}>
               <div>Total</div>
               <span className="pos">
-                {fmt(
+                {money(
                   accounts
                     .filter(a => a.balance_tracked)
                     .reduce((sum, a) => sum + (income[a.account] || 0), 0)
@@ -386,13 +389,13 @@ const [showInvestments, setShowInvestments] = useState(false);
               .map(a => (
                 <div key={a.account} className="acc-row">
                   <div className="acc-row-left">{BANKS[a.account]?.emoji} {a.account}</div>
-                  <span className="neg">{fmt(expense[a.account] || 0)}</span>
+                  <span className="neg">{money(expense[a.account] || 0)}</span>
                 </div>
               ))}
             <div className="acc-row" style={{ fontWeight: 700 }}>
               <div>Total</div>
               <span className="neg">
-                {fmt(
+                {money(
                   accounts
                     .filter(a => a.balance_tracked)
                     .reduce((sum, a) => sum + (expense[a.account] || 0), 0)

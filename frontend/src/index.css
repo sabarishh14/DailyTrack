@@ -7343,3 +7343,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .ac-scope-head { flex-direction: column; align-items: flex-start; }
   .ac-user .ac-badge { display: none; }
 }
+
+/* ── Loading placeholders (server-computed money views) ── */
+.skeleton-line,
+.skeleton-block {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--card2) 0%, var(--border2) 50%, var(--card2) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.2s linear infinite;
+}
+.skeleton-line { height: 0.8em; min-width: 32px; border-radius: 6px; vertical-align: middle; }
+.skeleton-block { display: block; width: 100%; }
+@keyframes skeletonShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.tx-row.tx-row-skeleton { display: flex; align-items: center; min-height: 52px; padding: 0 1.25rem; cursor: default; }
+.tx-row.tx-row-skeleton .skeleton-line { height: 12px; }
+
+/* Keep the old page visible while new filters load, just dimmed. */
+.tx-table-wrap.is-refreshing .tx-row { opacity: 0.55; transition: opacity 0.15s ease; }
+@media (prefers-reduced-motion: reduce) { .skeleton-line, .skeleton-block { animation: none; } }
