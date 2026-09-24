@@ -6,7 +6,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from './SabDekho';
 
 import { API, BANKS } from '../constants';
-import { getToken, evaluateMath, buildDescriptionIndex, guessDescription } from '../utils';
+import { getToken, evaluateMath, buildDescriptionIndex, guessDescription, categoriesForType, descriptionOptions } from '../utils';
 import { useMoneyMeta, EMPTY_META } from '../api/money';
 import CustomSelect from '../components/CustomSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
@@ -18,11 +18,10 @@ function AddTab({ accounts, categories, onAdd, dataVersion }) {
 
   // Suggestions come pre-grouped from the server instead of from every transaction.
   const meta = useMoneyMeta(dataVersion).data || EMPTY_META;
-  const recentDescriptions = meta.recent_descriptions;
 
   // Description suggestion: once category (and ideally amount) is set, suggest
-  // a description from how this category has been described before. Built once
-  // per data refresh, reused on every guess.
+  // a description from how this type + category has been described before.
+  // Built once per data refresh, reused on every guess.
   const descriptionIndex = useMemo(() => buildDescriptionIndex(meta.descriptions), [meta.descriptions]);
 
   const createEmptyRow = () => ({
@@ -77,7 +76,7 @@ function AddTab({ accounts, categories, onAdd, dataVersion }) {
     setRows(prevRows => prevRows.map(row => {
       if (row.id !== id) return row;
       if (row.description.trim() !== '' && !row.descriptionAuto) return row;
-      const guess = guessDescription(heading, amount, descriptionIndex);
+      const guess = guessDescription(row.type, heading, amount, descriptionIndex);
       if (!guess || guess === row.description) return row;
       return { ...row, description: guess, descriptionAuto: true };
     }));
@@ -357,7 +356,10 @@ movie_tags: r.movie_tags,
 
                 <CustomSelect
                   value={row.type}
-                  onChange={val => updateRow(row.id, 'type', val)}
+                  onChange={val => {
+                    updateRow(row.id, 'type', val);
+                    maybeSuggestDescription(row.id, row.heading, row.amount);
+                  }}
                   options={[
                     { label: '🔴 Debit', value: 'Debit' },
                     { label: '🟢 Credit', value: 'Credit' },
@@ -373,7 +375,7 @@ movie_tags: r.movie_tags,
                     updateRow(row.id, 'heading', val);
                     maybeSuggestDescription(row.id, val, row.amount);
                   }}
-                  options={categories}
+                  options={categoriesForType(row.type, meta.categories_by_type, categories)}
                   placeholder="Category"
                 />
 
@@ -404,7 +406,7 @@ movie_tags: r.movie_tags,
                       if (row.descriptionAuto) updateRow(row.id, 'descriptionAuto', false);
                     }}
                     className={row.descriptionAuto ? 'auto-suggested' : ''}
-                    options={recentDescriptions}
+                    options={descriptionOptions(row.type, row.heading, descriptionIndex)}
                     placeholder="Optional note..."
                   />
                 )}

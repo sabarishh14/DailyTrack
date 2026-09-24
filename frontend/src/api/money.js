@@ -57,9 +57,14 @@ export function useMoneyMeta(dataVersion, enabled = true) {
   }, dataVersion, enabled);
 }
 
+// For modals opened from anywhere: reuses whatever meta is loaded, fetching once if none is.
+export function useLatestMoneyMeta() {
+  return useMoneyMeta(metaCache.version ?? 'latest');
+}
+
 export const EMPTY_META = {
   years: [], fys: [], headings: [], accounts: [], types: [],
-  excluded_headings: [], descriptions: [], recent_descriptions: [],
+  excluded_headings: [], categories_by_type: {}, descriptions: [], recent_descriptions: [],
 };
 
 export const monthKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;

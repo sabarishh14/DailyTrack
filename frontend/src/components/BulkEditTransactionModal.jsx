@@ -6,11 +6,14 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from '../pages/SabDekho';
 
 import { API, BANKS } from '../constants';
-import { evaluateMath, getToken } from '../utils';
+import { evaluateMath, getToken, buildDescriptionIndex, categoriesForType, descriptionOptions } from '../utils';
+import { useLatestMoneyMeta, EMPTY_META } from '../api/money';
 import CustomSelect from './CustomSelect';
 import AutocompleteInput from './AutocompleteInput';
 
 export default function BulkEditTransactionModal({ transactions, categories, onClose, onRefresh, isCopy }) {
+  const meta = useLatestMoneyMeta().data || EMPTY_META;
+  const descriptionIndex = useMemo(() => buildDescriptionIndex(meta.descriptions), [meta.descriptions]);
   // Pre-fill the grid with all selected transactions
   const [rows, setRows] = useState(
     transactions.map(tx => ({
@@ -99,11 +102,11 @@ export default function BulkEditTransactionModal({ transactions, categories, onC
                 ]}
                 minWidth="130px"
               />
-              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categories} placeholder="Category" />              <input type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} onBlur={e => {
+              <AutocompleteInput value={row.heading} onChange={val => updateRow(row.id, 'heading', val)} options={categoriesForType(row.type, meta.categories_by_type, categories)} placeholder="Category" />              <input type="text" className={`bulk-inp ${row.amount && evaluateMath(row.amount) === null ? 'invalid-math' : ''}`} placeholder="0.00" value={row.amount} onChange={e => updateRow(row.id, 'amount', e.target.value)} onBlur={e => {
                 const evalAmt = evaluateMath(e.target.value);
                 if (evalAmt !== null && evalAmt !== '') updateRow(row.id, 'amount', evalAmt);
               }} />
-              <input type="text" className="bulk-inp" value={row.description} onChange={e => updateRow(row.id, 'description', e.target.value)} placeholder="Optional note..." />
+              <AutocompleteInput value={row.description || ''} onChange={val => updateRow(row.id, 'description', val)} options={descriptionOptions(row.type, row.heading, descriptionIndex)} placeholder="Optional note..." />
 
               <div className="bulk-actions-wrapper">
                 <button

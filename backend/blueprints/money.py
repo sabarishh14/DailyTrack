@@ -21,6 +21,31 @@ money_bp = Blueprint("money", __name__)
 def is_cc_account(acc_name):
     """Check if account is a credit card account (starts with 'CC')."""
     return bool(acc_name and acc_name.strip().upper().startswith("CC"))
+
+TX_TYPES = ("Debit", "Credit", "Savings", "Investment")
+_TX_TYPE_BY_LOWER = {t.lower(): t for t in TX_TYPES}
+
+def normalize_tx_type(raw):
+    """The canonical spelling of a transaction type, or None if it isn't one."""
+    return _TX_TYPE_BY_LOWER.get(str(raw or "").strip().lower())
+
+def _invalid_types(items):
+    bad = sorted({str(i.get('type')) for i in items if not normalize_tx_type(i.get('type'))})
+    if not bad:
+        return None
+    return jsonify({"success": False, "code": "INVALID_TYPE",
+                    "message": f"Unknown transaction type: {', '.join(bad)}. Use one of {', '.join(TX_TYPES)}."}), 400
+
+def apply_balance(account_name, tx_type, amount, undo=False):
+    """Move a tracked account's balance for one transaction: Credit adds, every
+    other type takes money out. undo=True reverses an earlier application."""
+    if is_cc_account(account_name):
+        return
+    account = Account.query.filter_by(account=account_name).first()
+    if not account or not account.balance_tracked:
+        return
+    delta = float(amount) if normalize_tx_type(tx_type) == "Credit" else -float(amount)
+    account.balance = round((account.balance or 0) + (-delta if undo else delta), 2)
 def _need_full_money():
     """Whole-ledger operations are only for users who can see the whole ledger."""
     if not current_access().full_money_edit:
@@ -367,6 +392,8 @@ def add_transaction():
         access = current_access()
         if any(not access.tx_allowed(item.get('heading'), item.get('account')) for item in transactions_data):
             return _out_of_scope()
+        invalid = _invalid_types(transactions_data)
+        if invalid: return invalid
         # Cinema entries also write to SabDekho, so only link them for users who may.
         can_link_movies = access.can("sabdekho", "edit")
 
@@ -395,8 +422,8 @@ def add_transaction():
             date_obj = datetime.strptime(item['date'], '%Y-%m-%d')
             month_obj = date_obj.replace(day=1)
             
-            amount = float(item['amount'])  
-            tx_type = item['type']
+            amount = float(item['amount'])
+            tx_type = normalize_tx_type(item['type'])
             acc_name = item['account']
             
             new_tx = Transaction(
@@ -422,16 +449,8 @@ def add_transaction():
                 )
                 db.session.add(new_split)
             
-            # --- NEW: Automatically Update Account Balance ---
-            account_record = Account.query.filter_by(account=acc_name).first()
-            
-            # Only update if the account exists and has balance tracking enabled (except CC* accounts)
-            if account_record and account_record.balance_tracked and not is_cc_account(acc_name):
-                if tx_type == 'Credit':
-                    account_record.balance += amount
-                elif tx_type in ['Debit', 'Savings', 'Investment']:
-                    account_record.balance -= amount
-                    
+            apply_balance(acc_name, tx_type, amount)
+
             # --- NEW: Link Movie Tags ---
             movie_link_errors = []
             movie_link_successes = []
@@ -612,25 +631,11 @@ def save_split():
         tx = Transaction.query.get(transaction_id)
         if tx:
             if new_tx_amount is not None and tx.amount != float(new_tx_amount):
-                # 1. Revert old amount
-                account = Account.query.filter_by(account=tx.account).first()
-                if account and account.balance_tracked and not is_cc_account(tx.account):
-                    if tx.type.lower() == 'credit':
-                        account.balance -= tx.amount
-                    elif tx.type.lower() in ['debit', 'savings', 'investment']:
-                        account.balance += tx.amount
-                
-                # 2. Update amount
+                apply_balance(tx.account, tx.type, tx.amount, undo=True)
                 tx.amount = float(new_tx_amount)
-                
-                # 3. Apply new amount
-                if account and account.balance_tracked and not is_cc_account(tx.account):
-                    if tx.type.lower() == 'credit':
-                        account.balance += tx.amount
-                    elif tx.type.lower() in ['debit', 'savings', 'investment']:
-                        account.balance -= tx.amount
-            
-            # 4. Always mark as unsynced so it gets pushed to Sheets
+                apply_balance(tx.account, tx.type, tx.amount)
+
+            # Always mark as unsynced so it gets pushed to Sheets
             tx.synced = False
             
         db.session.commit()
@@ -692,13 +697,7 @@ def delete_transaction(tid):
     if not tx or not current_access().tx_allowed(tx.heading, tx.account):
         return jsonify({"success": False, "message": "Transaction not found"}), 404
 
-    account = Account.query.filter_by(account=tx.account).first()
-
-    if account and account.balance_tracked and not is_cc_account(tx.account):
-        if tx.type.lower() == "credit":
-            account.balance -= tx.amount
-        elif tx.type.lower() in ["debit", "savings", "investment"]:
-            account.balance += tx.amount
+    apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
     # --- THIS MATCHES BLOCK 2 IN YOUR APPS SCRIPT ---
     try:
@@ -733,14 +732,11 @@ def edit_transaction(tid):
             return jsonify({"success": False, "message": "Transaction not found"}), 404
         if not access.tx_allowed(data['heading'], data['account']):
             return _out_of_scope()
+        invalid = _invalid_types([data])
+        if invalid: return invalid
+        new_type = normalize_tx_type(data['type'])
 
-        # 1. REVERT the old transaction's impact on the balance
-        old_account = Account.query.filter_by(account=tx.account).first()
-        if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
-            if tx.type == 'Credit':
-                old_account.balance -= tx.amount
-            elif tx.type in ['Debit', 'Savings', 'Investment']:
-                old_account.balance += tx.amount
+        apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
         # Check if actual financial data changed before triggering a sync
         date_str = data['date']
@@ -750,17 +746,16 @@ def edit_transaction(tid):
 
         needs_sync = (
             str(tx.date) != date_str or
-            tx.type != data['type'] or
+            tx.type != new_type or
             tx.heading != data['heading'] or
             (tx.description or '') != data.get('description', '') or
             tx.amount != float(data['amount']) or
             tx.account != data['account']
         )
 
-        # 2. UPDATE the transaction fields
         tx.date = date_obj
         tx.month = date_obj.replace(day=1)
-        tx.type = data['type']
+        tx.type = new_type
         tx.heading = data['heading']
         tx.description = data.get('description', '')
         tx.amount = float(data['amount'])
@@ -769,15 +764,9 @@ def edit_transaction(tid):
         
         # Mark as unsynced ONLY if core fields changed (ignore exclude toggle)
         if needs_sync:
-            tx.synced = False 
+            tx.synced = False
 
-        # 3. APPLY the new transaction's impact on the balance
-        new_account = Account.query.filter_by(account=tx.account).first()
-        if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
-            if tx.type == 'Credit':
-                new_account.balance += tx.amount
-            elif tx.type in ['Debit', 'Savings', 'Investment']:
-                new_account.balance -= tx.amount
+        apply_balance(tx.account, tx.type, tx.amount)
 
         db.session.commit()
         return jsonify({"success": True, "message": "Transaction updated successfully!"})
@@ -801,6 +790,8 @@ def bulk_edit_transactions():
             old = by_id.get(data.get('id'))
             if (old and not access.tx_allowed(old.heading, old.account)) or not access.tx_allowed(data.get('heading'), data.get('account')):
                 return _out_of_scope()
+        invalid = _invalid_types(updates)
+        if invalid: return invalid
 
         for data in updates:
             tx_id = data.get('id')
@@ -809,15 +800,9 @@ def bulk_edit_transactions():
             if not tx:
                 continue  # Skip if ID not found somehow
 
-            # 1. REVERT the old transaction's impact on the balance
-            old_account = Account.query.filter_by(account=tx.account).first()
-            if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
-                if tx.type == 'Credit':
-                    old_account.balance -= tx.amount
-                elif tx.type in ['Debit', 'Savings', 'Investment']:
-                    old_account.balance += tx.amount
+            new_type = normalize_tx_type(data['type'])
+            apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
-            # 2. UPDATE the transaction fields
             date_str = data['date']
             if 'T' in date_str:
                 date_str = date_str.split('T')[0]
@@ -826,7 +811,7 @@ def bulk_edit_transactions():
 
             needs_sync = (
                 str(tx.date) != date_str or
-                tx.type != data['type'] or
+                tx.type != new_type or
                 tx.heading != data['heading'] or
                 (tx.description or '') != data.get('description', '') or
                 tx.amount != float(data['amount']) or
@@ -835,7 +820,7 @@ def bulk_edit_transactions():
 
             tx.date = date_obj
             tx.month = date_obj.replace(day=1)
-            tx.type = data['type']
+            tx.type = new_type
             tx.heading = data['heading']
             tx.description = data.get('description', '')
             tx.amount = float(data['amount'])
@@ -844,16 +829,10 @@ def bulk_edit_transactions():
             
             # Mark as unsynced ONLY if core fields changed
             if needs_sync:
-                tx.synced = False 
+                tx.synced = False
 
-            # 3. APPLY the new transaction's impact on the balance
-            new_account = Account.query.filter_by(account=tx.account).first()
-            if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
-                if tx.type == 'Credit':
-                    new_account.balance += tx.amount
-                elif tx.type in ['Debit', 'Savings', 'Investment']:
-                    new_account.balance -= tx.amount
-            
+            apply_balance(tx.account, tx.type, tx.amount)
+
             updated_count += 1
 
         db.session.commit()
@@ -883,13 +862,7 @@ def bulk_delete_transactions():
             if not tx:
                 continue
 
-            # Revert the balance
-            account = Account.query.filter_by(account=tx.account).first()
-            if account and account.balance_tracked and not is_cc_account(tx.account):
-                if tx.type.lower() == "credit":
-                    account.balance -= tx.amount
-                elif tx.type.lower() in ["debit", "savings", "investment"]:
-                    account.balance += tx.amount
+            apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
             # Delete split first if it exists
             Split.query.filter_by(transaction_id=tx.id).delete()

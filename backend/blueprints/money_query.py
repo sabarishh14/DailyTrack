@@ -139,14 +139,23 @@ def money_meta():
                          .having(func.count() == func.sum(case((excluded, 1), else_=0)))
                          .all() if h]
 
+    # Categories each type has actually been used with, most used first.
+    categories_by_type = {}
+    for t, h, _ in (_scoped(Transaction.type, Transaction.heading, func.count())
+                    .filter(Transaction.heading.isnot(None))
+                    .group_by(Transaction.type, Transaction.heading)
+                    .order_by(func.count().desc(), Transaction.heading).all()):
+        categories_by_type.setdefault(t.capitalize(), []).append(h)
+
     desc = func.trim(Transaction.description)
-    rows = (_scoped(Transaction.heading, desc, func.round(Transaction.amount), func.count(), func.max(Transaction.date))
+    rows = (_scoped(Transaction.type, Transaction.heading, desc, func.round(Transaction.amount), func.count(), func.max(Transaction.date))
             .filter(Transaction.description.isnot(None), desc != "")
-            .group_by(Transaction.heading, desc, func.round(Transaction.amount))
+            .group_by(Transaction.type, Transaction.heading, desc, func.round(Transaction.amount))
             .order_by(func.max(Transaction.date).desc())
             .limit(5000).all())
-    descriptions = [{"heading": h, "description": d, "amount": float(a or 0), "count": int(c)} for h, d, a, c, _ in rows]
-    recent = list(dict.fromkeys(d for _, d, _, _, _ in rows))  # newest first, de-duplicated
+    descriptions = [{"type": t.capitalize(), "heading": h, "description": d, "amount": float(a or 0), "count": int(c)}
+                    for t, h, d, a, c, _ in rows]
+    recent = list(dict.fromkeys(d for _, _, d, _, _, _ in rows))  # newest first, de-duplicated
 
     return jsonify({
         "success": True,
@@ -156,6 +165,7 @@ def money_meta():
         "accounts": accounts,
         "types": types,
         "excluded_headings": excluded_headings,
+        "categories_by_type": categories_by_type,
         "descriptions": descriptions,
         "recent_descriptions": recent,
     })

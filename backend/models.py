@@ -2,11 +2,14 @@
 from datetime import datetime, date
 from extensions import db
 
+# Rupees stored exactly to the paisa. Python still sees floats, so JSON stays numeric.
+Money = db.Numeric(14, 2, asdecimal=False)
+
 class Account(db.Model):
     __tablename__ = "accounts"
     account = db.Column(db.String(50), primary_key=True)
-    balance = db.Column(db.Float, default=0)
-    real_balance = db.Column(db.Float, nullable=True) # <-- ADD THIS LINE
+    balance = db.Column(Money, default=0)
+    real_balance = db.Column(Money, nullable=True)
     balance_tracked = db.Column(db.Boolean, default=True)
 class Transaction(db.Model):
     __tablename__ = "transactions"
@@ -20,14 +23,14 @@ class Transaction(db.Model):
     type = db.Column(db.String(10), nullable=False)
     heading = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
-    amount = db.Column(db.Float, nullable=False)
+    amount = db.Column(Money, nullable=False)
     synced = db.Column(db.Boolean, default=False)
     exclude_analytics = db.Column(db.Boolean, default=False)
 class Split(db.Model):
     __tablename__ = "splits"
     id = db.Column(db.BigInteger, primary_key=True)
     transaction_id = db.Column(db.BigInteger, db.ForeignKey('transactions.id'), unique=True, nullable=False)
-    total_amount = db.Column(db.Float, nullable=False)
+    total_amount = db.Column(Money, nullable=False)
     members = db.Column(db.JSON, nullable=False, default=list)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 class RecurringTask(db.Model):
@@ -189,4 +192,4 @@ class Budget(db.Model):
     __tablename__ = "budgets"
     id = db.Column(db.BigInteger, primary_key=True)
     category = db.Column(db.String(100), unique=True, nullable=False)
-    monthly_limit = db.Column(db.Float, nullable=False)
+    monthly_limit = db.Column(Money, nullable=False)

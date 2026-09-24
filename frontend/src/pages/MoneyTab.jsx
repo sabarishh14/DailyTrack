@@ -190,7 +190,6 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
   const allHeadings = meta.headings;
   const allAccountsList = meta.accounts;
   const allTypes = meta.types;
-  const recentDescriptions = meta.recent_descriptions;
 
   // Optimistic split overrides — local state for instant UI
   const [splitOverrides, setSplitOverrides] = useState({});
@@ -1190,7 +1189,6 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         <EditTransactionModal
           tx={editingTx}
           categories={categories}
-          recentDescriptions={recentDescriptions}
           onClose={() => setEditingTx(null)}
           onRefresh={onRefresh}
         />
@@ -1200,7 +1198,6 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         <EditTransactionModal
           tx={copyingTx}
           categories={categories}
-          recentDescriptions={recentDescriptions}
           onClose={() => setCopyingTx(null)}
           onRefresh={onRefresh}
           isCopy={true}

@@ -6,11 +6,14 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/
 import SabDekho from '../pages/SabDekho';
 
 import { API, BANKS } from '../constants';
-import { evaluateMath, getToken } from '../utils';
+import { evaluateMath, getToken, buildDescriptionIndex, categoriesForType, descriptionOptions } from '../utils';
+import { useLatestMoneyMeta, EMPTY_META } from '../api/money';
 import CustomSelect from './CustomSelect';
 import AutocompleteInput from './AutocompleteInput';
 
-export default function EditTransactionModal({ tx, categories, recentDescriptions, onClose, onRefresh, isCopy }) {
+export default function EditTransactionModal({ tx, categories, onClose, onRefresh, isCopy }) {
+  const meta = useLatestMoneyMeta().data || EMPTY_META;
+  const descriptionIndex = useMemo(() => buildDescriptionIndex(meta.descriptions), [meta.descriptions]);
   const [form, setForm] = useState({
     date: isCopy ? new Date().toISOString().split('T')[0] : (tx.date ? new Date(tx.date).toISOString().split('T')[0] : ''),
     account: tx.account,
@@ -112,7 +115,7 @@ export default function EditTransactionModal({ tx, categories, recentDescription
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: '0.75rem', color: 'var(--text2)', marginBottom: '4px' }}>Category</label>
-              <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={categories} placeholder="Category" />
+              <AutocompleteInput value={form.heading} onChange={val => updateField('heading', val)} options={categoriesForType(form.type, meta.categories_by_type, categories)} placeholder="Category" />
             </div>
 
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -120,7 +123,7 @@ export default function EditTransactionModal({ tx, categories, recentDescription
               <AutocompleteInput
                 value={form.description}
                 onChange={val => updateField('description', val)}
-                options={recentDescriptions || []}
+                options={descriptionOptions(form.type, form.heading, descriptionIndex)}
                 placeholder="Optional note..."
               />
             </div>

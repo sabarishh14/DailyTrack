@@ -73,6 +73,7 @@ export function buildDescriptionIndex(entries) {
   return (entries || [])
     .filter(t => t.description && t.description.trim() && t.heading)
     .map(t => ({
+      type: t.type,
       heading: t.heading,
       description: t.description.trim(),
       amount: Number(t.amount) || 0,
@@ -80,10 +81,31 @@ export function buildDescriptionIndex(entries) {
     }));
 }
 
-// Returns a description string, or null if this category has no history yet.
-export function guessDescription(heading, amount, index) {
+// Entries without a type come from an older server and match any type.
+const sameType = (e, type) => !e.type || !type || e.type === type;
+
+// Categories used with this type before, most used first. A type with no
+// history yet falls back to every category so the field is never empty.
+export function categoriesForType(type, categoriesByType, allCategories) {
+  const used = categoriesByType?.[type];
+  return used && used.length ? used : allCategories;
+}
+
+// Descriptions used before for this type (and category, once one is picked), most used first.
+export function descriptionOptions(type, heading, index) {
+  const h = (heading || '').trim();
+  const counts = new Map();
+  for (const e of index || []) {
+    if (!sameType(e, type) || (h && e.heading !== h)) continue;
+    counts.set(e.description, (counts.get(e.description) || 0) + e.count);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([d]) => d);
+}
+
+// Returns a description string, or null if this type + category has no history yet.
+export function guessDescription(type, heading, amount, index) {
   if (!heading || !index || index.length === 0) return null;
-  const matches = index.filter(e => e.heading === heading);
+  const matches = index.filter(e => e.heading === heading && sameType(e, type));
   if (matches.length === 0) return null;
 
   const amt = Number(amount);

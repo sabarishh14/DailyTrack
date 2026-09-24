@@ -532,7 +532,6 @@ onNavigate={(id) => setTab(id)}
         <EditTransactionModal
           tx={globalSearchEditTx}
           categories={categories}
-          recentDescriptions={[]}
           onClose={() => setGlobalSearchEditTx(null)}
           onRefresh={fetchAll}
           isCopy={false}
