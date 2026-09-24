@@ -372,10 +372,10 @@ export default function TransactionsTableSection({
                   <span>{getBankEmoji(t.account)}</span>
                   <span>{t.account}</span>
                 </span>
-                <span className="tx-type-cell"><span className={`tx-badge ${t.type}`}>{t.type.charAt(0).toUpperCase() + t.type.slice(1)}</span></span>
+                <span className="tx-type-cell"><span className={`tx-badge ${t.type.toLowerCase()}`}>{t.type.charAt(0).toUpperCase() + t.type.slice(1)}</span></span>
                 <span className="tx-month">{monthLabel}</span>
-                <span className={`tx-amount ${t.type === 'Debit' ? 'neg' : t.type === 'Credit' ? 'pos' : t.type === 'investment' ? 'blue-text' : 'accent'}`}>
-                  {t.type === 'Debit' ? '−' : '+'}{fmt(t.amount)}
+                <span className={`tx-amount ${t.type === 'Credit' ? 'pos' : t.type === 'Investment' ? 'blue-text' : t.type === 'Savings' ? 'accent' : 'neg'}`}>
+                  {t.type === 'Credit' ? '+' : '−'}{fmt(t.amount)}
                 </span>
                 <span className="tx-heading">{t.heading}</span>
                 <span className="tx-desc" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

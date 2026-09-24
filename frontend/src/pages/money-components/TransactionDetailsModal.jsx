@@ -26,8 +26,8 @@ export default function TransactionDetailsModal({
               <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text3)' }}>{formatDate(actionMenuTx.date)} • {actionMenuTx.account}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span className={actionMenuTx.type === 'Debit' ? 'neg' : actionMenuTx.type === 'Credit' ? 'pos' : 'accent'} style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-                {actionMenuTx.type === 'Debit' ? '-' : '+'}{fmt(actionMenuTx.amount)}
+              <span className={actionMenuTx.type === 'Credit' ? 'pos' : actionMenuTx.type === 'Investment' ? 'blue-text' : actionMenuTx.type === 'Savings' ? 'accent' : 'neg'} style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
+                {actionMenuTx.type === 'Credit' ? '+' : '-'}{fmt(actionMenuTx.amount)}
               </span>
               <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text2)', marginTop: '2px' }}>{actionMenuTx.type}</span>
             </div>

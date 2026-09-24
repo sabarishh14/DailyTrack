@@ -429,7 +429,7 @@ def add_transaction():
             if account_record and account_record.balance_tracked and not is_cc_account(acc_name):
                 if tx_type == 'Credit':
                     account_record.balance += amount
-                elif tx_type in ['Debit', 'Savings']:
+                elif tx_type in ['Debit', 'Savings', 'Investment']:
                     account_record.balance -= amount
                     
             # --- NEW: Link Movie Tags ---
@@ -617,7 +617,7 @@ def save_split():
                 if account and account.balance_tracked and not is_cc_account(tx.account):
                     if tx.type.lower() == 'credit':
                         account.balance -= tx.amount
-                    elif tx.type.lower() in ['debit', 'savings']:
+                    elif tx.type.lower() in ['debit', 'savings', 'investment']:
                         account.balance += tx.amount
                 
                 # 2. Update amount
@@ -627,7 +627,7 @@ def save_split():
                 if account and account.balance_tracked and not is_cc_account(tx.account):
                     if tx.type.lower() == 'credit':
                         account.balance += tx.amount
-                    elif tx.type.lower() in ['debit', 'savings']:
+                    elif tx.type.lower() in ['debit', 'savings', 'investment']:
                         account.balance -= tx.amount
             
             # 4. Always mark as unsynced so it gets pushed to Sheets
@@ -697,7 +697,7 @@ def delete_transaction(tid):
     if account and account.balance_tracked and not is_cc_account(tx.account):
         if tx.type.lower() == "credit":
             account.balance -= tx.amount
-        elif tx.type.lower() in ["debit", "savings"]:
+        elif tx.type.lower() in ["debit", "savings", "investment"]:
             account.balance += tx.amount
 
     # --- THIS MATCHES BLOCK 2 IN YOUR APPS SCRIPT ---
@@ -739,7 +739,7 @@ def edit_transaction(tid):
         if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
             if tx.type == 'Credit':
                 old_account.balance -= tx.amount
-            elif tx.type in ['Debit', 'Savings']:
+            elif tx.type in ['Debit', 'Savings', 'Investment']:
                 old_account.balance += tx.amount
 
         # Check if actual financial data changed before triggering a sync
@@ -776,7 +776,7 @@ def edit_transaction(tid):
         if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
             if tx.type == 'Credit':
                 new_account.balance += tx.amount
-            elif tx.type in ['Debit', 'Savings']:
+            elif tx.type in ['Debit', 'Savings', 'Investment']:
                 new_account.balance -= tx.amount
 
         db.session.commit()
@@ -814,7 +814,7 @@ def bulk_edit_transactions():
             if old_account and old_account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type == 'Credit':
                     old_account.balance -= tx.amount
-                elif tx.type in ['Debit', 'Savings']:
+                elif tx.type in ['Debit', 'Savings', 'Investment']:
                     old_account.balance += tx.amount
 
             # 2. UPDATE the transaction fields
@@ -851,7 +851,7 @@ def bulk_edit_transactions():
             if new_account and new_account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type == 'Credit':
                     new_account.balance += tx.amount
-                elif tx.type in ['Debit', 'Savings']:
+                elif tx.type in ['Debit', 'Savings', 'Investment']:
                     new_account.balance -= tx.amount
             
             updated_count += 1
@@ -888,7 +888,7 @@ def bulk_delete_transactions():
             if account and account.balance_tracked and not is_cc_account(tx.account):
                 if tx.type.lower() == "credit":
                     account.balance -= tx.amount
-                elif tx.type.lower() in ["debit", "savings"]:
+                elif tx.type.lower() in ["debit", "savings", "investment"]:
                     account.balance += tx.amount
 
             # Delete split first if it exists
