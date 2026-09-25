@@ -46,6 +46,30 @@ def apply_balance(account_name, tx_type, amount, undo=False):
         return
     delta = float(amount) if normalize_tx_type(tx_type) == "Credit" else -float(amount)
     account.balance = round((account.balance or 0) + (-delta if undo else delta), 2)
+def _balance_snapshot(account_names):
+    """Current balance of each tracked, non-CC account among account_names."""
+    names = [n for n in account_names if n and not is_cc_account(n)]
+    if not names:
+        return {}
+    return {acc.account: acc.balance or 0
+            for acc in Account.query.filter(Account.account.in_(names)).all()
+            if acc.balance_tracked}
+
+def _balance_changes(before):
+    """Per-account before/after for the add response, so the client can show
+    what a transaction left behind and whether it crossed the floor."""
+    if not before:
+        return []
+    db.session.flush()
+    accounts = Account.query.filter(Account.account.in_(list(before))).all()
+    return [{
+        "account": acc.account,
+        "before": before[acc.account],
+        "after": acc.balance or 0,
+        "min_balance": acc.min_balance,
+        "below_min": acc.min_balance is not None and (acc.balance or 0) < acc.min_balance,
+    } for acc in sorted(accounts, key=lambda a: a.account)]
+
 def _need_full_money():
     """Whole-ledger operations are only for users who can see the whole ledger."""
     if not current_access().full_money_edit:
@@ -171,7 +195,8 @@ def get_accounts():
             "account": acc.account,
             "balance": acc.balance if show else None,
             "real_balance": acc.real_balance if show else None, # <-- ADD THIS LINE
-            "balance_tracked": acc.balance_tracked
+            "balance_tracked": acc.balance_tracked,
+            "min_balance": acc.min_balance if show else None
         }
         for acc in accounts
     ]
@@ -189,7 +214,12 @@ def update_account():
     if not account:
         return jsonify({"success": False, "message": "Account not found"}), 404
 
-    account.balance = float(data['balance'])
+    if 'balance' in data:
+        account.balance = float(data['balance'])
+    if 'min_balance' in data:
+        # Blank or null clears the floor.
+        raw = data['min_balance']
+        account.min_balance = None if raw in (None, '') else float(raw)
 
     db.session.commit()
 
@@ -418,6 +448,9 @@ def add_transaction():
             except Exception as e:
                 print(f"Failed background RSS sync: {e}")
 
+        balances_before = (_balance_snapshot({item['account'] for item in transactions_data})
+                           if access.balances_visible else {})
+
         for item in transactions_data:
             date_obj = datetime.strptime(item['date'], '%Y-%m-%d')
             month_obj = date_obj.replace(day=1)
@@ -522,6 +555,7 @@ def add_transaction():
 
             added_count += 1
             
+        balance_changes = _balance_changes(balances_before)
         db.session.commit()
         invalidate_stats_cache()
         
@@ -531,7 +565,7 @@ def add_transaction():
         if 'movie_link_errors' in locals() and movie_link_errors:
             msg += f"\n\n⚠️ Warning: {', '.join(movie_link_errors)}"
             
-        return jsonify({"success": True, "message": msg})
+        return jsonify({"success": True, "message": msg, "balances": balance_changes})
 
     except Exception as e:
         print(f"❌ Error adding transaction(s): {str(e)}")

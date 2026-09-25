@@ -119,6 +119,34 @@ def serialize_transactions(transactions):
     } for t in transactions]
 
 
+def balances_after(rows):
+    """Balance each row's account held right after it, keyed by transaction id.
+
+    Worked backwards from today's balance: minus everything that happened on the
+    account after the row (ledger order: date, then id, i.e. entry order within
+    a day). Summed over the account's whole history, so filters and sorting on
+    the table don't change the numbers. Credit cards and untracked accounts get
+    none. A balance set by hand (reconcile, overrides) isn't a transaction, so
+    rows from before such an adjustment are off by it."""
+    names = {t.account for t in rows if t.account and not t.account.strip().upper().startswith("CC")}
+    current = {a.account: float(a.balance or 0)
+               for a in Account.query.filter(Account.account.in_(names)).all() if a.balance_tracked} if names else {}
+    if not current:
+        return {}
+    signed = case((func.lower(Transaction.type) == "credit", Transaction.amount), else_=-Transaction.amount)
+    later = func.sum(signed).over(
+        partition_by=Transaction.account,
+        order_by=(Transaction.date.desc(), Transaction.id.desc()),
+        rows=(None, -1),
+    )
+    ledger = (db.session.query(Transaction.id.label("id"), Transaction.account.label("account"), later.label("later"))
+              .filter(Transaction.account.in_(list(current))).subquery())
+    ids = [t.id for t in rows if t.account in current]
+    return {tx_id: round(current[account] - float(later or 0), 2)
+            for tx_id, account, later in db.session.query(ledger.c.id, ledger.c.account, ledger.c.later)
+                                                   .filter(ledger.c.id.in_(ids)).all()}
+
+
 # ---- endpoints ----
 @money_query_bp.route('/api/money/meta', methods=['GET'])
 @require_access("money")
@@ -266,9 +294,14 @@ def query_transactions():
         func.sum(case((Transaction.type == "Credit", Transaction.amount), else_=0)),
         func.sum(case((Transaction.type == "Debit", Transaction.amount), else_=0)),
     ), filters).one()
+    transactions = serialize_transactions(rows)
+    if data.get("with_balances") and current_access().balances_visible:
+        after = balances_after(rows)
+        for t in transactions:
+            t["balance_after"] = after.get(t["id"])
     return jsonify({
         "success": True,
-        "transactions": serialize_transactions(rows),
+        "transactions": transactions,
         "total": int(total or 0),
         "credit_total": float(credit or 0),
         "debit_total": float(debit or 0),

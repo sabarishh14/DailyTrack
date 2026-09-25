@@ -9,6 +9,7 @@ import { API, MONTHS, BANKS } from '../constants';
 import { getToken, formatDate, fmt, fmtPct } from '../utils';
 import CustomSelect from '../components/CustomSelect';
 import ReconciliationModal from '../components/ReconciliationModal';
+import { MinBalanceChip, balanceLevel } from '../components/BalanceImpact';
 import { useAccess } from '../access/AccessContext';
 import { apiGet, apiPost, useApi, monthKey } from '../api/money';
 import { yearOptions } from '../utils';
@@ -263,7 +264,7 @@ const [showInvestments, setShowInvestments] = useState(false);
             })
             .map(a => (
               <div
-                className="account-card"
+                className={`account-card ${showBalances && a.min_balance != null ? `floor-${balanceLevel(a.balance || 0, a.min_balance)}` : ''}`}
                 key={a.account}
                 style={{ "--accent": BANKS[a.account]?.color }}
               >
@@ -272,6 +273,9 @@ const [showInvestments, setShowInvestments] = useState(false);
                   <span className="acc-name">{a.account}</span>
                 </div>
                 <div className="acc-balance">{showBalances ? fmt(a.balance) : '₹ ••••••'}</div>
+                {showBalances && !a.account.toUpperCase().startsWith('CC') && (
+                  <MinBalanceChip account={a.account} min={a.min_balance} editable={fullMoney} onSaved={onRefresh} />
+                )}
               </div>
             ))}
         </div>

@@ -79,6 +79,16 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+# Columns added after the tables existed. Idempotent, so every boot may run it.
+with app.app_context():
+    from sqlalchemy import text
+    try:
+        db.session.execute(text("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_balance NUMERIC(14,2)"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"⚠️ Could not ensure accounts.min_balance: {e}")
+
 from blueprints.core import core_bp
 from blueprints.money import money_bp
 from blueprints.money_query import money_query_bp

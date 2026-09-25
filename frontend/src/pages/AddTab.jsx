@@ -12,6 +12,7 @@ import CustomSelect from '../components/CustomSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TmdbMovieSearchInput from '../components/TmdbMovieSearchInput';
 import TagPillInput from '../components/TagPillInput';
+import { BalancesPanel, projectBalances } from '../components/BalanceImpact';
 
 function AddTab({ accounts, categories, onAdd, dataVersion }) {
   const today = new Date().toISOString().split('T')[0];
@@ -59,6 +60,12 @@ function AddTab({ accounts, categories, onAdd, dataVersion }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [submitMessage, setSubmitMessage] = useState(null);
+  // What the last save moved, per account; shown until the next save.
+  const [savedBalances, setSavedBalances] = useState(null);
+
+  // Just after a save the saved rows linger for a moment while balances have
+  // already refreshed, so they mustn't be counted a second time.
+  const projections = useMemo(() => success ? {} : projectBalances(rows, accounts), [rows, accounts, success]);
 
   // MAGICAL AUTO-SAVE: Saves to local storage every time you type a letter
   useEffect(() => {
@@ -212,6 +219,7 @@ function AddTab({ accounts, categories, onAdd, dataVersion }) {
 
     setLoading(true);
     setSubmitMessage(null);
+    setSavedBalances(null);
     try {
       const payload = evaluatedRows.map(r => {
         const catName = r.heading.trim();
@@ -249,6 +257,7 @@ movie_tags: r.movie_tags,
         onAdd();
         setSuccess(true);
         setSubmitMessage({ type: 'success', text: data.message || "Successfully saved!" });
+        setSavedBalances(data.balances || null);
         // Wipe local storage draft only on successful save
         localStorage.removeItem('dt_draft_txs');
         setTimeout(() => {
@@ -304,6 +313,8 @@ movie_tags: r.movie_tags,
           {submitMessage.text}
         </div>
       )}
+
+      <BalancesPanel accounts={accounts} projected={projections} saved={savedBalances} />
 
       <div className="add-table-wrap" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', overflowX: 'auto' }}>
         <div className="add-table-inner">

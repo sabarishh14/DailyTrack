@@ -52,8 +52,17 @@ export default function TransactionsTableSection({
   selectedTransactions,
   categories,
   onRefresh,
+
+  balancesAllowed = false,
+  withBalances = false,
+  onToggleBalances,
+  accounts = [],
 }) {
   const canEdit = useAccess().can('money', 'edit');
+  // The balance column sits right after Amount; its cell comes last in the
+  // markup (see .with-bal in index.css) so the phone card layout is untouched.
+  const gridColumns = `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${withBalances ? '140px ' : ''}${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`;
+  const minByAccount = Object.fromEntries(accounts.map(a => [a.account, a.min_balance]));
   return (
     <section className="section" style={{ marginTop: '3rem' }}>
       <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
@@ -181,6 +190,15 @@ export default function TransactionsTableSection({
           onChange={e => setFilterDesc(e.target.value)}
           style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
         />
+        {balancesAllowed && (
+          <button
+            className={`filter-chip ${withBalances ? 'active' : ''}`}
+            onClick={onToggleBalances}
+            title="Show each account's balance right after every transaction"
+          >
+            <span>💰</span><span>{withBalances ? 'Hide balances' : 'Show balances'}</span>
+          </button>
+        )}
         {(filterAccounts.included.size > 0 || filterAccounts.excluded.size > 0 ||
           filterTypes.included.size > 0 || filterTypes.excluded.size > 0 ||
           filterMonths.included.size > 0 || filterMonths.excluded.size > 0 ||
@@ -303,7 +321,7 @@ export default function TransactionsTableSection({
 
       {/* Transactions List */}
       <div className={`tx-table-wrap ${tableRefreshing ? 'is-refreshing' : ''}`}>
-        <div className="tx-table-head" style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px` }}>
+        <div className={`tx-table-head ${withBalances ? 'with-bal' : ''}`} style={{ gridTemplateColumns: gridColumns }}>
           <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={canEdit ? handleSelectAll : undefined}>
             {canEdit && <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />}
           </div>
@@ -344,6 +362,11 @@ export default function TransactionsTableSection({
           <div className="tx-col-header">
             <span>Actions</span>
           </div>
+          {withBalances && (
+            <div className="tx-col-header tx-col-balance" title="Account balance right after this transaction">
+              <span>Balance</span>
+            </div>
+          )}
         </div>
         {tableFirstLoad ? (
           <div aria-busy="true" aria-label="Loading transactions">
@@ -360,8 +383,8 @@ export default function TransactionsTableSection({
             return (
               <div
                 key={i}
-                className="tx-row"
-                style={{ gridTemplateColumns: `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`, cursor: 'pointer' }}
+                className={`tx-row ${withBalances ? 'with-bal' : ''}`}
+                style={{ gridTemplateColumns: gridColumns, cursor: 'pointer' }}
                 onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
               >
                 <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: canEdit ? 'pointer' : 'inherit' }} onClick={canEdit ? (e) => handleRowSelect(e, t.id, i) : undefined}>
@@ -406,6 +429,18 @@ export default function TransactionsTableSection({
                     <span className="view-only-pill" title="You have view-only access">View only</span>
                   )}
                 </span>
+                {withBalances && (
+                  t.balance_after == null ? (
+                    <span className="tx-balance none" title="Credit cards and untracked accounts have no running balance">—</span>
+                  ) : (
+                    <span
+                      className={`tx-balance ${minByAccount[t.account] != null && t.balance_after < minByAccount[t.account] ? 'below' : ''}`}
+                      title={`${t.account} balance after this transaction`}
+                    >
+                      {fmt(t.balance_after)}
+                    </span>
+                  )
+                )}
               </div>
             );
           })

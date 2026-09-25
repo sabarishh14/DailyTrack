@@ -123,3 +123,12 @@ export function guessDescription(type, heading, amount, index) {
   // description is used most often for this category overall.
   return mostCommon(matches);
 }
+// Mirrors the backend's apply_balance: credit cards aren't balance-tracked.
+export const isCcAccount = (name) => (name || '').trim().toUpperCase().startsWith('CC');
+
+// Signed effect of one transaction on its account: Credit adds, the rest take out.
+export function balanceDelta(type, amount) {
+  const amt = parseFloat(amount);
+  if (isNaN(amt)) return 0;
+  return String(type).toLowerCase() === 'credit' ? amt : -amt;
+}

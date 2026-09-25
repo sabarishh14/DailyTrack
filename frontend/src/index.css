@@ -2704,7 +2704,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .bulk-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr 1.2fr 2fr 110px;
+  /* Explicit minimums (never "auto") so no row's content can widen a column:
+     each row is its own grid, and they only line up with the header if every
+     one resolves to the same tracks. The pickers get room for their labels. */
+  grid-template-columns:
+    minmax(140px, 1.2fr) minmax(130px, 1.2fr) minmax(130px, 1fr)
+    minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 2fr) 110px;
   gap: 0.6rem;
   /* Slightly larger gap to breathe */
   align-items: center;
@@ -2715,9 +2720,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   text-transform: uppercase;
   color: var(--text2);
   font-weight: 700;
-  padding: 0 0.5rem 0.75rem;
+  /* No side padding: the rows have none, and the grids must be equally wide. */
+  padding: 0 0 0.75rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.75rem;
+}
+
+.bulk-header > span {
+  padding-left: 0.85rem;
+}
+
+.bulk-header > span:last-child {
+  padding-left: 0;
 }
 
 .bulk-row {
@@ -3527,7 +3541,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  opacity: 0.7;
+  animation: fadeIn 0.15s ease;
   transition: opacity 0.15s;
   display: flex;
   align-items: center;
@@ -7362,3 +7376,148 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Keep the old page visible while new filters load, just dimmed. */
 .tx-table-wrap.is-refreshing .tx-row { opacity: 0.55; transition: opacity 0.15s ease; }
 @media (prefers-reduced-motion: reduce) { .skeleton-line, .skeleton-block { animation: none; } }
+
+/* ── Balance impact: live preview under each draft row, the summary after a
+   save, and the minimum-balance chip on Home account cards. ── */
+.bal-muted { color: var(--text2); }
+.bal-arrow { opacity: 0.6; }
+
+.bal-bar {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border2);
+  overflow: visible;
+}
+.bal-bar-fill { height: 100%; border-radius: 3px; background: var(--pos); transition: width 0.3s ease; }
+.bal-bar-fill.warn { background: #f59e0b; }
+.bal-bar-fill.danger { background: var(--neg); }
+.bal-bar-floor {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 11px;
+  border-radius: 1px;
+  background: var(--text3);
+  transform: translateX(-1px);
+}
+
+.bal-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 220px));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.bal-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--acc-color, var(--accent));
+  animation: fadeIn 0.15s ease;
+  transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  font-variant-numeric: tabular-nums;
+}
+.bal-chip.drafting { border-color: var(--border2); border-left-color: var(--acc-color, var(--accent)); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+.bal-chip.warn.moved { border-color: rgba(245, 158, 11, 0.45); border-left-color: #f59e0b; }
+.bal-chip.danger { opacity: 1; border-color: rgba(248, 113, 113, 0.5); border-left-color: var(--neg); background: rgba(248, 113, 113, 0.06); }
+.bal-chip-top { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
+.bal-chip-acc { font-size: 0.66rem; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bal-chip-delta { font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+.bal-chip-delta.neg { color: var(--neg); }
+.bal-chip-delta.pos { color: var(--pos); }
+.bal-chip-value { display: flex; align-items: baseline; gap: 0.35rem; flex-wrap: wrap; font-size: 0.72rem; }
+.bal-chip-value b { font-family: 'Syne', sans-serif; font-size: 0.98rem; color: var(--text); }
+.bal-chip.warn.moved .bal-chip-value b { color: #f59e0b; }
+.bal-chip.danger .bal-chip-value b { color: var(--neg); }
+.bal-chip .bal-bar { height: 4px; }
+.bal-chip .bal-bar-floor { top: -2px; height: 8px; }
+
+.min-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px dashed var(--border2);
+  background: transparent;
+  color: var(--text3);
+  font-size: 0.68rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.min-chip:disabled { cursor: default; border-style: solid; }
+.min-chip:not(:disabled):hover { color: var(--text); border-color: var(--text3); }
+.min-chip.editing { cursor: default; border-style: solid; border-color: var(--accent); }
+.min-chip input {
+  width: 70px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: inherit;
+}
+.min-chip.editing button { background: none; border: none; color: var(--pos); cursor: pointer; font-size: 0.8rem; padding: 0; }
+.account-card.floor-warn { border-left-color: #f59e0b; }
+.account-card.floor-warn .acc-balance { color: #f59e0b; }
+.account-card.floor-danger { border-left-color: var(--neg); background: rgba(248, 113, 113, 0.06); }
+.account-card.floor-danger .acc-balance { color: var(--neg); }
+
+@media (max-width: 768px) {
+  .bal-panel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .bal-panel::-webkit-scrollbar { display: none; }
+  .bal-chip { flex: 0 0 140px; scroll-snap-align: start; }
+}
+
+/* ── Running balance column in the transactions table. The cell is last in
+   the markup; on desktop, order puts Category/Description/Actions after it so
+   it shows right beside Amount. ── */
+.tx-row.with-bal > span:nth-child(n+7):not(.tx-balance),
+.tx-table-head.with-bal > div:nth-child(n+7):not(.tx-col-balance) {
+  order: 1;
+}
+/* The balance cell is last in the markup but not on screen: give it the
+   divider a last cell drops, and take it off Actions, now the visual end. */
+.tx-row.with-bal > span.tx-balance,
+.tx-table-head.with-bal > .tx-col-balance {
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+[data-theme="light"] .tx-row.with-bal > span.tx-balance,
+[data-theme="light"] .tx-table-head.with-bal > .tx-col-balance {
+  border-right-color: var(--border);
+}
+.tx-row.with-bal > span:nth-child(9),
+.tx-table-head.with-bal > div:nth-child(9) {
+  border-right: none;
+}
+.tx-balance {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tx-balance.none { color: var(--text2); opacity: 0.6; }
+.tx-balance.below { color: var(--neg); }
+
+@media (max-width: 1024px) {
+  .tx-row.with-bal > span.tx-balance {
+    grid-column: 2 / span 2;
+    grid-row: 4;
+    font-size: 0.75rem;
+    justify-content: flex-start;
+  }
+  .tx-row.with-bal > span.tx-balance::before { content: 'Balance after · '; color: var(--text2); font-weight: 500; }
+  .tx-row.with-bal > span.tx-balance.none { display: none !important; }
+}

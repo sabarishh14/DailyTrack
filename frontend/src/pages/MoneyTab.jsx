@@ -503,10 +503,21 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     date_to: filterDateToDebounced || null,
     description: filterDescDebounced || null,
   }), [filterAccounts, filterTypes, filterMonths, filterYears, filterHeadings, filterVisibility, filterDateFromDebounced, filterDateToDebounced, filterDescDebounced]);
-  const tableKey = `${JSON.stringify(tableFilters)}|${sortBy}|${sortDir}|${currentPage}|${rowsPerPage}|${dataVersion}`;
+  // "Show balances": each row's account balance right after it, like a sheet's balance column.
+  const balancesAllowed = useAccess().money.balancesVisible;
+  const [showTxBalances, setShowTxBalances] = useState(() => {
+    try { return localStorage.getItem('dt_show_tx_balances') === '1'; } catch { return false; }
+  });
+  const toggleTxBalances = () => setShowTxBalances(v => {
+    try { localStorage.setItem('dt_show_tx_balances', v ? '0' : '1'); } catch { /* per-browser nicety only */ }
+    return !v;
+  });
+  const withBalances = balancesAllowed && showTxBalances;
+  const tableKey = `${JSON.stringify(tableFilters)}|${sortBy}|${sortDir}|${currentPage}|${rowsPerPage}|${dataVersion}|${withBalances}`;
   const tableRes = useApi(() => apiPost('/transactions/query', {
     filters: tableFilters, sort_by: sortBy, sort_dir: sortDir,
     offset: currentPage * rowsPerPage, limit: rowsPerPage,
+    with_balances: withBalances,
   }), tableKey, hasOpened);
   const paginatedRows = tableRes.data?.transactions || [];
   const tableTotal = tableRes.data?.total || 0;
@@ -1143,6 +1154,10 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
 
       {/* Transactions Table */}
       <TransactionsTableSection
+        balancesAllowed={balancesAllowed}
+        withBalances={withBalances}
+        onToggleBalances={toggleTxBalances}
+        accounts={accounts}
         dropdownRef={dropdownRef}
         openDropdown={openDropdown}
         setOpenDropdown={setOpenDropdown}

@@ -11,6 +11,8 @@ class Account(db.Model):
     balance = db.Column(Money, default=0)
     real_balance = db.Column(Money, nullable=True)
     balance_tracked = db.Column(db.Boolean, default=True)
+    # Warn when a transaction would take the balance below this. None = no floor.
+    min_balance = db.Column(Money, nullable=True)
 class Transaction(db.Model):
     __tablename__ = "transactions"
     __table_args__ = (
