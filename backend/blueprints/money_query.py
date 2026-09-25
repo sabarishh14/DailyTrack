@@ -23,7 +23,7 @@ from datetime import datetime, date
 
 import requests
 from flask import Blueprint, request, jsonify
-from sqlalchemy import func, extract, or_, case, literal, String, cast
+from sqlalchemy import func, extract, or_, case, literal, String, cast, text as sql_text
 
 from extensions import db, SHEETS_URL
 from models import Transaction, Split, Account, BalanceAdjustment
@@ -156,11 +156,40 @@ def balances_after(rows):
                                                    .filter(ledger.c.is_adjustment == 0, ledger.c.id.in_(ids)).all()}
 
 
+# /money/meta scans the whole ledger seven ways and runs on every Money load and
+# after every write. Cache it per access scope, alongside a fingerprint of the
+# columns it reads: one cheap aggregate per request instead of seven scans, and
+# correct on every gunicorn worker (and for writes made outside the API).
+_meta_cache = {}
+_META_FINGERPRINT_SQL = sql_text("""
+SELECT md5(coalesce(string_agg(
+  concat_ws('|', id, account, type, heading, md5(coalesce(description, '')), round(amount), month, date, exclude_analytics),
+  ',' ORDER BY id), '')) FROM transactions
+""")
+
+
+def _meta_fingerprint():
+    try:
+        return db.session.execute(_META_FINGERPRINT_SQL).scalar()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Money meta fingerprint unavailable, serving uncached: {e}")
+        return None
+
+
 # ---- endpoints ----
 @money_query_bp.route('/api/money/meta', methods=['GET'])
 @require_access("money")
 def money_meta():
     """Filter options, auto-excluded categories and description suggestions."""
+    access = current_access()
+    scope = (tuple(sorted(access.categories)) if access.categories is not None else None,
+             tuple(sorted(access.accounts)) if access.accounts is not None else None)
+    fingerprint = _meta_fingerprint()
+    cached = _meta_cache.get(scope)
+    if fingerprint and cached and cached[0] == fingerprint:
+        return jsonify(cached[1])
+
     months = [m for (m,) in _scoped(Transaction.month).distinct().all() if m]
     years = sorted({str(m.year) for m in months}, reverse=True)
     # Financial year runs April → March.
@@ -194,7 +223,7 @@ def money_meta():
                     for t, h, d, a, c, _ in rows]
     recent = list(dict.fromkeys(d for _, _, d, _, _, _ in rows))  # newest first, de-duplicated
 
-    return jsonify({
+    result = {
         "success": True,
         "years": years,
         "fys": fys,
@@ -205,7 +234,10 @@ def money_meta():
         "categories_by_type": categories_by_type,
         "descriptions": descriptions,
         "recent_descriptions": recent,
-    })
+    }
+    if fingerprint:
+        _meta_cache[scope] = (fingerprint, result)
+    return jsonify(result)
 
 
 @money_query_bp.route('/api/money/summary', methods=['GET'])

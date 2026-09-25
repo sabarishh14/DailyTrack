@@ -10,6 +10,16 @@ from extensions import db, ALLOWED_ORIGINS, DATABASE_URL
 
 app = Flask(__name__)
 
+# Money meta and transaction pages are large JSON; gzip them when the client
+# accepts it. Optional so a local setup without the package still runs.
+try:
+    from flask_compress import Compress
+    app.config['COMPRESS_MIMETYPES'] = ['application/json', 'text/html', 'text/css', 'application/javascript']
+    app.config['COMPRESS_MIN_SIZE'] = 1024
+    Compress(app)
+except ImportError:
+    print("flask-compress not installed; responses go uncompressed")
+
 @app.errorhandler(500)
 def internal_error(e):
     return jsonify({"success": False, "message": "Internal server error"}), 500
@@ -88,9 +98,17 @@ with app.app_context():
         # New tables only (balance_adjustments, device_tokens); existing ones are left alone.
         import models  # noqa: F401 - registers every table before create_all
         db.create_all()
+        # Running balances and account filters walk one account's history in date order.
+        db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_transactions_account_date_id ON transactions (account, date, id)"))
+        db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f"⚠️ Could not ensure money schema: {e}")
+    finally:
+        # gunicorn --preload forks the workers after this ran: they must not
+        # inherit this process's open connections, or they'd share sockets.
+        db.session.remove()
+        db.engine.dispose()
 
 from blueprints.core import core_bp
 from blueprints.money import money_bp

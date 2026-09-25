@@ -283,7 +283,7 @@ movie_tags: r.movie_tags,
           <h2 className="section-title" style={{ margin: 0, border: 'none' }}>➕ Log Transactions</h2>
           <div style={{ fontSize: '0.85rem', color: 'var(--text3)', marginTop: '4px' }}>
             Your progress is auto-saved locally. Take your time!<br/>
-            <span style={{ opacity: 0.7 }}>💡 <b>Pro Tip:</b> Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> while editing a row to add a new transaction below it.</span>
+            <span style={{ opacity: 0.7 }}>💡 <b>Pro Tip:</b> <kbd>Ctrl</kbd> + <kbd>Enter</kbd> saves · <kbd>Shift</kbd> + <kbd>Enter</kbd> adds a row below.</span>
           </div>
         </div>
         <div className="clear-drafts-wrapper">
@@ -342,7 +342,12 @@ movie_tags: r.movie_tags,
                 zIndex: dragOverIndex === index ? 100 : rows.length - index
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                if (e.key !== 'Enter') return;
+                // Ctrl/⌘+Enter saves everything; Shift+Enter adds a row below this one.
+                if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  if (!loading) submit();
+                } else if (e.shiftKey) {
                   e.preventDefault();
                   insertRowAfter(index);
                 }

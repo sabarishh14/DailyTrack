@@ -15,7 +15,6 @@
   --card: #111827;
   --card2: #1a2235;
   --border: rgba(255, 255, 255, 0.07);
-  --border2: rgba(255, 255, 255, 0.13);
   --text: #e2e8f0;
   --text2: #64748b;
   --text3: #94a3b8;
@@ -1056,8 +1055,9 @@ body {
 
 .tx-table-head,
 .tx-row {
-  min-width: 1260px;
-  /* Fits all columns + the new checkbox! */
+  /* min-width is set inline to the sum of the columns, identical for every
+     row: narrower and Actions would spill past the row's background; sized by
+     content and a long description would widen just its own row. */
   width: 100%;
   display: grid;
   gap: 0;
@@ -7362,7 +7362,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .skeleton-line,
 .skeleton-block {
   display: inline-block;
-  background: linear-gradient(90deg, var(--card2) 0%, var(--border2) 50%, var(--card2) 100%);
+  /* Slate at low opacity reads on every theme's cards, light or dark. */
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.10) 0%, rgba(148, 163, 184, 0.24) 50%, rgba(148, 163, 184, 0.10) 100%);
   background-size: 200% 100%;
   animation: skeletonShimmer 1.2s linear infinite;
 }
@@ -7520,4 +7521,158 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   .tx-row.with-bal > span.tx-balance::before { content: 'Balance after · '; color: var(--text2); font-weight: 500; }
   .tx-row.with-bal > span.tx-balance.none { display: none !important; }
+}
+
+/* ── Compact transactions table: same columns, sheet-like row height. ── */
+.tx-table-wrap.compact .tx-col-header { padding: 0.5rem 0.9rem; }
+.tx-table-wrap.compact .tx-row > span { padding: 0.3rem 0.9rem; }
+.tx-table-wrap.compact .tx-date,
+.tx-table-wrap.compact .tx-month { font-size: 0.76rem; }
+.tx-table-wrap.compact .tx-account,
+.tx-table-wrap.compact .tx-heading { font-size: 0.8rem; }
+.tx-table-wrap.compact .tx-desc { font-size: 0.76rem; }
+.tx-table-wrap.compact .tx-amount { font-size: 0.84rem; }
+.tx-table-wrap.compact .tx-balance { font-size: 0.78rem; }
+.tx-table-wrap.compact .tx-badge { padding: 0.1rem 0.45rem; font-size: 0.66rem; border-radius: 4px; }
+.tx-table-wrap.compact .action-icon-btn { width: 24px; height: 24px; font-size: 0.8rem; border-radius: 6px; }
+.tx-table-wrap.compact .action-icon-btn:hover { transform: none; }
+.tx-table-wrap.compact .tx-actions { gap: 0.15rem; }
+
+@media (max-width: 1024px) {
+  .tx-table-wrap.compact .tx-row {
+    padding: 0.55rem 0.8rem !important;
+    gap: 2px 10px !important;
+    margin-bottom: 6px !important;
+    border-radius: 10px !important;
+  }
+  .tx-table-wrap.compact .tx-row > span:nth-child(7) { font-size: 0.88rem; }
+  .tx-table-wrap.compact .tx-row > span:nth-child(6) { font-size: 0.95rem; }
+}
+
+/* Selected rows read like a sheet's selection. */
+.tx-row.selected,
+.tx-row.selected:nth-child(even) {
+  background: rgba(var(--accent-rgb), 0.12);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Double-click opens a row; don't let it select words on the way. */
+@media (hover: hover) and (pointer: fine) {
+  .tx-row { user-select: none; }
+}
+@media (max-width: 1024px) {
+  /* Cards on narrow screens: sized by the screen, not the desktop columns. */
+  .tx-table-head,
+  .tx-row { min-width: 0 !important; width: 100% !important; }
+}
+
+/* ── Sheet-style entry row at the top of the transactions table (laptops).
+   Cells look like the table's own cells: the controls fill each cell with the
+   cell's padding, so what you type sits where the values below sit. The cell
+   being edited gets an accent outline, like a selected cell in Sheets. ── */
+.tx-row.sheet-entry-row,
+.tx-row.sheet-entry-row:nth-child(even),
+.tx-row.sheet-entry-row:hover {
+  background: rgba(var(--accent-rgb), 0.04);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.35);
+  cursor: default;
+  user-select: auto;
+  align-items: stretch;
+  animation: fadeIn 0.15s ease;
+}
+.tx-table-wrap .tx-row.sheet-entry-row > span { padding: 0; align-items: stretch; }
+.sheet-cell {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+}
+.tx-table-wrap.compact .sheet-cell { padding: 0.3rem 0.9rem; }
+.sheet-cell::placeholder { color: var(--text2); opacity: 0.7; font-weight: 400; }
+.sheet-cell:hover { background: rgba(var(--accent-rgb), 0.05); }
+.sheet-cell:focus,
+.sheet-cell.open {
+  background: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.sheet-cell.invalid { box-shadow: inset 0 0 0 2px var(--neg); }
+/* Same inner spacing as the rows' account cell: dot, gap, name. */
+.sheet-account-value { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* Type shows the rows' badge, centred like theirs. */
+.sheet-select.sheet-type { justify-content: center; }
+.sheet-select.sheet-type .sheet-select-caret { position: absolute; right: 0.5rem; }
+.sheet-select.sheet-type { position: relative; }
+.sheet-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+.sheet-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-select-caret { color: var(--text2); font-size: 0.7rem; opacity: 0; transition: opacity 0.15s; }
+.sheet-select:hover .sheet-select-caret,
+.sheet-select:focus .sheet-select-caret,
+.sheet-select.open .sheet-select-caret { opacity: 1; }
+.sheet-entry-mark { justify-content: center; align-items: center !important; color: var(--accent); font-weight: 700; }
+.tx-table-wrap .tx-row.sheet-entry-row > .sheet-derived { align-items: center; padding: 0 1.5rem; opacity: 0.6; }
+.tx-table-wrap.compact .tx-row.sheet-entry-row > .sheet-derived { padding: 0 0.9rem; }
+.sheet-entry-actions { align-items: center !important; justify-content: flex-end; gap: 0.35rem; padding: 0 0.75rem !important; }
+.sheet-entry-status { font-size: 0.72rem; color: var(--text2); white-space: nowrap; }
+.sheet-entry-status.ready { color: var(--accent-text); }
+.sheet-entry-status.ok { color: var(--pos); }
+.sheet-entry-status.err { color: var(--neg); cursor: help; }
+.sheet-entry-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.sheet-entry-close:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+@media (max-width: 1024px) {
+  .tx-row.sheet-entry-row,
+  .tx-new-row-toggle { display: none !important; }
+}
+
+/* ── Sheet behaviour in the transactions table ── */
+.tx-table-wrap:focus { outline: none; }
+/* Keyboard cursor row (↑/↓): a quiet outline, distinct from selection's tint. */
+.tx-row.active { outline: 1px solid rgba(var(--accent-rgb), 0.55); outline-offset: -1px; }
+.tx-table-wrap:not(:focus-within) .tx-row.active { outline-color: rgba(var(--accent-rgb), 0.2); }
+/* Just edited, waiting for the reload that confirms it. */
+.tx-row.saving > span { opacity: 0.7; }
+/* A cell being edited: the editor fills it, with the same padding as the text it replaced. */
+.tx-table-wrap .tx-row > span.sheet-editing { padding: 0 !important; align-self: stretch; display: flex; }
+.sheet-editor { width: 100%; height: 100%; display: flex; }
+.sheet-editor > .sheet-cell,
+.sheet-editor > input { flex: 1; }
+.tx-row > span.sheet-editing .sheet-cell { background: var(--bg); box-shadow: inset 0 0 0 2px var(--accent); }
+.tx-row > span.sheet-editing .sheet-cell.invalid,
+.sheet-editor.invalid .sheet-cell { box-shadow: inset 0 0 0 2px var(--neg); }
+.sheet-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 5.5rem;
+  transform: translateX(-50%);
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 0.82rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  animation: fadeUp 0.18s ease;
 }

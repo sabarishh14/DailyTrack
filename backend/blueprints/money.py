@@ -5,6 +5,7 @@ import re
 import json
 import pytz
 import requests
+import threading
 import pandas as pd
 from extensions import (
     db,
@@ -18,6 +19,17 @@ from push import send_low_balance_alert
 from blueprints.media import invalidate_stats_cache, _perform_rss_sync_generator, fetch_tmdb_movie_details
 
 money_bp = Blueprint("money", __name__)
+
+def post_to_sheets_later(payload, timeout=15):
+    """Tell the Sheet about a change without making the request wait for it.
+    Called after the DB commit, so the app never waits on (or rolls back for)
+    Apps Script; a failed post is only logged, as it was before."""
+    def send():
+        try:
+            requests.post(SHEETS_URL, json=payload, timeout=timeout)
+        except Exception as e:
+            print(f"Failed to sync {payload.get('type')} to sheets: {e}")
+    threading.Thread(target=send, daemon=True).start()
 
 def is_cc_account(acc_name):
     """Check if account is a credit card account (starts with 'CC')."""
@@ -42,7 +54,9 @@ def apply_balance(account_name, tx_type, amount, undo=False):
     other type takes money out. undo=True reverses an earlier application."""
     if is_cc_account(account_name):
         return
-    account = Account.query.filter_by(account=account_name).first()
+    # session.get reuses an account already loaded in this request, so a batch
+    # touching one account doesn't re-select it for every transaction.
+    account = db.session.get(Account, account_name) if account_name else None
     if not account or not account.balance_tracked:
         return
     delta = float(amount) if normalize_tx_type(tx_type) == "Credit" else -float(amount)
@@ -775,25 +789,15 @@ def delete_transaction(tid):
 
     apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
-    # --- THIS MATCHES BLOCK 2 IN YOUR APPS SCRIPT ---
-    try:
-        payload = {
-            "type": "delete_transaction",
-            "data": {
-                "id": str(tx.id),
-                "account": tx.account
-            }
-        }
-        requests.post(SHEETS_URL, json=payload, timeout=5)
-    except Exception as e:
-        print("Failed to sync delete to sheets:", e)
-    # ------------------------------------------------
+    # Matches block 2 of the Apps Script; sent once the delete is committed.
+    sheets_payload = {"type": "delete_transaction", "data": {"id": str(tx.id), "account": tx.account}}
 
     # Delete associated split if it exists
     Split.query.filter_by(transaction_id=tx.id).delete()
 
     db.session.delete(tx)
     db.session.commit()
+    post_to_sheets_later(sheets_payload)
 
     return jsonify({"success": True})
 @money_bp.route('/api/transactions/<int:tid>', methods=['PUT'])
@@ -933,10 +937,8 @@ def bulk_delete_transactions():
         if any(not access.tx_allowed(t.heading, t.account) for t in Transaction.query.filter(Transaction.id.in_(ids)).all()):
             return _out_of_scope()
 
-        for tid in ids:
-            tx = Transaction.query.filter_by(id=tid).first()
-            if not tx:
-                continue
+        # One query for all of them (was one per id).
+        for tx in Transaction.query.filter(Transaction.id.in_(ids)).all():
 
             apply_balance(tx.account, tx.type, tx.amount, undo=True)
 
@@ -947,18 +949,10 @@ def bulk_delete_transactions():
             deleted_data.append({"id": str(tx.id), "account": tx.account})
             db.session.delete(tx)
 
-        # Send ONE single bulk delete webhook to Google Sheets
-        if deleted_data:
-            try:
-                payload = {
-                    "type": "bulk_delete_transactions",
-                    "data": deleted_data
-                }
-                requests.post(SHEETS_URL, json=payload, timeout=10)
-            except Exception as e:
-                print("Failed to sync bulk delete to sheets:", e)
-
         db.session.commit()
+        # One bulk webhook to Google Sheets, after the commit and off the request.
+        if deleted_data:
+            post_to_sheets_later({"type": "bulk_delete_transactions", "data": deleted_data})
         return jsonify({"success": True, "message": f"Successfully deleted {len(deleted_data)} transactions!"})
 
     except Exception as e:

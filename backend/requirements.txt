@@ -1,5 +1,6 @@
 Flask==3.0.0
 Flask-Cors==4.0.0
+Flask-Compress==1.15
 Flask-SQLAlchemy==3.1.1
 psycopg2-binary==2.9.9 ; sys_platform != 'win32'
 pg8000==1.31.5 ; sys_platform == 'win32'

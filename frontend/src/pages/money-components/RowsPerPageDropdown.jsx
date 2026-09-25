@@ -36,7 +36,7 @@ export default function RowsPerPageDropdown({ value, onChange, openDropdown, set
           {[10, 25, 50, 100].map(opt => (
             <div
               key={opt}
-              className={`chip-dropdown-item ${value === opt ? 'selected' : ''}`}
+              className={`chip-dropdown-item ${value === opt ? 'included' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onChange(opt);
@@ -44,7 +44,8 @@ export default function RowsPerPageDropdown({ value, onChange, openDropdown, set
                 setCurrentPage(0);
               }}
             >
-              <div className={`chip-checkbox ${value === opt ? 'checked' : ''}`} />
+              {/* "included" is the ticked state every chip dropdown styles. */}
+              <div className={`chip-checkbox ${value === opt ? 'included' : ''}`} />
               <span>{opt}</span>
             </div>
           ))}

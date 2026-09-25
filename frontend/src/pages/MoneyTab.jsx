@@ -18,6 +18,7 @@ import SplitsSection from './money-components/SplitsSection';
 import TransactionDetailsModal from './money-components/TransactionDetailsModal';
 import SnapshotPoster from './money-components/SnapshotPoster';
 import TransactionsTableSection from './money-components/TransactionsTableSection';
+import { SectionCardSkeleton } from './money-components/SectionCardSkeleton';
 import { useAccess } from '../access/AccessContext';
 import { apiGet, apiPost, tri, useApi, useMoneyMeta, EMPTY_META, monthKey } from '../api/money';
 
@@ -32,7 +33,8 @@ function MoneyTab({ accounts, categories, budgets = [], onRefresh, refreshBudget
     const timer = setTimeout(() => setHasOpened(true), 300);
     return () => clearTimeout(timer);
   }, [isActive]);
-  const meta = useMoneyMeta(dataVersion, hasOpened).data || EMPTY_META;
+  const metaRes = useMoneyMeta(dataVersion, hasOpened);
+  const meta = metaRes.data || EMPTY_META;
 const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' });
   const currentYearLabel = new Date().getFullYear().toString();
 
@@ -103,7 +105,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
   const posterRef = useRef(null);
 
   /// Change actions: 90 to actions: 130
-  const [colWidths, setColWidths] = useState({ checkbox: 50, date: 90, account: 230, type: 110, month: 110, amount: 130, heading: 140, desc: 0, actions: 140 });
+  // Sized to their content (dates are d/m/yy, the longest account is "CC-PINNACLE 6360").
+  const [colWidths, setColWidths] = useState({ checkbox: 48, date: 100, account: 190, type: 110, month: 110, amount: 130, heading: 150, desc: 0, actions: 130 });
 
   // 🚀 GLOBAL ESCAPE: Closes Money-level Modals
   useEffect(() => {
@@ -547,7 +550,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
 
     const handleMouseMove = (me) => {
       const diff = me.clientX - startX;
-      const minWidths = { date: 80, account: 200, type: 90, month: 100, amount: 120, heading: 100, desc: 100 };
+      const minWidths = { date: 80, account: 140, type: 90, month: 90, amount: 100, heading: 100, desc: 100 };
       const newWidth = Math.max(minWidths[col] || 60, startWidth + diff);
       setColWidths(w => ({ ...w, [col]: newWidth }));
     };
@@ -597,6 +600,23 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
 
     setSelectedIds(newSet);
     setLastSelectedIdx(index); // Remember this click
+  };
+
+  // Row click on a laptop, like a spreadsheet: select just this row (again to
+  // deselect), Ctrl/⌘ to add or remove one, Shift for a range.
+  const handleRowClick = (e, id, index) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      if (e.shiftKey) return handleRowSelect(e, id, index);
+      e.stopPropagation();
+      const next = new Set(selectedIds);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      setSelectedIds(next);
+      setLastSelectedIdx(index);
+      return;
+    }
+    const onlyThis = selectedIds.size === 1 && selectedIds.has(id);
+    setSelectedIds(onlyThis ? new Set() : new Set([id]));
+    setLastSelectedIdx(index);
   };
 
   const handleBulkDelete = async () => {
@@ -704,6 +724,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
   const spendRes = useApi(() => apiGet(`/money/summary?spend_month=${monthKey()}`), dataVersion, hasOpened);
   const currentMonthSpending = spendRes.data?.spending || {};
 
+
   const handleInlineBudgetSave = async (category) => {
     try {
       const res = await fetch(`${API}/budgets`, {
@@ -722,6 +743,8 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
     }
   };
 
+  // The page's frame (headers, filters) needs no data, so it shows at once; only
+  // the parts waiting on a request show a placeholder of the same size.
   return (
     <div>
       {/* Spending Analyzer Section - Collapsible */}
@@ -1137,10 +1160,11 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         editingBudgetValue={editingBudgetValue}
         setEditingBudgetValue={setEditingBudgetValue}
         handleInlineBudgetSave={handleInlineBudgetSave}
+        spendingLoaded={!!spendRes.data}
       />
 
       {/* Splits Section - Collapsible, same style as Spending Analyser */}
-      <SplitsSection
+      {!splitsRes.data ? <SectionCardSkeleton /> : <SplitsSection
         splitsExpanded={splitsExpanded}
         setSplitsExpanded={setSplitsExpanded}
         activeSplits={activeSplits}
@@ -1150,7 +1174,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         settlingPerson={settlingPerson}
         handleSettlePerson={handleSettlePerson}
         handleToggleSplitPaid={handleToggleSplitPaid}
-      />
+      />}
 
       {/* Transactions Table */}
       <TransactionsTableSection
@@ -1181,6 +1205,7 @@ const currentMonthLabel = new Date().toLocaleString('default', { month: 'long' }
         currentPage={currentPage} setCurrentPage={setCurrentPage}
         rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage}
         colWidths={colWidths}
+        handleRowClick={handleRowClick}
         handleStartResize={handleStartResize}
         handleSortClick={handleSortClick}
         sortBy={sortBy}

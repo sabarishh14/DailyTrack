@@ -12,6 +12,7 @@ export default function BudgetGoalsSection({
   editingBudgetValue,
   setEditingBudgetValue,
   handleInlineBudgetSave,
+  spendingLoaded = true,
 }) {
   const canEdit = useAccess().can('money', 'edit');
   return (
@@ -30,6 +31,8 @@ export default function BudgetGoalsSection({
             <div className="analyser-header-sub" style={{ display: budgetExpanded ? 'none' : 'block' }}>
               {budgets.length === 0 ? (
                 <span>No budgets set</span>
+              ) : !spendingLoaded ? (
+                <span className="skeleton-line" style={{ width: 120 }} />
               ) : (
                 <span>{budgets.filter(b => (currentMonthSpending[b.category] || 0) > b.monthly_limit).length} of {budgets.length} over budget</span>
               )}

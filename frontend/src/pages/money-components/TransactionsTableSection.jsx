@@ -1,7 +1,12 @@
-import { fmt, formatDate, getBankEmoji } from '../../utils';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { API } from '../../constants';
+import { fmt, formatDate, getBankEmoji, getToken, buildDescriptionIndex, categoriesForType, descriptionOptions } from '../../utils';
+import { useLatestMoneyMeta, EMPTY_META } from '../../api/money';
+import { CellEditor } from './SheetCells';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import RowsPerPageDropdown from './RowsPerPageDropdown';
 import BulkEditTransactionModal from '../../components/BulkEditTransactionModal';
+import SheetEntryRow from './SheetEntryRow';
 import { useAccess } from '../../access/AccessContext';
 
 export default function TransactionsTableSection({
@@ -39,6 +44,7 @@ export default function TransactionsTableSection({
   selectedIds, setSelectedIds,
   handleSelectAll,
   handleRowSelect,
+  handleRowClick,
 
   setActionMenuTx,
   setEditingTx,
@@ -59,10 +65,146 @@ export default function TransactionsTableSection({
   accounts = [],
 }) {
   const canEdit = useAccess().can('money', 'edit');
+  // The entry row only shows when asked for, from the button by the page size.
+  const [addingRow, setAddingRow] = useState(false);
+  // Sheet-like density: same columns, tighter rows. Remembered per browser.
+  const [compact, setCompact] = useState(() => {
+    try { return localStorage.getItem('dt_tx_compact') === '1'; } catch { return false; }
+  });
+  const toggleCompact = () => setCompact(v => {
+    try { localStorage.setItem('dt_tx_compact', v ? '0' : '1'); } catch { /* per-browser nicety only */ }
+    return !v;
+  });
   // The balance column sits right after Amount; its cell comes last in the
   // markup (see .with-bal in index.css) so the phone card layout is untouched.
-  const gridColumns = `${colWidths.checkbox}px ${colWidths.date}px ${colWidths.account}px ${colWidths.type}px ${colWidths.month}px ${colWidths.amount}px ${withBalances ? '140px ' : ''}${colWidths.heading}px minmax(250px, 1fr) ${colWidths.actions}px`;
+  // Compact rows have less padding, so their columns shrink with them.
+  const w = (col, min) => compact ? Math.max(min, Math.round(colWidths[col] * 0.8)) : colWidths[col];
+  const fixedCols = [
+    w('checkbox', 40), w('date', 76), w('account', 130), w('type', 84), w('month', 84), w('amount', 96),
+    ...(withBalances ? [compact ? 112 : 140] : []), w('heading', 100),
+  ];
+  const descMin = compact ? 180 : 220;
+  const actionsWidth = w('actions', 90);
+  const gridColumns = [...fixedCols.map(px => `${px}px`), `minmax(${descMin}px, 1fr)`, `${actionsWidth}px`].join(' ');
+  // Every row gets this exact minimum, so all rows are equally wide however
+  // long a description is: columns stay aligned and Actions stays inside the row.
+  const tableMinWidth = fixedCols.reduce((a, b) => a + b, 0) + descMin + actionsWidth;
+  // Mouse and trackpad: click selects, double-click opens (like Sheets). Touch: a tap opens.
+  // View-only users have nothing to select for, so a click opens for them too.
+  const sheetClicks = canEdit && typeof window !== 'undefined' &&
+    window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
   const minByAccount = Object.fromEntries(accounts.map(a => [a.account, a.min_balance]));
+
+  // ── Sheet behaviour (mouse/trackpad): edit in place, keyboard, copy/paste ──
+  const finePointer = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+  const meta = useLatestMoneyMeta().data || EMPTY_META;
+  const descriptionIndex = useMemo(() => buildDescriptionIndex(meta.descriptions), [meta.descriptions]);
+  const wrapRef = useRef(null);
+  const [editing, setEditing] = useState(null);   // { id, field } being edited
+  const [pending, setPending] = useState({});     // id -> saved-but-not-yet-reloaded values
+  const [activeIdx, setActiveIdx] = useState(null); // keyboard cursor row
+  const [pasteRows, setPasteRows] = useState(null); // rows for the duplicate dialog via Ctrl+V
+  const copiedRef = useRef([]);
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const showToast = (text) => {
+    setToast(text);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
+
+  // A reload brings the saved values, so the optimistic ones can go.
+  useEffect(() => { setPending(p => (Object.keys(p).length ? {} : p)); }, [paginatedRows]);
+  useEffect(() => { setActiveIdx(null); setEditing(null); }, [currentPage]);
+  useEffect(() => {
+    if (activeIdx == null) return;
+    wrapRef.current?.querySelector(`[data-row-idx="${activeIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
+
+  const rows = paginatedRows.map(t => (pending[t.id] ? { ...t, ...pending[t.id] } : t));
+  const EDITABLE = ['date', 'account', 'type', 'amount', 'heading', 'description'];
+
+  const saveCell = async (tx, field, value) => {
+    const payload = {
+      date: String(tx.date).slice(0, 10), account: tx.account, type: tx.type, heading: tx.heading,
+      description: tx.description || '', amount: Number(tx.amount), exclude_analytics: !!tx.exclude_analytics,
+      [field]: value,
+    };
+    if (payload[field] === (field === 'date' ? String(tx.date).slice(0, 10) : tx[field] ?? '')) return;
+    setPending(p => ({ ...p, [tx.id]: { ...(p[tx.id] || {}), [field]: value } }));
+    try {
+      const res = await fetch(`${API}/transactions/${tx.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.message || `Server returned ${res.status}`);
+      onRefresh?.();
+    } catch (e) {
+      setPending(p => { const next = { ...p }; delete next[tx.id]; return next; });
+      showToast(`Couldn't save: ${e.message}`);
+    }
+  };
+  const commitCell = (tx, field, value, move) => {
+    saveCell(tx, field, value);
+    const next = EDITABLE[EDITABLE.indexOf(field) + move];
+    setEditing(move && next ? { id: tx.id, field: next } : null);
+    if (!move || !next) wrapRef.current?.focus({ preventScroll: true });
+  };
+
+  // Tab-separated, the way Sheets and Excel paste rows.
+  const copyRows = () => {
+    const picked = selectedTransactions.length
+      ? selectedTransactions
+      : activeIdx != null && rows[activeIdx] ? [rows[activeIdx]] : [];
+    if (!picked.length) return;
+    const tsv = picked.map(t => {
+      const [y, m, d] = String(t.date).slice(0, 10).split('-');
+      const month = new Date(t.date).toLocaleString('default', { month: 'long' });
+      const cols = [`${d}/${m}/${y}`, t.account, t.type, month, t.amount, t.heading, t.description || ''];
+      if (withBalances) cols.push(t.balance_after ?? '');
+      return cols.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t');
+    }).join('\n');
+    navigator.clipboard?.writeText(tsv).catch(() => {});
+    copiedRef.current = picked;
+    showToast(`Copied ${picked.length} ${picked.length === 1 ? 'row' : 'rows'}${canEdit ? ' · Ctrl+V to duplicate' : ''}`);
+  };
+
+  const onTableKeyDown = (e) => {
+    if (!finePointer || editing) return;
+    // Typing in the entry row or a cell editor isn't table navigation.
+    if (e.target.closest?.('.sheet-entry-row, .sheet-editing') || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const last = rows.length - 1;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (last < 0) return;
+      e.preventDefault();
+      const next = activeIdx == null ? 0 : Math.max(0, Math.min(last, activeIdx + (e.key === 'ArrowDown' ? 1 : -1)));
+      setActiveIdx(next);
+      if (e.shiftKey && canEdit) setSelectedIds(prev => new Set([...prev, rows[next].id, ...(activeIdx != null ? [rows[activeIdx].id] : [])]));
+    } else if (e.key === ' ' && activeIdx != null && canEdit) {
+      e.preventDefault();
+      const id = rows[activeIdx].id;
+      setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    } else if (e.key === 'Enter' && activeIdx != null) {
+      e.preventDefault();
+      setActionMenuTx(rows[activeIdx]);
+    } else if (e.key === 'Escape') {
+      setSelectedIds(new Set());
+    } else if (mod && e.key.toLowerCase() === 'a' && canEdit) {
+      e.preventDefault();
+      setSelectedIds(new Set(rows.map(t => t.id)));
+    } else if (mod && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      copyRows();
+    } else if (mod && e.key.toLowerCase() === 'v' && canEdit && copiedRef.current.length) {
+      // Paste = the Duplicate dialog, prefilled with what was copied.
+      e.preventDefault();
+      setPasteRows(copiedRef.current);
+    }
+  };
+
   return (
     <section className="section" style={{ marginTop: '3rem' }}>
       <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>💳 All Transactions</h2>
@@ -190,6 +332,13 @@ export default function TransactionsTableSection({
           onChange={e => setFilterDesc(e.target.value)}
           style={{ fontSize: '0.8rem', width: '200px', padding: '0.45rem 0.75rem', borderRadius: '999px' }}
         />
+        <button
+          className={`filter-chip ${compact ? 'active' : ''}`}
+          onClick={toggleCompact}
+          title="Tighter rows, like a spreadsheet"
+        >
+          <span>▤</span><span>Compact</span>
+        </button>
         {balancesAllowed && (
           <button
             className={`filter-chip ${withBalances ? 'active' : ''}`}
@@ -221,6 +370,21 @@ export default function TransactionsTableSection({
           )}
       </div>
 
+      {/* Same height as the stats bar and pager below, so the table doesn't
+          jump down when the first page arrives. */}
+      {tableFirstLoad && (
+        <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }} aria-hidden="true">
+          <div className="tx-stats-bar" style={{ marginBottom: '1.5rem' }}>
+            <span className="skeleton-line" style={{ width: 220 }} />
+            <span className="skeleton-line" style={{ width: 160 }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="skeleton-block" style={{ width: 150, height: 34, borderRadius: 8 }} />
+            <span className="skeleton-block" style={{ width: 260, height: 34, borderRadius: 8 }} />
+          </div>
+        </div>
+      )}
+
       {/* Stats Bar & Pagination - Above Table */}
       {tableTotal > 0 && (
         <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
@@ -238,13 +402,24 @@ export default function TransactionsTableSection({
 
           {/* Pagination Controls */}
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <RowsPerPageDropdown
-              value={rowsPerPage}
-              onChange={setRowsPerPage}
-              openDropdown={openDropdown}
-              setOpenDropdown={setOpenDropdown}
-              setCurrentPage={setCurrentPage}
-            />
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <RowsPerPageDropdown
+                value={rowsPerPage}
+                onChange={setRowsPerPage}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+                setCurrentPage={setCurrentPage}
+              />
+              {canEdit && (
+                <button
+                  className={`filter-chip tx-new-row-toggle ${addingRow ? 'active' : ''}`}
+                  onClick={() => setAddingRow(v => !v)}
+                  title="Type a transaction straight into the table"
+                >
+                  <span>＋</span><span>New row</span>
+                </button>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button
@@ -320,8 +495,13 @@ export default function TransactionsTableSection({
       )}
 
       {/* Transactions List */}
-      <div className={`tx-table-wrap ${tableRefreshing ? 'is-refreshing' : ''}`}>
-        <div className={`tx-table-head ${withBalances ? 'with-bal' : ''}`} style={{ gridTemplateColumns: gridColumns }}>
+      <div
+        ref={wrapRef}
+        className={`tx-table-wrap ${compact ? 'compact' : ''} ${tableRefreshing ? 'is-refreshing' : ''}`}
+        tabIndex={finePointer ? 0 : undefined}
+        onKeyDown={onTableKeyDown}
+      >
+        <div className={`tx-table-head ${withBalances ? 'with-bal' : ''}`} style={{ gridTemplateColumns: gridColumns, minWidth: tableMinWidth }}>
           <div className="tx-col-header" style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0 }} onClick={canEdit ? handleSelectAll : undefined}>
             {canEdit && <div className={`chip-checkbox ${selectedIds.size > 0 && selectedIds.size === paginatedRows.length ? 'included' : ''}`} />}
           </div>
@@ -368,6 +548,17 @@ export default function TransactionsTableSection({
             </div>
           )}
         </div>
+        {canEdit && addingRow && !tableFirstLoad && (
+          <SheetEntryRow
+            gridColumns={gridColumns}
+            tableMinWidth={tableMinWidth}
+            withBalances={withBalances}
+            accounts={accounts}
+            categories={categories || []}
+            onSaved={onRefresh}
+            onClose={() => setAddingRow(false)}
+          />
+        )}
         {tableFirstLoad ? (
           <div aria-busy="true" aria-label="Loading transactions">
             {Array.from({ length: Math.min(rowsPerPage, 8) }).map((_, i) => (
@@ -376,32 +567,63 @@ export default function TransactionsTableSection({
               </div>
             ))}
           </div>
-        ) : paginatedRows.length > 0 ? (
-          paginatedRows.map((t, i) => {
+        ) : rows.length > 0 ? (
+          rows.map((t, i) => {
             const d = new Date(t.date);
             const monthLabel = d.toLocaleString('default', { month: 'long' });
+            // Double-click edits a cell in place (like Sheets); the rest of the row opens the card.
+            const cell = (field, className, content, style) => (
+              editing?.id === t.id && editing.field === field ? (
+                <span className={`${className} sheet-editing`}>
+                  <CellEditor
+                    tx={t}
+                    field={field}
+                    suggestions={field === 'heading'
+                      ? categoriesForType(t.type, meta.categories_by_type, categories || [])
+                      : field === 'description' ? descriptionOptions(t.type, t.heading, descriptionIndex) : []}
+                    onCommit={(value, move) => commitCell(t, field, value, move)}
+                    onCancel={() => { setEditing(null); wrapRef.current?.focus({ preventScroll: true }); }}
+                  />
+                </span>
+              ) : (
+                <span
+                  className={className}
+                  style={style}
+                  onDoubleClick={sheetClicks ? (e) => { e.stopPropagation(); setEditing({ id: t.id, field }); } : undefined}
+                >
+                  {content}
+                </span>
+              )
+            );
             return (
               <div
-                key={i}
-                className={`tx-row ${withBalances ? 'with-bal' : ''}`}
-                style={{ gridTemplateColumns: gridColumns, cursor: 'pointer' }}
-                onClick={() => setActionMenuTx(t)} // <-- Opens the details modal
+                key={t.id}
+                data-row-idx={i}
+                className={`tx-row ${withBalances ? 'with-bal' : ''} ${selectedIds.has(t.id) ? 'selected' : ''} ${activeIdx === i ? 'active' : ''} ${pending[t.id] ? 'saving' : ''}`}
+                style={{ gridTemplateColumns: gridColumns, minWidth: tableMinWidth, cursor: 'pointer' }}
+                onClick={(e) => {
+                  if (e.target.closest('.sheet-editing')) return;
+                  if (finePointer) { setActiveIdx(i); wrapRef.current?.focus({ preventScroll: true }); }
+                  if (sheetClicks) handleRowClick(e, t.id, i); else setActionMenuTx(t);
+                }}
+                onDoubleClick={sheetClicks ? () => setActionMenuTx(t) : undefined}
+                title={sheetClicks ? 'Click to select · double-click a cell to edit · Enter opens' : undefined}
               >
-                <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: canEdit ? 'pointer' : 'inherit' }} onClick={canEdit ? (e) => handleRowSelect(e, t.id, i) : undefined}>
+                <span style={{ justifyContent: 'center', paddingLeft: 0, paddingRight: 0, cursor: canEdit ? 'pointer' : 'inherit' }} onClick={canEdit ? (e) => handleRowSelect(e, t.id, i) : undefined} onDoubleClick={(e) => e.stopPropagation()}>
                   {canEdit && <div className={`chip-checkbox ${selectedIds.has(t.id) ? 'included' : ''}`} />}
                 </span>
-                <span className="tx-date">{formatDate(t.date)}</span>
-                <span className="tx-account">
+                {cell('date', 'tx-date', formatDate(t.date))}
+                {cell('account', 'tx-account', <>
                   <span>{getBankEmoji(t.account)}</span>
                   <span>{t.account}</span>
-                </span>
-                <span className="tx-type-cell"><span className={`tx-badge ${t.type.toLowerCase()}`}>{t.type.charAt(0).toUpperCase() + t.type.slice(1)}</span></span>
+                </>)}
+                {cell('type', 'tx-type-cell', <span className={`tx-badge ${t.type.toLowerCase()}`}>{t.type.charAt(0).toUpperCase() + t.type.slice(1)}</span>)}
                 <span className="tx-month">{monthLabel}</span>
-                <span className={`tx-amount ${t.type === 'Credit' ? 'pos' : t.type === 'Investment' ? 'blue-text' : t.type === 'Savings' ? 'accent' : 'neg'}`}>
+                {cell('amount', `tx-amount ${t.type === 'Credit' ? 'pos' : t.type === 'Investment' ? 'blue-text' : t.type === 'Savings' ? 'accent' : 'neg'}`, <>
                   {t.type === 'Credit' ? '+' : '−'}{fmt(t.amount)}
-                </span>
-                <span className="tx-heading">{t.heading}</span>
-                <span className="tx-desc" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                </>)}
+                {cell('heading', 'tx-heading', t.heading)}
+                {cell('description', 'tx-desc', <>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {t.description || '—'}
                   </span>
@@ -417,8 +639,8 @@ export default function TransactionsTableSection({
                       </span>
                     )}
                   </span>
-                </span>
-                <span className="tx-actions">
+                </>, { display: 'flex', alignItems: 'center', justifyContent: 'space-between' })}
+                <span className="tx-actions" onDoubleClick={(e) => e.stopPropagation()}>
                   {canEdit ? (
                     <>
                       <button className="action-icon-btn edit" onClick={(e) => { e.stopPropagation(); setEditingTx(t); }} title="Edit">✏️</button>
@@ -454,6 +676,9 @@ export default function TransactionsTableSection({
             <div className="fab-actions">
               <button className="action-btn" onClick={() => setIsBulkEditOpen(true)} style={{ padding: '0.45rem 1rem' }}>✏️ <span className="hide-mobile">Edit</span></button>
               <button className="action-btn" onClick={() => setIsBulkCopyOpen(true)} style={{ padding: '0.45rem 1rem' }}>📋 <span className="hide-mobile">Duplicate</span></button>
+              {finePointer && (
+                <button className="action-btn secondary" onClick={copyRows} style={{ padding: '0.45rem 1rem' }} title="Copy as rows for Sheets (Ctrl+C)">⧉ <span className="hide-mobile">Copy</span></button>
+              )}
               <button className="action-btn" onClick={handleBulkDelete} style={{ padding: '0.45rem 1rem', background: '#dc2626', boxShadow: 'none' }}>🗑️ <span className="hide-mobile">Delete</span></button>
               <button className="action-btn secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '0.45rem 1rem' }}>✕</button>
             </div>
@@ -464,6 +689,12 @@ export default function TransactionsTableSection({
         {isBulkEditOpen && (
           <BulkEditTransactionModal transactions={selectedTransactions} categories={categories} onClose={() => { setIsBulkEditOpen(false); setSelectedIds(new Set()); }} onRefresh={onRefresh} />
         )}
+
+        {/* Ctrl+V: duplicate what was copied, in the same dialog */}
+        {pasteRows && (
+          <BulkEditTransactionModal transactions={pasteRows} categories={categories} isCopy={true} onClose={() => setPasteRows(null)} onRefresh={onRefresh} />
+        )}
+        {toast && <div className="sheet-toast" role="status">{toast}</div>}
 
         {/* Bulk Copy Modal */}
         {isBulkCopyOpen && (
