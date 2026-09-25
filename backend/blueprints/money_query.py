@@ -23,11 +23,12 @@ from datetime import datetime, date
 
 import requests
 from flask import Blueprint, request, jsonify
-from sqlalchemy import func, extract, or_, case, String, cast
+from sqlalchemy import func, extract, or_, case, literal, String, cast
 
 from extensions import db, SHEETS_URL
-from models import Transaction, Split, Account
+from models import Transaction, Split, Account, BalanceAdjustment
 from access import require_access, current_access
+from blueprints.money import set_balance
 
 money_query_bp = Blueprint("money_query", __name__)
 
@@ -126,25 +127,33 @@ def balances_after(rows):
     account after the row (ledger order: date, then id, i.e. entry order within
     a day). Summed over the account's whole history, so filters and sorting on
     the table don't change the numbers. Credit cards and untracked accounts get
-    none. A balance set by hand (reconcile, overrides) isn't a transaction, so
-    rows from before such an adjustment are off by it."""
+    none. Balances set by hand count too (see BalanceAdjustment), from when
+    they were recorded; ones made before that was kept aren't known."""
     names = {t.account for t in rows if t.account and not t.account.strip().upper().startswith("CC")}
     current = {a.account: float(a.balance or 0)
                for a in Account.query.filter(Account.account.in_(names)).all() if a.balance_tracked} if names else {}
     if not current:
         return {}
+    accounts = list(current)
     signed = case((func.lower(Transaction.type) == "credit", Transaction.amount), else_=-Transaction.amount)
-    later = func.sum(signed).over(
-        partition_by=Transaction.account,
-        order_by=(Transaction.date.desc(), Transaction.id.desc()),
+    # One ledger of transactions and hand-set jumps, in the order they happened.
+    moves = db.session.query(
+        Transaction.id.label("id"), Transaction.account.label("account"), Transaction.date.label("date"),
+        signed.label("amount"), literal(0).label("is_adjustment"),
+    ).filter(Transaction.account.in_(accounts)).union_all(db.session.query(
+        BalanceAdjustment.id, BalanceAdjustment.account, BalanceAdjustment.date,
+        BalanceAdjustment.delta, literal(1),
+    ).filter(BalanceAdjustment.account.in_(accounts))).subquery()
+    later = func.sum(moves.c.amount).over(
+        partition_by=moves.c.account,
+        order_by=(moves.c.date.desc(), moves.c.id.desc()),
         rows=(None, -1),
     )
-    ledger = (db.session.query(Transaction.id.label("id"), Transaction.account.label("account"), later.label("later"))
-              .filter(Transaction.account.in_(list(current))).subquery())
+    ledger = db.session.query(moves.c.id, moves.c.account, moves.c.is_adjustment, later.label("later")).subquery()
     ids = [t.id for t in rows if t.account in current]
     return {tx_id: round(current[account] - float(later or 0), 2)
             for tx_id, account, later in db.session.query(ledger.c.id, ledger.c.account, ledger.c.later)
-                                                   .filter(ledger.c.id.in_(ids)).all()}
+                                                   .filter(ledger.c.is_adjustment == 0, ledger.c.id.in_(ids)).all()}
 
 
 # ---- endpoints ----
@@ -334,7 +343,7 @@ def sync_sheet_balances():
             account = Account.query.filter_by(account=name).first()
             if account is None or balance in ("", None):
                 continue
-            account.balance = float(balance)
+            set_balance(account, balance, 'sheet sync')
             updated += 1
         db.session.commit()
         return jsonify({"success": True, "updated": updated})

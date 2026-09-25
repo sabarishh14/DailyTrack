@@ -195,3 +195,20 @@ class Budget(db.Model):
     id = db.Column(db.BigInteger, primary_key=True)
     category = db.Column(db.String(100), unique=True, nullable=False)
     monthly_limit = db.Column(Money, nullable=False)
+class BalanceAdjustment(db.Model):
+    """A balance set by hand (override, Sheet sync) rather than by a transaction.
+    Kept so the running-balance column can account for the jump."""
+    __tablename__ = "balance_adjustments"
+    # Epoch ms when it was made, the same scale as transaction ids, so both sort
+    # into one ledger by (date, id).
+    id = db.Column(db.BigInteger, primary_key=True)
+    account = db.Column(db.String(50), db.ForeignKey("accounts.account"), nullable=False, index=True)
+    date = db.Column(db.Date, nullable=False)
+    delta = db.Column(Money, nullable=False)
+    reason = db.Column(db.String(40))
+class DeviceToken(db.Model):
+    """A phone that wants push alerts (low balance), per signed-in user."""
+    __tablename__ = "device_tokens"
+    token = db.Column(db.String(255), primary_key=True)
+    email = db.Column(db.String(120), nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)

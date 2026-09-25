@@ -14,6 +14,7 @@ from extensions import (
 from models import *
 from access import require_api_key, require_admin, require_access, current_access
 
+from push import send_low_balance_alert
 from blueprints.media import invalidate_stats_cache, _perform_rss_sync_generator, fetch_tmdb_movie_details
 
 money_bp = Blueprint("money", __name__)
@@ -46,6 +47,21 @@ def apply_balance(account_name, tx_type, amount, undo=False):
         return
     delta = float(amount) if normalize_tx_type(tx_type) == "Credit" else -float(amount)
     account.balance = round((account.balance or 0) + (-delta if undo else delta), 2)
+def set_balance(account, new_balance, reason):
+    """Set a balance by hand, recording the jump so running balances in the
+    transactions table stay right for rows from before it."""
+    new_balance = round(float(new_balance), 2)
+    delta = round(new_balance - float(account.balance or 0), 2)
+    if delta and account.balance_tracked:
+        db.session.add(BalanceAdjustment(
+            id=int(datetime.now().timestamp() * 1000),
+            account=account.account,
+            date=datetime.now(pytz.timezone('Asia/Kolkata')).date(),
+            delta=delta,
+            reason=reason,
+        ))
+    account.balance = new_balance
+
 def _balance_snapshot(account_names):
     """Current balance of each tracked, non-CC account among account_names."""
     names = [n for n in account_names if n and not is_cc_account(n)]
@@ -202,6 +218,24 @@ def get_accounts():
     ]
     return jsonify(result)
 
+@money_bp.route('/api/devices', methods=['POST'])
+@require_access("money")
+def register_device():
+    """A phone's push token, so low-balance alerts reach it wherever the
+    transaction was added. Only for users who may see balances."""
+    access = current_access()
+    token = str((request.json or {}).get('token') or '').strip()
+    if not token or len(token) > 255:
+        return jsonify({"success": False, "message": "Missing token"}), 400
+    if not access.balances_visible:
+        return jsonify({"success": True, "registered": False})
+    row = DeviceToken.query.get(token) or DeviceToken(token=token, email=access.email or '')
+    row.email = access.email or row.email
+    row.updated_at = datetime.utcnow()
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({"success": True, "registered": True})
+
 @money_bp.route('/api/accounts', methods=['PUT'])
 @require_access("money")
 def update_account():
@@ -215,7 +249,7 @@ def update_account():
         return jsonify({"success": False, "message": "Account not found"}), 404
 
     if 'balance' in data:
-        account.balance = float(data['balance'])
+        set_balance(account, data['balance'], 'override')
     if 'min_balance' in data:
         # Blank or null clears the floor.
         raw = data['min_balance']
@@ -404,6 +438,13 @@ def get_transactions():
         for tx in transactions
     ]
 
+    # ?with_balances=1: each row's account balance right after it (the app's list).
+    if request.args.get('with_balances') in ('1', 'true') and current_access().balances_visible:
+        from blueprints.money_query import balances_after  # money_query imports this module
+        after = balances_after(transactions)
+        for row in result:
+            row["balance_after"] = after.get(row["id"])
+
     return jsonify({
         "transactions": result,
         "total": total_count,
@@ -558,6 +599,7 @@ def add_transaction():
         balance_changes = _balance_changes(balances_before)
         db.session.commit()
         invalidate_stats_cache()
+        send_low_balance_alert(balance_changes)
         
         msg = f"Successfully added {added_count} transactions & updated balances!"
         if 'movie_link_successes' in locals() and movie_link_successes:

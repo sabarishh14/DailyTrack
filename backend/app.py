@@ -85,9 +85,12 @@ with app.app_context():
     try:
         db.session.execute(text("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_balance NUMERIC(14,2)"))
         db.session.commit()
+        # New tables only (balance_adjustments, device_tokens); existing ones are left alone.
+        import models  # noqa: F401 - registers every table before create_all
+        db.create_all()
     except Exception as e:
         db.session.rollback()
-        print(f"⚠️ Could not ensure accounts.min_balance: {e}")
+        print(f"⚠️ Could not ensure money schema: {e}")
 
 from blueprints.core import core_bp
 from blueprints.money import money_bp
